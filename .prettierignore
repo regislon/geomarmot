@@ -11,3 +11,5 @@ scripts/forbidden-terms.sha256
 *.md
 tests/fixtures/
 transformers/*/tests.json
+schemas/transformer.schema.json
+schemas/params.schema.json

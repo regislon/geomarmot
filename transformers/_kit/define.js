@@ -105,6 +105,8 @@ export function defineTransformer(spec) {
     examples: spec.examples || [],
     inputs,
     outputsFor: (params) => (role === "sink" ? [] : outputsFor(params || {})),
+    // Ports computed from params (AttributeFilter, TestFilter) rather than fixed.
+    dynamicOutputs: role !== "sink" && typeof outputs === "function",
     params,
     paramsVersion,
     migrations,

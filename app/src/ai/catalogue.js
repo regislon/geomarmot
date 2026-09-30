@@ -1,0 +1,123 @@
+// @ts-check
+/*
+ * The transformer catalogue: what the assistant (and schemas/transformer.schema.json)
+ * knows about each transformer.
+ *
+ * It is the declaration minus everything executable — hooks, `when`, computed
+ * option lists — so it can be sent to a model, written to a file, or checked
+ * against a schema. It is built from the registry, never written by hand: a
+ * transformer described here is exactly the one the compiler runs.
+ */
+
+import { KINDS, optionValues } from "../../../transformers/_kit/index.js";
+import { DEFS, paramsSchema } from "../../../transformers/_kit/value-schemas.js";
+import { PALETTE_GROUPS, REGISTRY, defaultParams } from "../../../transformers/index.js";
+
+/** A port as the catalogue shows it. */
+const port = ({ id, label, description }) => ({ id, label, description: description || "" });
+
+/** One param as the catalogue shows it: its kind, how it reaches SQL, and its fixed options. */
+function paramEntry(spec) {
+  const entry = {
+    id: spec.id,
+    label: spec.label,
+    kind: spec.kind,
+    sql: KINDS[spec.kind].sql,
+    description: spec.description || "",
+  };
+  if (spec.default !== undefined) entry.default = structuredClone(spec.default);
+  const options = optionValues(spec);
+  if (options.length) {
+    entry.options = spec.options.map((option) =>
+      typeof option === "string"
+        ? { value: option, description: "" }
+        : { value: option.value, description: option.description || "" },
+    );
+  } else if (typeof spec.options === "function") {
+    entry.optionsFrom = "the node's input or source";
+  }
+  if (spec.choices) entry.choices = [...spec.choices];
+  if (spec.units) entry.units = spec.units;
+  if (spec.when) entry.conditional = true;
+  return entry;
+}
+
+/** The catalogue entry for one transformer. */
+export function catalogueEntry(transformer) {
+  return {
+    id: transformer.id,
+    name: transformer.name,
+    group: transformer.group,
+    role: transformer.role,
+    summary: transformer.summary,
+    description: transformer.description,
+    whenToUse: [...transformer.whenToUse],
+    whenNotToUse: [...transformer.whenNotToUse],
+    keywords: [...transformer.keywords],
+    examples: transformer.examples.map((example) => ({ ...example })),
+    inputs: transformer.inputs.map(port),
+    outputs: transformer.outputsFor(defaultParams(transformer.id)).map(port),
+    outputsDependOnParams: transformer.dynamicOutputs,
+    params: transformer.params.map(paramEntry),
+    paramsVersion: transformer.paramsVersion,
+    aiUsable: transformer.aiUsable,
+  };
+}
+
+/** Every transformer the palette offers, in palette order. */
+export function catalogue() {
+  const order = (t) => PALETTE_GROUPS.indexOf(t.group);
+  return [...REGISTRY.values()]
+    .filter((t) => PALETTE_GROUPS.includes(t.group))
+    .sort((a, b) => order(a) - order(b) || a.id.localeCompare(b.id))
+    .map(catalogueEntry);
+}
+
+/** The JSON Schema of a transformer's params object, with its shared definitions. */
+export function paramsSchemaFor(id) {
+  const transformer = REGISTRY.get(id);
+  if (!transformer) throw new Error(`Unknown transformer type "${id}"`);
+  return { ...paramsSchema(transformer), $defs: DEFS };
+}
+
+const words = (text) =>
+  String(text || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 1);
+
+/** Crude stemming, enough that "buffers" finds "buffer" and "filtering" finds "filter". */
+const stem = (word) => word.replace(/(ing|ers|er|es|s)$/, "") || word;
+
+/**
+ * Search the catalogue by what a user would ask: "points from lon lat",
+ * "remove duplicates". Scores keyword and name hits above description hits.
+ * @param {string} query
+ * @param {{ limit?: number, aiUsableOnly?: boolean }} [options]
+ */
+export function searchCatalogue(query, { limit = 8, aiUsableOnly = true } = {}) {
+  const terms = [...new Set(words(query).map(stem))];
+  const entries = catalogue().filter((entry) => !aiUsableOnly || entry.aiUsable);
+  if (!terms.length) return entries.slice(0, limit);
+  const fields = (entry) => [
+    [words(entry.id.replace(/([a-z])([A-Z])/g, "$1 $2")).map(stem), 5],
+    [entry.keywords.flatMap(words).map(stem), 4],
+    [[...entry.whenToUse, entry.summary].flatMap(words).map(stem), 2],
+    [words(entry.description).map(stem), 1],
+  ];
+  return entries
+    .map((entry) => {
+      let score = 0;
+      for (const [bag, weight] of fields(entry)) {
+        const set = new Set(bag);
+        for (const term of terms) if (set.has(term)) score += weight;
+      }
+      return { entry, score };
+    })
+    .filter((hit) => hit.score > 0)
+    .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id))
+    .slice(0, limit)
+    .map((hit) => hit.entry);
+}

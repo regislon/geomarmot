@@ -46,6 +46,14 @@ Options every kind accepts:
 the kit's `spliceExpression(fragment)` and `spliceQuery(fragment, relation)`, which build exactly
 the form the SQL guard validated (docs/security.md).
 
+## Generated schemas
+
+`schemas/params.schema.json` holds the JSON Schema of every transformer's params object (under
+`$defs.<Id>`), and `schemas/transformer.schema.json` the shape of a catalogue entry — the
+declaration without its hooks, as the assistant sees it. Both are generated from the kit
+(`transformers/_kit/value-schemas.js`) and the registry by `npm run build:schemas`; `npm run check`
+fails when they are out of date. Every fixture case's `params` must validate against them.
+
 ## Fixtures (`tests.json`)
 
 ```json
