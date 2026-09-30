@@ -1,0 +1,153 @@
+/*
+ * The sheet picker. Wide enough for the header-row preview; the body scrolls
+ * so a long sheet list or a tall preview never pushes the buttons off-screen.
+ */
+.sheet-panel {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  width: min(860px, 100%);
+  max-height: min(84vh, 760px);
+}
+
+.sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sheet-list {
+  overflow: auto;
+  max-height: none;
+}
+
+.sheet-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.sheet-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sheet-tab {
+  font-size: 12px;
+}
+
+.sheet-tab.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.sheet-preview-holder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 0;
+}
+
+.sheet-header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+}
+
+.sheet-header-controls input {
+  width: 80px;
+}
+
+/* Excel-like: gridlines, row numbers and column letters, text never wrapped. */
+.sheet-preview {
+  overflow: auto;
+  min-height: 0;
+  max-height: 46vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+}
+
+.sheet-preview table {
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sheet-preview th,
+.sheet-preview td {
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-preview thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--paper-2);
+  font-weight: 600;
+}
+
+.sheet-preview th.sheet-rownum {
+  position: sticky;
+  left: 0;
+  background: var(--paper-2);
+  color: var(--muted);
+  text-align: right;
+  font-weight: 400;
+}
+
+.sheet-preview tbody tr {
+  cursor: pointer;
+}
+
+.sheet-preview tbody tr:hover td {
+  background: rgba(100, 167, 126, 0.1);
+}
+
+.sheet-preview tr.skipped td {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(0, 0, 0, 0.25);
+}
+
+.sheet-preview tr.header-row td,
+.sheet-preview tr.header-row th.sheet-rownum {
+  background: rgba(100, 167, 126, 0.22);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.sheet-preview tr.sheet-more td {
+  color: var(--muted);
+  font-style: italic;
+  cursor: default;
+}
+
+.sheet-row {
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.sheet-row.disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.sheet-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}

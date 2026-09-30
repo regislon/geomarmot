@@ -1,9 +1,8 @@
 /*
  * HarnessApi v1, implemented on top of an app's own modules.
  *
- * Both adapters build this object: the static-tree page from modules imported
- * by URL, the bundle's test entry from the modules the production entry uses.
- * The case runner only ever talks to this interface (see ../api.md).
+ * The bundle's test entry builds this object from the modules the production
+ * entry uses. The case runner only ever talks to this interface (see ../api.md).
  *
  * `mods` = { duck, graph, registry, sources, writer }:
  *   duck      boot, query, exec, qid, qlit, db

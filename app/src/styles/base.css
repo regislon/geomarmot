@@ -1,0 +1,197 @@
+/*
+ * GeoMarmot styling.
+ *
+ * Colour and type are tokens on :root; everything below reads them.
+ */
+
+:root {
+  --ink-deep: #16130f;
+  --ink: #2a241d;
+  --accent: #3f7d5a;
+  --accent-soft: #7fae8c;
+  --highlight: #d9913a;
+
+  --blue: #3d6a86;
+  --blue-soft: #6f96ad;
+
+  --paper-1: #fbfaf7;
+  --paper-2: #f2f0ea;
+  --paper-3: #e7e4dc;
+
+  --err: #c0563f;
+
+  --font-heading: ui-serif, Georgia, "Times New Roman", serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --border: #d8d8d0;
+  --panel: #ffffff;
+  --muted: #6d7a70;
+
+  --sp-1: 5px;
+  --sp-2: 10px;
+  --sp-3: 15px;
+  --radius-2: 5px;
+  --shadow-3: 0 2px 8px rgba(42, 36, 29, 0.12);
+
+  --rail-width: 250px;
+  --inspector-width: 300px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--paper-2);
+  overflow: hidden;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading);
+  font-weight: 300;
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: inherit;
+  border-radius: var(--radius-2);
+  padding: 4px 9px;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent-soft);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+input,
+select {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  background: var(--panel);
+  color: inherit;
+  min-width: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* ---------- shell ---------- */
+
+#shell {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr) 6px minmax(0, var(--dock-height, 300px));
+  height: 100%;
+}
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  background: var(--ink);
+  color: #fff;
+  border-bottom: 1px solid var(--ink-deep);
+}
+
+#toolbar h1 {
+  font-size: 16px;
+  color: #fff;
+  margin-right: var(--sp-3);
+}
+
+/* Buttons inherit their colour from the surface they sit on, and the toolbar's
+ * surface is dark — so without this the labels are white on white. */
+#toolbar button {
+  color: var(--ink);
+}
+
+#toolbar button.primary {
+  color: #fff;
+}
+
+#toolbar .spacer {
+  flex: 1;
+}
+
+#status {
+  font-size: 12px;
+  color: #ffffffcc;
+  max-width: 46ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#status.error {
+  color: #ffb4a2;
+}
+
+#middle {
+  display: grid;
+  grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--inspector-width);
+  min-height: 0;
+}
+
+aside,
+#canvas-wrap {
+  min-height: 0;
+  overflow: hidden;
+}
+
+#layers,
+#inspector {
+  background: var(--panel);
+  overflow-y: auto;
+  padding: var(--sp-3);
+}
+
+#layers {
+  border-right: 1px solid var(--border);
+}
+
+#inspector {
+  border-left: 1px solid var(--border);
+}
+
+#layers h2,
+#inspector h3,
+.panel-head h2 {
+  font-size: 14px;
+  margin-bottom: var(--sp-2);
+}
+
+.rail-section {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}

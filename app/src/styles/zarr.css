@@ -1,0 +1,129 @@
+/* ---------- Zarr picker ---------- */
+
+/* Four rows, not the browser's five: head, body, note, button. */
+.zarr-panel {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  width: min(860px, 100%);
+}
+
+.zarr-body {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  gap: var(--sp-3);
+  min-height: 0;
+}
+
+.zarr-variables,
+.zarr-plan {
+  overflow-y: auto;
+  min-height: 220px;
+}
+
+.zarr-variables {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+}
+
+.zarr-var {
+  display: block;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--paper-2);
+  border-radius: 0;
+  background: none;
+  padding: 6px var(--sp-2);
+  text-align: left;
+}
+
+.zarr-var:hover:not(:disabled) {
+  background: rgba(100, 167, 126, 0.14);
+}
+
+.zarr-var.selected {
+  background: rgba(100, 167, 126, 0.22);
+}
+
+.zarr-var:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.65;
+}
+
+.zarr-var-name {
+  display: block;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.zarr-var-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.zarr-summary {
+  margin: 0 0 var(--sp-2);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.zarr-summary.warn {
+  color: #8a5b16;
+}
+
+.zarr-field {
+  display: grid;
+  grid-template-columns: 130px auto minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: center;
+  margin-bottom: var(--sp-2);
+  font-size: 12.5px;
+}
+
+.zarr-field-label {
+  font-weight: 600;
+}
+
+.zarr-field-hint {
+  color: var(--muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.zarr-field input[type="number"] {
+  width: 90px;
+}
+
+.zarr-pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The line the whole panel exists for: what the plan will cost to run. */
+.zarr-cost {
+  margin: var(--sp-2) 0 0;
+  padding: 5px 7px;
+  border-radius: var(--radius-2);
+  background: rgba(100, 167, 126, 0.14);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+#zarr-note.error {
+  color: #a4331f;
+}
+
+/*
+ * Shown on every node below a Reprojector. Deliberately a warning colour:
+ * it is not an error, but it changes what the map and the measurements mean.
+ */
+.crs-note {
+  margin: 0 0 var(--sp-2);
+  padding: 4px 6px;
+  border-radius: var(--radius-2);
+  background: var(--highlight);
+  color: var(--ink);
+  font-size: 11.5px;
+}

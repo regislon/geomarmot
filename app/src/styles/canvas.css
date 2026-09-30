@@ -1,0 +1,274 @@
+/* ---------- canvas ---------- */
+
+#canvas-wrap {
+  position: relative;
+  background: var(--paper-2);
+}
+
+/* A column in the rail, under the sources — so the canvas keeps its full
+ * height, and the list stays readable however narrow the window gets. */
+#palette {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+}
+
+#palette button {
+  text-align: left;
+  width: 100%;
+}
+
+#palette .group-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: var(--sp-2);
+}
+
+#palette .group-label:first-child {
+  margin-top: 0;
+}
+
+#canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  /* It takes focus to own Delete; no focus ring, the selected node shows it. */
+  outline: none;
+  /* Dotted paper, so panning an empty canvas visibly moves. */
+  background-image: radial-gradient(var(--paper-3) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* Quick Add: type over the canvas and this appears where the pointer is. */
+#quick-add {
+  position: absolute;
+  z-index: 5;
+  width: 240px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+}
+
+#quick-add input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+#quick-add input:focus {
+  outline: none;
+}
+
+#quick-add ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+#quick-add li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#quick-add li.selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+#quick-add li.selected .muted {
+  color: #ffffffcc;
+}
+
+.node-body {
+  fill: var(--panel);
+  stroke: var(--border);
+}
+
+.node.selected .node-body {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.node.invalid .node-body {
+  stroke: var(--err);
+  stroke-dasharray: 4 2;
+}
+
+.node-header {
+  fill: var(--blue-soft);
+}
+
+.node-header.group-source {
+  fill: var(--blue);
+}
+
+.node-header.group-attributes {
+  fill: var(--accent);
+}
+
+.node-header.group-filters {
+  fill: var(--highlight);
+}
+
+.node-header.group-reshape {
+  fill: var(--accent-soft);
+}
+
+.node-header.group-h3 {
+  fill: var(--blue);
+}
+
+.node-header.group-combine {
+  fill: var(--blue-soft);
+}
+
+.node-header.group-output {
+  fill: var(--ink);
+}
+
+.node-title {
+  fill: #fff;
+  font: 600 12px var(--font-body);
+  pointer-events: none;
+}
+
+.node-warn {
+  fill: #fff;
+  font: 700 13px var(--font-body);
+  pointer-events: none;
+}
+
+/* Inspect eye in the node header. Dim until it is the pinned node. */
+.eye {
+  cursor: pointer;
+}
+
+/* An unlit eye now sits on the node's white body, next to its output port, so
+ * it is drawn in the body's own muted ink. Only the Writer's eye is still on a
+ * coloured header, and that one gets the old white treatment back below. */
+.eye-outline {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.2;
+}
+
+.eye-pupil {
+  fill: var(--muted);
+}
+
+.eye:hover .eye-outline,
+.eye:hover .eye-pupil {
+  stroke: var(--ink);
+  fill: none;
+}
+
+.eye:hover .eye-pupil {
+  fill: var(--ink);
+}
+
+.eye-header .eye-outline {
+  stroke: #ffffff99;
+}
+
+.eye-header .eye-pupil {
+  fill: #ffffff99;
+}
+
+.eye-header:hover .eye-outline {
+  stroke: #fff;
+}
+
+.eye-header:hover .eye-pupil {
+  fill: #fff;
+}
+
+/* Weight only — the colour is set inline per node, and a rule here would
+ * override it. */
+.eye.on .eye-outline {
+  stroke-width: 1.8;
+}
+
+.badge.pin {
+  background: var(--highlight);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.port {
+  fill: var(--panel);
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  cursor: crosshair;
+}
+
+.port.connected,
+.port-out {
+  fill: var(--accent);
+  stroke: var(--ink);
+}
+
+/* The port a dragged link would snap to. */
+.port.snap {
+  fill: var(--highlight);
+  stroke: var(--ink);
+  stroke-width: 2;
+  r: 8;
+}
+
+.port-label {
+  fill: var(--muted);
+  font: 10px var(--font-body);
+  pointer-events: none;
+}
+
+.port-label-out {
+  text-anchor: end;
+}
+
+.port-count {
+  fill: var(--ink);
+  font-weight: 700;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  cursor: grab;
+  pointer-events: stroke;
+}
+
+/* The grab zone. Invisible, but wide enough to actually hit. */
+.edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  cursor: grab;
+  pointer-events: stroke;
+}
+
+.edge-hit:hover + .edge,
+.edge:hover {
+  stroke: var(--highlight);
+  stroke-width: 3;
+}
+
+.edge-preview {
+  stroke-dasharray: 5 3;
+  pointer-events: none;
+}

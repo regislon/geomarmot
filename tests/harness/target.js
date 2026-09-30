@@ -1,8 +1,6 @@
 /*
- * Which app the browser suites run against.
- *
- *   HARNESS_TARGET=static:<dir>   an unbundled tree served from <dir> (/static/*.js)
- *   HARNESS_TARGET=bundle         the test build in dist-test/ (default once it exists)
+ * The app the browser suites run against: the test build in dist-test/, whose
+ * harness entry (app/testing/harness-entry.js) provides HarnessApi v1.
  *
  * Returns a page with window.__geomarmotHarness booted and FixtureSource registered.
  */
@@ -10,12 +8,8 @@
 import { serve } from "./serve.js";
 
 export function targetSpec() {
-  const spec = process.env.HARNESS_TARGET || "bundle";
-  if (spec === "bundle") return { kind: "bundle", root: "dist-test", page: "/testing/harness.html" };
-  const root = spec.slice("static:".length);
-  return { kind: "static", root, page: "/__harness/static-tree.html" };
+  return { kind: "bundle", root: "dist-test", page: "/testing/harness.html" };
 }
-
 export async function openHarness(browser, { files } = {}) {
   const spec = targetSpec();
   const server = await serve({ root: spec.root, files });

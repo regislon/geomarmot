@@ -1,0 +1,70 @@
+/*
+ * The loading bar: a card floating under the toolbar, so it can come and go
+ * without the layout below it jumping.
+ */
+.progress {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  width: min(420px, calc(100% - 32px));
+  padding: 8px 12px 10px;
+  background: var(--panel);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-6);
+}
+
+.progress[hidden] {
+  display: none;
+}
+
+.progress-label {
+  font-size: 12px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-track {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.2s ease-out;
+}
+
+/* No estimate: a segment sweeps across instead, so the bar still moves. */
+.progress.indeterminate .progress-fill {
+  position: absolute;
+  width: 35%;
+  transition: none;
+  animation: progress-sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-sweep {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress.indeterminate .progress-fill {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

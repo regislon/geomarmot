@@ -11,7 +11,7 @@
  */
 
 import { query, qid } from "../core/duck.js";
-import { H3_INDEX_COLUMN } from "../engines/h3.js";
+import { H3_INDEX_COLUMN } from "../engines/h3/index.js";
 import { findGeometryColumn, wkbExpression } from "../core/schema.js";
 
 const PAGE_SIZE = 50;

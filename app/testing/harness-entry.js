@@ -10,7 +10,7 @@ import * as duck from "../src/core/duck.js";
 import * as graph from "../src/core/graph.js";
 import * as transformers from "../../transformers/legacy.js";
 import * as sources from "../src/io/sources.js";
-import * as writer from "../src/io/writer.js";
+import * as writer from "../src/io/writers/index.js";
 import { createHarness } from "../../tests/harness/pages/harness-core.js";
 
 window.__geomarmotHarness = createHarness({

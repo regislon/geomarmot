@@ -29,9 +29,6 @@ function suites() {
   return [...found.values()].sort((a, b) => a.transformer.localeCompare(b.transformer));
 }
 
-const TYPE_ALIASES = JSON.parse(process.env.HARNESS_TYPE_ALIASES || "{}");
-const COLUMN_ALIASES = JSON.parse(process.env.HARNESS_COLUMN_ALIASES || "{}");
-
 let harness;
 test.beforeAll(async ({ browser }) => {
   harness = await openHarness(browser);
@@ -44,10 +41,7 @@ for (const suite of suites()) {
   test.describe(suite.transformer, () => {
     for (const testCase of suite.cases) {
       test(testCase.name, async () => {
-        const result = await runCase(harness.page, TYPE_ALIASES[suite.transformer] || suite.transformer, testCase);
-        for (const table of Object.values(result.ports)) {
-          for (const column of table.columns) column.name = COLUMN_ALIASES[column.name] || column.name;
-        }
+        const result = await runCase(harness.page, suite.transformer, testCase);
         expect(checkCase(result, testCase)).toEqual([]);
       });
     }

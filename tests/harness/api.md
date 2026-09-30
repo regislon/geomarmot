@@ -1,11 +1,12 @@
 # HarnessApi v1
 
 The case runner (`tests/harness/run-case.js`) talks to an app only through
-`window.__geomarmotHarness`, which each adapter provides:
+`window.__geomarmotHarness`, provided by the test build's harness entry. (Before the app was
+bundled, a second adapter drove the unbundled tree by URL; the baseline expectations were
+captured with it and checked against the bundle when it arrived.)
 
 | Adapter | Used for | Where the modules come from |
 |---|---|---|
-| `pages/static-tree.js` | an unbundled tree (`/static/*.js`) | `import()` by URL, so the app's own module instances |
 | `app/testing/harness-entry.js` | the Vite bundle (`vite build --mode test`) | the same application modules the production entry imports |
 
 | Member | |

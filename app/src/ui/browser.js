@@ -11,7 +11,7 @@
  */
 
 import { isSupportedName } from "../io/sources.js";
-import { isZarrStore } from "../io/zarr.js";
+import { isZarrStore } from "../io/zarr/index.js";
 
 /** Where the browser was last pointed, so a reload does not cost a retype. */
 const LAST_PLACE_KEY = "geomarmot:bucket.v1";

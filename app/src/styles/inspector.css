@@ -1,0 +1,255 @@
+/* ---------- inspector ---------- */
+
+.field {
+  margin-bottom: var(--sp-3);
+}
+
+.field-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.field > select,
+.field > input {
+  width: 100%;
+}
+
+.sql-input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  resize: vertical;
+}
+
+/* A query written against a wide schema needs room; the inspector is narrow, so
+ * the height is where the room has to come from. */
+.sql-input-tall {
+  min-height: 210px;
+  font-size: 12px;
+  tab-size: 2;
+}
+
+.schema-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  background: var(--paper-1);
+  margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+
+/* The repeat row is nowrap everywhere else, and has to stay that way — but a
+ * row holding a value editor needs two lines, or the name field is squeezed to
+ * a sliver by the four controls beside it. */
+.repeat-row:has(.value-spec) {
+  flex-wrap: wrap;
+}
+
+.repeat-row:has(.value-spec) > input {
+  min-width: 90px;
+}
+
+/* Four controls do not fit across the inspector, so the value editor wraps
+ * instead of overflowing its row. */
+.value-spec {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.value-spec select,
+.value-spec input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.operand {
+  display: inline-flex;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.schema-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.schema-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.schema-text {
+  margin: 0;
+  padding: 6px;
+  max-height: 132px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre;
+}
+
+.mini-btn {
+  padding: 1px 6px;
+  font-size: 10.5px;
+  border-radius: var(--radius-2);
+}
+
+.inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+/* Round, quiet, and obviously clickable — it sits next to the node's name and
+ * must not compete with it. */
+.help-btn {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.help-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: min(78vh, 720px);
+}
+
+.help-body {
+  overflow-y: auto;
+  padding-right: var(--sp-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.help-body p {
+  margin: 0 0 var(--sp-3);
+}
+
+.help-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.syntax-text {
+  margin: 0;
+  padding: var(--sp-3);
+  overflow-x: auto;
+  background: var(--paper-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.sql-verdict {
+  margin: var(--sp-2) 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sql-verdict.ok {
+  color: var(--accent);
+}
+
+.sql-verdict.error {
+  color: #a4331f;
+}
+
+.check-list {
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  padding: 4px 6px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+  font-size: 12px;
+}
+
+.check-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.check-all {
+  font-weight: 600;
+}
+
+.check-tally {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.repeat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.repeat-row select,
+.repeat-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.arrow {
+  color: var(--muted);
+}
+
+.icon-btn {
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.add-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  margin-right: 4px;
+}
+
+.action-btn {
+  width: 100%;
+  margin-top: var(--sp-2);
+}
+
+.issues {
+  margin: var(--sp-3) 0 0;
+  padding-left: 18px;
+  color: var(--err);
+  font-size: 12px;
+}

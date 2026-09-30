@@ -22,7 +22,7 @@ import {
   planRefusal,
   planStats,
   resolveGeoreference,
-} from "../io/zarr.js";
+} from "../io/zarr/index.js";
 
 /** Cell budgets offered, against the map's own 8k-250k drawing limits. */
 const BUDGETS = [25_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000];

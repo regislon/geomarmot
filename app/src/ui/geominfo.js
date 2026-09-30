@@ -13,7 +13,7 @@
  */
 
 import { query, qlit } from "../core/duck.js";
-import { cellToWkb } from "../engines/h3.js";
+import { cellToWkb } from "../engines/h3/index.js";
 import { decodeWKB, toBytes } from "../core/wkb.js";
 import { isLonLatCode, LONLAT } from "../core/schema.js";
 

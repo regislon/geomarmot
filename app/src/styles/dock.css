@@ -1,0 +1,305 @@
+/* ---------- bottom dock ---------- */
+
+#dock-resizer {
+  background: var(--border);
+  cursor: row-resize;
+}
+
+#dock-resizer:hover {
+  background: var(--accent-soft);
+}
+
+#dock {
+  display: grid;
+  /* The table gets an explicit width once dragged, and the map takes whatever
+   * is left — so widening the window grows the map rather than re-splitting
+   * both panes and undoing the drag. */
+  grid-template-columns: minmax(0, var(--table-width, 1fr)) 6px minmax(0, 1fr);
+  min-height: 0;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+#dock-splitter {
+  background: var(--border);
+  cursor: col-resize;
+  /* Without this a touch drag scrolls the dock instead of moving the splitter. */
+  touch-action: none;
+}
+
+#dock-splitter:hover,
+body.splitting #dock-splitter {
+  background: var(--accent-soft);
+}
+
+/* A horizontal drag across a table would otherwise select its text. */
+body.splitting {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  /* The column has to be declared. Left implicit it is an `auto` track, which
+   * sizes to the table's max-content width and overflows the pane — visible as
+   * the attribute grid painting over the map once the splitter narrows it.
+   * min-width on the items cannot fix that; the track itself must be capped. */
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+}
+
+.panel + .panel {
+  border-left: 1px solid var(--border);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--paper-1);
+}
+
+.panel-head .meta {
+  color: var(--muted);
+  font-size: 11px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One sheet per inspected node, tabbed. */
+.sheet-area {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr); /* as in .panel, and for the same reason */
+  min-height: 0;
+  min-width: 0;
+}
+
+#sheet-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px var(--sp-2) 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+}
+
+.sheet-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-2) var(--radius-2) 0 0;
+  background: var(--paper-2);
+  padding: 3px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sheet-tab.active {
+  background: var(--panel);
+  font-weight: 600;
+  /* Sit on top of the strip's border so the sheet reads as continuous. */
+  margin-bottom: -1px;
+  padding-bottom: 4px;
+}
+
+/* Filled = drawn on the map, hollow = hidden. */
+.sheet-swatch {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border-radius: 3px;
+  flex: none;
+  border: 2px solid var(--swatch);
+  background: var(--swatch);
+  cursor: pointer;
+}
+
+.sheet-swatch.off {
+  background: transparent;
+}
+
+.sheet-swatch:hover {
+  outline: 2px solid var(--border);
+}
+
+.sheet-name {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.table-scroll {
+  overflow: auto;
+  /* Same reason as .sheet-area: the scroller has to be allowed to be narrower
+   * than the table it scrolls, or it never scrolls at all. */
+  min-width: 0;
+}
+
+.table-scroll table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.table-scroll th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--paper-1);
+  text-align: left;
+  padding: 4px 8px;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 var(--border);
+  font-weight: 600;
+}
+
+.table-scroll td {
+  position: relative;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--paper-2);
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.table-scroll td.null {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.cell-copy {
+  position: absolute;
+  right: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  background: var(--paper-1);
+  padding: 1px 5px;
+  font-size: 15px;
+  line-height: 1.25;
+  color: var(--accent);
+}
+
+.cell-copy:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.table-scroll td:hover .cell-copy {
+  display: block;
+}
+
+.table-scroll tbody tr {
+  cursor: pointer;
+}
+
+.table-scroll tbody tr:hover {
+  background: rgba(100, 167, 126, 0.1);
+}
+
+.table-scroll tbody tr.picked {
+  background: rgba(236, 167, 44, 0.22);
+}
+
+.map-wrap {
+  position: relative;
+  min-height: 0;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Overlaid rather than given its own row: the dock is short and the map needs
+ * every pixel of it. */
+.map-legend {
+  position: absolute;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: 45%;
+  padding: 3px;
+  border-radius: var(--radius-2);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-6);
+}
+
+.map-legend[hidden] {
+  display: none;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  border-radius: var(--radius-2);
+  font-size: 11px;
+  text-align: left;
+}
+
+.legend-row:hover {
+  background: rgba(100, 167, 126, 0.16);
+}
+
+.legend-chip {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1.5px solid var(--swatch);
+  background: var(--swatch);
+}
+
+/* Hollow chip and dimmed name — the same "off" language as the sheet swatch. */
+.legend-row.off .legend-chip {
+  background: transparent;
+}
+
+.legend-row.off .legend-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.legend-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+table.popup {
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+table.popup th {
+  text-align: left;
+  padding-right: 8px;
+  color: var(--muted);
+  font-weight: 600;
+  vertical-align: top;
+}

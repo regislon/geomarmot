@@ -26,7 +26,7 @@ import {
   createPolygonFillTable,
   parseParentCell,
   positionalIndexExpr,
-} from "../app/src/engines/h3.js";
+} from "../app/src/engines/h3/index.js";
 
 /** Internal join key for PolygonToH3 and the overlayer; never leaves a node. */
 const FEATURE_ID_COLUMN = "_pv_fid";

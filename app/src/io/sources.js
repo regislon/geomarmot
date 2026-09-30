@@ -6,19 +6,20 @@
  * remote parquet costs its footer rather than its whole body.
  */
 
-import { dropFile, registerBuffer, registerUrl, query, qid, qlit } from "../core/duck.js";
-import { describeH3Source } from "../engines/h3.js";
-import { dropTable, materialize } from "./zarr.js";
-import { closeWorkbook, materializeSheet, previewSheet, readWorkbook } from "./xlsx.js";
-import { hideProgress, readWithProgress, showProgress } from "../ui/progress.js";
-import { describe, findGeometryColumn, readGeoMetadata, crsFromGeoMetadata } from "../core/schema.js";
+export { resolveUrl } from "./remote.js";
+import { dropFile, qid, qlit, query, registerBuffer, registerUrl } from "../core/duck.js";
+import { crsFromGeoMetadata, describe, findGeometryColumn, readGeoMetadata } from "../core/schema.js";
+import { describeH3Source } from "../engines/h3/index.js";
+import { hideProgress, readWithProgress } from "../ui/progress.js";
+import { dropTable, materialize } from "./zarr/index.js";
+import { ogrLayerSources, ogrOpenError } from "./readers/ogr.js";
+import { xlsxSheetSources } from "./readers/xlsx.js";
+import { resolveUrl } from "./remote.js";
 
 /** id -> source record. */
 export const sources = new Map();
 
 let _sourceCounter = 0;
-
-const GCS_HOST = "storage.googleapis.com";
 
 /**
  * Formats read through GDAL rather than DuckDB's own parquet reader.
@@ -85,51 +86,13 @@ export function sourceRelation(source, { rowNumber = false } = {}) {
     ? `read_parquet(${qlit(source.fileName)}, file_row_number=true)`
     : `read_parquet(${qlit(source.fileName)})`;
 }
-
-/**
- * Turn whatever the user pasted into a URL the browser can actually read.
- *
- * Cloud-storage forms are rewritten onto the local server's /proxy/gs route:
- * most buckets send no CORS headers, so a direct fetch fails in the browser no
- * matter how public the object is. Anything else is passed through untouched and succeeds or fails on
- * the remote host's own CORS policy.
- */
-export function resolveUrl(input) {
-  const text = input.trim();
-  // Relative to the page, never rooted at "/", so the app keeps working when it
-  // is served under a path prefix.
-  const proxy = (path) => new URL(path, window.location.href).href;
-
-  // A gs:// path is written the way gsutil prints it — unescaped — so its
-  // segments have to be encoded. Without this, a key holding a "#" or "?" is
-  // silently truncated at that character, and one holding a space produces a
-  // URL the proxy cannot forward.
-  if (text.startsWith("gs://")) {
-    const path = text.slice("gs://".length).split("/").map(encodeURIComponent).join("/");
-    return proxy(`proxy/gs/${path}`);
-  }
-  try {
-    const url = new URL(text);
-    if (url.hostname === GCS_HOST) {
-      return proxy(`proxy/gs${url.pathname}`);
-    }
-    if (url.hostname.endsWith(`.${GCS_HOST}`)) {
-      const bucket = url.hostname.slice(0, -(GCS_HOST.length + 1));
-      return proxy(`proxy/gs/${bucket}${url.pathname}`);
-    }
-    return url.href;
-  } catch {
-    throw new Error(`"${text}" is not a URL or a gs:// path.`);
-  }
-}
-
 /** Unique logical name for DuckDB, so two files called data.parquet can coexist. */
 function logicalName(displayName) {
   _sourceCounter += 1;
   return `s${_sourceCounter}__${displayName.replace(/[^\w.-]/g, "_")}`;
 }
 
-async function introspect(source) {
+export async function introspect(source) {
   const from = sourceRelation(source);
   source.columns = await describe(`SELECT * FROM ${from}`);
   source.geometry = findGeometryColumn(source.columns);
@@ -160,71 +123,7 @@ async function introspect(source) {
   return source;
 }
 
-/** CRS of a layer as GDAL reports it, which beats guessing from a WKT string. */
-function crsFromOgrLayer(layer) {
-  const crs = layer?.geometry_fields?.[0]?.crs;
-  if (crs?.auth_name && crs?.auth_code) {
-    return { code: `${crs.auth_name}:${crs.auth_code}`, assumed: false };
-  }
-  return { code: crs?.name || "unknown", assumed: !crs };
-}
-
-/**
- * Split an OGR file into one source per layer.
- *
- * A GeoPackage is a container, and its layers are what people actually think
- * of as datasets — so each becomes its own row in the Layers rail rather than
- * hiding behind a picker on the Reader.
- */
-async function ogrLayerSources(base) {
-  let layers = [];
-  try {
-    const meta = await query(`SELECT layers FROM st_read_meta(${qlit(base.fileName)})`);
-    layers = meta[0]?.layers || [];
-  } catch (err) {
-    console.warn(`Could not list layers in ${base.name}`, err);
-  }
-  if (layers.length <= 1) {
-    const only = layers[0];
-    const source = { ...base, layer: only?.name || null, crs: crsFromOgrLayer(only) };
-    await introspect(source);
-    sources.set(source.id, source);
-    return [source];
-  }
-
-  const made = [];
-  for (const layer of layers) {
-    const source = {
-      ...base,
-      id: `${base.id}#${layer.name}`,
-      name: `${base.name} › ${layer.name}`,
-      layer: layer.name,
-      crs: crsFromOgrLayer(layer),
-    };
-    await introspect(source);
-    sources.set(source.id, source);
-    made.push(source);
-  }
-  return made;
-}
-
-/*
- * Report a failed OGR open in terms of the format the name promised.
- *
- * Only `.json` needs the translation: it is the one extension the app accepts
- * on spec rather than on evidence, so the file that lands here is as likely to
- * be a config file or a saved graph as a broken GeoJSON, and GDAL's own
- * wording explains neither.
- */
-function ogrOpenError(base, err) {
-  if (!/\.json$/i.test(base.name)) return err;
-  // GDAL quotes the registered name, which carries the uniquifying prefix and
-  // reads like a second, unfamiliar file in the same sentence.
-  const detail = (err?.message || String(err)).split(base.fileName).join(base.name);
-  return new Error(`${base.name} is not GeoJSON — GDAL could not read it (${detail})`);
-}
-
-function blankSource(fileName, displayName, origin, extra = {}) {
+export function blankSource(fileName, displayName, origin, extra = {}) {
   return {
     id: fileName,
     name: displayName,
@@ -240,78 +139,6 @@ function blankSource(fileName, displayName, origin, extra = {}) {
     rows: 0,
     ...extra,
   };
-}
-
-/** Distinct table per workbook sheet, so two workbooks with a "Sheet1" can coexist. */
-let _sheetCounter = 0;
-
-/**
- * Split a workbook into one source per non-empty sheet.
- *
- * Like a GeoPackage's layers, a workbook's sheets are what people think of as
- * its datasets, so each gets its own row in the Layers rail. Unlike them, a
- * sheet cannot be read in place: the workbook is a zip of XML with no way to
- * reach one sheet's rows without parsing it, so each is built into a table on
- * open, and a remote workbook is fetched whole rather than range-read.
- *
- * Which is why `chooseSheets` exists. It is asked which sheets to open and
- * where each one's column names are — reports put titles above their tables,
- * so the first row is often not the header. It gets the file name, every
- * sheet's summary and a `preview(name)` for the header-row step, and returns
- * `[{name, headerRow}]`, or null to open nothing. Without it, every sheet with
- * rows is opened with its first non-blank row as the header.
- */
-async function xlsxSheetSources(displayName, bytes, origin, extra = {}, chooseSheets = null) {
-  showProgress(`Parsing ${displayName}…`);
-  const { book, sheets } = await readWorkbook(bytes).catch((err) => {
-    hideProgress();
-    throw err;
-  });
-  try {
-    let wanted = sheets.filter((sheet) => !sheet.empty).map((sheet) => ({ name: sheet.name, headerRow: null }));
-    if (!wanted.length) throw new Error(`${displayName} has no rows in any sheet.`);
-    if (chooseSheets) {
-      // The bar would sit over the picker saying "parsing" while it waits on a click.
-      hideProgress();
-      wanted = await chooseSheets(displayName, sheets, (name) => previewSheet(book, name));
-      if (!wanted?.length) return [];
-    }
-    const made = [];
-    for (const [index, { name: sheet, headerRow }] of wanted.entries()) {
-      const label = wanted.length > 1 ? `Opening ${sheet} (${index + 1} of ${wanted.length})` : `Opening ${sheet}`;
-      showProgress(`${label}…`, index / wanted.length);
-      _sheetCounter += 1;
-      const table = `xlsx_${_sheetCounter}`;
-      const built = await materializeSheet(book, sheet, table, {
-        headerRow,
-        onProgress: ({ stage, done, total }) => {
-          if (stage === "rows") {
-            showProgress(`${label} — reading cells…`, null);
-            return;
-          }
-          const fraction = (index + (total ? done / total : 1)) / wanted.length;
-          showProgress(`${label} — ${done.toLocaleString()} of ${total.toLocaleString()} rows`, fraction);
-        },
-      });
-      if (!built) continue;
-      const source = blankSource(table, displayName, origin, {
-        ...extra,
-        table,
-        name: sheets.length > 1 ? `${displayName} \u203a ${sheet}` : displayName,
-        layer: sheet,
-        headerRow,
-      });
-      await introspect(source);
-      sources.set(source.id, source);
-      made.push(source);
-    }
-    // A sheet whose declared range was only formatting has no rows to build.
-    if (!made.length) throw new Error(`${displayName}: the chosen sheets have no rows.`);
-    return made;
-  } finally {
-    hideProgress();
-    await closeWorkbook(book);
-  }
 }
 
 /**
