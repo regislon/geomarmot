@@ -35,11 +35,17 @@
         },
         "aiFields": { "type": "array", "items": { "type": "string" } },
         "paramOrigin": {
+          "description": "Params the assistant wrote, by path, with the data level it had reached and a hash of the value (docs/security.md).",
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": ["by"],
-            "properties": { "by": { "enum": ["user", "ai"] }, "level": { "enum": [1, 2, 3] } }
+            "required": ["by", "level", "hash"],
+            "additionalProperties": false,
+            "properties": {
+              "by": { "const": "ai" },
+              "level": { "enum": [1, 2, 3] },
+              "hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+            }
           }
         }
       }

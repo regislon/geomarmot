@@ -149,7 +149,11 @@ export function serialize() {
   return {
     format: GRAPH_FORMAT,
     version: 1,
-    nodes: graph.nodes.map((node) => ({ ...node, params: structuredClone(node.params) })),
+    nodes: graph.nodes.map((node) => ({
+      ...node,
+      params: structuredClone(node.params),
+      ...(node.paramOrigin && { paramOrigin: structuredClone(node.paramOrigin) }),
+    })),
     edges: graph.edges.map((edge) => ({ ...edge })),
     custom: [],
   };
@@ -168,6 +172,21 @@ function migrate(node) {
 }
 
 /**
+ * Keep only well-formed origin entries (ai/gate/origin.js). An entry can only
+ * ever cause a value to be redacted, so a file gains nothing by adding one;
+ * a file without them is simply the user's own configuration.
+ */
+function cleanOrigin(origin) {
+  if (!origin || typeof origin !== "object") return undefined;
+  const kept = {};
+  for (const [path, entry] of Object.entries(origin)) {
+    if (entry?.by === "ai" && [1, 2, 3].includes(entry.level) && /^[0-9a-f]{16}$/.test(entry.hash || ""))
+      kept[path] = { by: "ai", level: entry.level, hash: entry.hash };
+  }
+  return Object.keys(kept).length ? kept : undefined;
+}
+
+/**
  * Replace the graph with a saved one.
  *
  * `trusted` is true only for this browser's own autosave and undo history. A
@@ -183,6 +202,9 @@ export function load(saved, { trusted = false } = {}) {
   let unrestrictedRequested = 0;
   graph.nodes = (saved.nodes || []).map((node) => {
     const restored = migrate({ ...node, type: canonicalType(node.type), params: node.params || {} });
+    const origin = cleanOrigin(node.paramOrigin);
+    if (origin) restored.paramOrigin = origin;
+    else delete restored.paramOrigin;
     if (restored.sqlMode === "unrestricted" && !trusted) {
       unrestrictedRequested += 1;
       delete restored.sqlMode;
