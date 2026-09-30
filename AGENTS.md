@@ -39,6 +39,10 @@ Codex, Cursor, …). `CLAUDE.md` only points here.
    Never add a path that executes such SQL without the guard.
 7. **The assistant never writes JavaScript that runs in the page.** Generated transformers are
    declarative specs (SQL templates and calls to reviewed transformers).
+8. **Hooks run SQL through `ctx.engine`**, never by importing the main engine: the same hook runs
+   in an isolated preview engine (`tests/meta/engine-use.test.js`).
+9. **Everything sent to a model goes through the privacy gate** (`app/src/ai/gate/`). A new tool
+   returns a payload type with a schema per data level; never send around it.
 
 ## Never
 
@@ -57,5 +61,7 @@ npm run dev             # Vite dev server
 npm run check           # everything that needs no browser
 npm run test:browser    # fixtures, contract, I/O and e2e in Chromium
 npm run new-transformer -- MyThing   # scaffold a transformer folder
+npm run build:schemas   # regenerate schemas/ after changing params or the kit
+npm run eval            # the assistant against a real model (needs a key; costs tokens)
 cd server && uv run pytest           # server tests
 ```
