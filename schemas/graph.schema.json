@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/regislon/geomarmot/schemas/graph.schema.json",
+  "title": "GeoMarmot saved graph",
+  "description": "A graph is a recipe: nodes, their parameters and their connections. Source data is referenced by name and never embedded.",
+  "type": "object",
+  "required": ["format", "version", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "geomarmot-graph" },
+    "version": { "const": 1 },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "custom": {
+      "description": "Custom (generated) transformer specs used by this graph.",
+      "type": "array",
+      "items": { "type": "object" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "x", "y", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^n[0-9]+$" },
+        "type": { "type": "string", "minLength": 1 },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "params": { "type": "object" },
+        "paramsVersion": { "type": "integer", "minimum": 1 },
+        "sqlMode": {
+          "description": "Ignored on load from a file: every loaded node starts restricted.",
+          "enum": ["restricted", "unrestricted"]
+        },
+        "aiFields": { "type": "array", "items": { "type": "string" } },
+        "paramOrigin": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["by"],
+            "properties": { "by": { "enum": ["user", "ai"] }, "level": { "enum": [1, 2, 3] } }
+          }
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["id", "from", "fromPort", "to", "toPort"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^e[0-9]+$" },
+        "from": { "type": "string" },
+        "fromPort": { "type": "string" },
+        "to": { "type": "string" },
+        "toPort": { "type": "string" }
+      }
+    }
+  }
+}
