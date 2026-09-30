@@ -14,13 +14,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-ai = ["anthropic>=0.60", "openai>=1.60"]
+ai = [
+    "anthropic>=0.129",
+    "openai>=2",
+]
 
 [project.scripts]
 geomarmot = "geomarmot.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "ruff>=0.6",
+    "anthropic>=0.129",
+    "openai>=2",
+]
 
 [build-system]
 requires = ["hatchling>=1.25"]
