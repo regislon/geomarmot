@@ -54,15 +54,6 @@ function toCrs(expression, from, to) {
 const SINGLE_OUT = [{ id: "output", label: "Output" }];
 const SINGLE_IN = [{ id: "input", label: "Input" }];
 
-/**
- * Ceiling on AttributeFilter's per-value ports.
- *
- * Pointing it at a high-cardinality column — an id, a timestamp — would
- * otherwise try to draw one port per row and freeze the canvas. Values past the
- * cap fall through to <Unfiltered>, which is the honest place for them.
- */
-const MAX_FILTER_PORTS = 40;
-
 /** Comparison operators offered by the Tester, and how each builds SQL. */
 export const OPERATORS = {
   "=": (column, value) => `${column} = ${qlit(value)}`,
@@ -137,37 +128,6 @@ const BUFFER_PROJECTIONS = {
   // No reprojection: the buffer is in the CRS's own units.
   same_as_feature: null,
 };
-
-/**
- * Build the Tester's predicate.
- *
- * Values are always quoted as strings and left to DuckDB to coerce — `"n" >
- * '5'` on an integer column casts the literal rather than the column, so the
- * comparison stays numeric and the index-friendly side is untouched.
- */
-function buildPredicate(conditions, logic) {
-  const parts = (conditions || [])
-    .filter((condition) => condition.column && condition.operator)
-    .map((condition) => {
-      const build = OPERATORS[condition.operator];
-      if (!build) return null;
-      return `(${build(qid(condition.column), condition.value ?? "")})`;
-    })
-    .filter(Boolean);
-  if (!parts.length) return null;
-  return parts.join(logic === "OR" ? " OR " : " AND ");
-}
-
-/**
- * Wrap a predicate so NULL counts as "did not pass".
- *
- * Without this, three-valued logic loses rows at both ports: a NULL predicate
- * is neither true nor `NOT true`, so a row with a null attribute would vanish
- * from the graph entirely instead of coming out of `failed`.
- */
-function truthy(predicate) {
-  return `COALESCE(${predicate}, FALSE)`;
-}
 
 /* ---------- H3 helpers ---------- */
 
@@ -615,73 +575,6 @@ function vertexCreatorSql(node, upstream, columns) {
 }
 
 export const TRANSFORMERS = {
-  Tester: {
-    label: "Tester",
-    group: "Filters",
-    hint: "Splits rows into passed and failed.",
-    inputs: SINGLE_IN,
-    outputs: () => [
-      { id: "passed", label: "Passed" },
-      { id: "failed", label: "Failed" },
-    ],
-    params: [
-      { id: "logic", label: "Combine with", kind: "select", options: ["AND", "OR"], default: "AND" },
-      { id: "conditions", label: "Conditions", kind: "conditions" },
-    ],
-    sql: (node, upstream) => {
-      const predicate = buildPredicate(node.params.conditions, node.params.logic);
-      if (!predicate) {
-        // No conditions yet: everything passes, nothing fails. Better than an
-        // error while the user is still filling the node in.
-        return {
-          passed: `SELECT * FROM ${upstream.input}`,
-          failed: `SELECT * FROM ${upstream.input} WHERE FALSE`,
-        };
-      }
-      const test = truthy(predicate);
-      return {
-        passed: `SELECT * FROM ${upstream.input} WHERE ${test}`,
-        failed: `SELECT * FROM ${upstream.input} WHERE NOT ${test}`,
-      };
-    },
-  },
-
-  AttributeFilter: {
-    label: "AttributeFilter",
-    group: "Filters",
-    hint: "Routes rows to one port per attribute value.",
-    inputs: SINGLE_IN,
-    outputs: (node) => {
-      const values = (node.params.values || []).slice(0, MAX_FILTER_PORTS);
-      // Ports are addressed positionally (v0, v1 …) rather than by the value
-      // itself, so a value containing a quote or a slash cannot produce an
-      // unquotable view name — the value stays as the human-facing label.
-      const ports = values.map((value, index) => ({ id: `v${index}`, label: String(value) }));
-      ports.push({ id: "unfiltered", label: "<Unfiltered>" });
-      return ports;
-    },
-    params: [
-      { id: "column", label: "Attribute", kind: "column" },
-      { id: "values", label: "Values", kind: "values" },
-    ],
-    sql: (node, upstream) => {
-      const column = node.params.column;
-      // Same slice as outputs(), so a port always has SQL and vice versa.
-      const values = (node.params.values || []).slice(0, MAX_FILTER_PORTS);
-      if (!column) return { unfiltered: `SELECT * FROM ${upstream.input}` };
-
-      const out = {};
-      values.forEach((value, index) => {
-        out[`v${index}`] = `SELECT * FROM ${upstream.input} WHERE ${qid(column)} = ${qlit(value)}`;
-      });
-      const matched = values.map(qlit).join(", ");
-      out.unfiltered = matched
-        ? `SELECT * FROM ${upstream.input} WHERE ${qid(column)} IS NULL OR ${qid(column)} NOT IN (${matched})`
-        : `SELECT * FROM ${upstream.input}`;
-      return out;
-    },
-  },
-
   Sorter: {
     label: "Sorter",
     group: "Reshape",
@@ -804,75 +697,6 @@ export const TRANSFORMERS = {
       return {
         summary: `SELECT ${summarySelect.join(", ")} FROM ${upstream.input}${groupClause}`,
         complete: `SELECT *, ${completeSelect.join(", ")} FROM ${upstream.input}`,
-      };
-    },
-  },
-
-  TestFilter: {
-    label: "TestFilter",
-    group: "Filters",
-    hint: "Routes each row to the first rule it satisfies.",
-    inputs: SINGLE_IN,
-    outputs: (node) => {
-      const rules = (node.params.rules || []).slice(0, MAX_FILTER_PORTS);
-      const ports = rules.map((rule, index) => ({ id: `r${index}`, label: rule.label || `Rule ${index + 1}` }));
-      ports.push({ id: "unfiltered", label: "<Unfiltered>" });
-      return ports;
-    },
-    params: [{ id: "rules", label: "Rules, in order", kind: "rules" }],
-    sql: (node, upstream) => {
-      const rules = (node.params.rules || []).slice(0, MAX_FILTER_PORTS);
-      const predicates = rules.map((rule) => {
-        const build = OPERATORS[rule.operator];
-        if (!rule.column || !build) return null;
-        return truthy(`(${build(qid(rule.column), rule.value ?? "")})`);
-      });
-
-      const out = {};
-      const earlier = [];
-      predicates.forEach((predicate, index) => {
-        // First match wins: a row that satisfied an earlier rule is
-        // already gone, so each rule must exclude everything above it.
-        const unclaimed = earlier.length ? ` AND NOT (${earlier.join(" OR ")})` : "";
-        out[`r${index}`] = predicate
-          ? `SELECT * FROM ${upstream.input} WHERE ${predicate}${unclaimed}`
-          : `SELECT * FROM ${upstream.input} WHERE FALSE`;
-        if (predicate) earlier.push(predicate);
-      });
-      out.unfiltered = earlier.length
-        ? `SELECT * FROM ${upstream.input} WHERE NOT (${earlier.join(" OR ")})`
-        : `SELECT * FROM ${upstream.input}`;
-      return out;
-    },
-  },
-
-  DuplicateFilter: {
-    label: "DuplicateFilter",
-    group: "Filters",
-    // DuckDB compares GEOMETRY directly, so the geometry column is a legal key
-    // and "identical shape" is a duplicate test like any other.
-    hint: "Keeps the first row per key; the rest come out of Duplicate. Geometry works as a key.",
-    inputs: SINGLE_IN,
-    outputs: () => [
-      { id: "unique", label: "Unique" },
-      { id: "duplicate", label: "Duplicate" },
-    ],
-    params: [{ id: "keys", label: "Key attributes", kind: "columns" }],
-    sql: (node, upstream) => {
-      const keys = (node.params.keys || []).filter(Boolean);
-      if (!keys.length) {
-        // No key yet: everything is trivially unique. Better than erroring
-        // while the node is still being filled in.
-        return {
-          unique: `SELECT * FROM ${upstream.input}`,
-          duplicate: `SELECT * FROM ${upstream.input} WHERE FALSE`,
-        };
-      }
-      const numbered =
-        `SELECT *, row_number() OVER (PARTITION BY ${keys.map(qid).join(", ")}) AS _pv_rn ` + `FROM ${upstream.input}`;
-      return {
-        unique: `SELECT * EXCLUDE (_pv_rn) FROM (${numbered}) WHERE _pv_rn = 1`,
-        duplicate: `SELECT * EXCLUDE (_pv_rn) FROM (${numbered}) WHERE _pv_rn > 1`,
       };
     },
   },

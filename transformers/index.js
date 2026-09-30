@@ -23,7 +23,17 @@ import AttributeManager from "./attribute-manager/index.js";
 import AttributeRemover from "./attribute-remover/index.js";
 import AttributeRenamer from "./attribute-renamer/index.js";
 
+// Filters
+import AttributeFilter from "./attribute-filter/index.js";
+import DuplicateFilter from "./duplicate-filter/index.js";
+import TestFilter from "./test-filter/index.js";
+import Tester from "./tester/index.js";
+
 const NATIVE = [
+  DuplicateFilter,
+  TestFilter,
+  AttributeFilter,
+  Tester,
   AttributeManager,
   AttributeCreator,
   AttributeRenamer,
