@@ -22,3 +22,12 @@ export { checkSql, SYNTAX_REFERENCE } from "../../app/src/core/sqlnode.js";
 export { valueSql } from "../../app/src/core/valuespec.js";
 export * from "./engine.js";
 export { sqlGeometryTool, jsGeometryTool } from "./geometry-tools.js";
+export {
+  resolveParent,
+  resolveChildResolution,
+  positionalExprFor,
+  sampleStep,
+  sampleWhere,
+  buildCellTable,
+  SAMPLE_STEPS,
+} from "./h3.js";

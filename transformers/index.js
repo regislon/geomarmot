@@ -1,15 +1,11 @@
 /*
  * The transformer registry: every transformer the app knows, by id.
  *
- * Native transformers are imported one per line below (one line per folder,
+ * Transformers are imported one per line below (one line per folder,
  * alphabetical within a group) — adding a transformer is a one-line change here.
- * Entries still in legacy.js are presented through the kit's legacy adapter
- * until their group moves into folders.
  */
 
 import { defaultParamValues } from "./_kit/index.js";
-import { adaptLegacy } from "./_kit/legacy-adapter.js";
-import { TRANSFORMERS as LEGACY } from "./legacy.js";
 
 // Source
 import Reader from "./reader/index.js";
@@ -66,7 +62,17 @@ import AttributeHistogram from "./attribute-histogram/index.js";
 import FilterVectorFeaturesByArea from "./filter-vector-features-by-area/index.js";
 import ListUniqueValues from "./list-unique-values/index.js";
 
+// H3
+import H3GeometryFromIndex from "./h3-geometry-from-index/index.js";
+import H3GeometryFromPosition from "./h3-geometry-from-position/index.js";
+import PolygonToH3 from "./polygon-to-h3/index.js";
+import PositionalH3Index from "./positional-h3-index/index.js";
+
 const NATIVE = [
+  H3GeometryFromPosition,
+  H3GeometryFromIndex,
+  PolygonToH3,
+  PositionalH3Index,
   AttributeHistogram,
   AttributeCorrelation,
   FilterVectorFeaturesByArea,
@@ -120,7 +126,6 @@ function add(definition) {
 }
 
 for (const definition of NATIVE) add(definition);
-for (const [type, entry] of Object.entries(LEGACY)) if (!REGISTRY.has(type)) add(adaptLegacy(type, entry));
 
 /** Transformer types grouped for the palette, in a deliberate order. */
 export const PALETTE_GROUPS = [

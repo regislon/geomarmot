@@ -21,7 +21,11 @@ const files = execFileSync("git", [
   .filter((f) => f.endsWith(".js") && existsSync(f));
 const problems = [];
 for (const file of files) {
-  const source = readFileSync(file, "utf8");
+  // Import paths inside single-quoted strings or template literals (scaffold templates, test
+  // expectations) are text, not imports.
+  const source = readFileSync(file, "utf8")
+    .replace(/`(?:\\.|[^`\\])*`/g, "``")
+    .replace(/'(?:\\.|[^'\\\n])*'/g, "''");
   for (const match of source.matchAll(
     /(?:\bfrom|\bimport)\s*\(?\s*"(\.{1,2}\/[^"]+)"|new URL\("(\.{1,2}\/[^"]+\.js)", import\.meta\.url\)/g,
   )) {

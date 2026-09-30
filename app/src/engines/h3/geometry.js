@@ -82,10 +82,12 @@ export function setProgressReporter(fn) {
  * which keeps this dependency-free — `unhex` turns the WKB back into bytes and
  * ST_GeomFromWKB into a real geometry.
  */
-export async function createCellGeometryTable(cells, tableName) {
+export async function createCellGeometryTable(cells, tableName, { signal } = {}) {
   await exec(`CREATE OR REPLACE TABLE ${tableName} (cell VARCHAR, geometry GEOMETRY)`);
   const encoder = new TextEncoder();
   for (let start = 0; start < cells.length; start += CELL_CHUNK) {
+    // Between batches: a superseded compile stops here rather than finishing the tile.
+    if (signal?.aborted) throw new DOMException("The compile was superseded.", "AbortError");
     const slice = cells.slice(start, start + CELL_CHUNK);
     const lines = slice.map((cell) => JSON.stringify({ cell, wkb: toHex(cellToWkb(cell)) })).join("\n");
     const jsonName = `${tableName}_${start}.json`;
@@ -136,7 +138,7 @@ function cellsForGeometry(geometry, resolution, flag) {
  * survives; ids come from a materialised table upstream, because a row number
  * computed in one scan is not guaranteed to match the next.
  */
-export async function createPolygonFillTable(rows, resolution, mode, tableName) {
+export async function createPolygonFillTable(rows, resolution, mode, tableName, { signal } = {}) {
   const flag = FILL_MODES[mode] ?? FILL_MODES.ContainsCentroid;
   // The hexagon travels with the cell. The boundary is already in hand here, so
   // carrying it costs one WKB per cell — where deriving it later means a second
@@ -165,6 +167,7 @@ export async function createPolygonFillTable(rows, resolution, mode, tableName) 
 
   let total = 0;
   for (const row of rows) {
+    if (signal?.aborted) throw new DOMException("The compile was superseded.", "AbortError");
     let geometry;
     try {
       geometry = JSON.parse(row.geojson);

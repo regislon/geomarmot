@@ -163,8 +163,7 @@ test("literal and identifier params are escaped: an injection payload adds no st
           if (found.tableFunctions.length) out.push(`${id}.${p.id}: table function ${found.tableFunctions.join(", ")}`);
           for (const table of found.tables) {
             const name = table.name.toLowerCase();
-            // Legacy prepare tables are named h3cells_<ns>_g<gen>_<node> until their group moves (docs/debt.md).
-            if (name !== "ct_esc" && !/^m_g\d+_/.test(name) && !/^h3cells_m_g\d+_/.test(name) && !found.ctes.has(name))
+            if (name !== "ct_esc" && !/^m_g\d+_/.test(name) && !found.ctes.has(name))
               out.push(`${id}.${p.id}: reads "${table.name}"`);
           }
         }

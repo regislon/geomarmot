@@ -13,5 +13,5 @@
     "resolveJsonModule": true,
     "maxNodeModuleJsDepth": 0
   },
-  "include": ["transformers/_kit/**/*.js", "app/src/core/**/*.js", "scripts/terms/**/*.js"]
+  "include": ["transformers/**/*.js", "app/src/core/**/*.js", "scripts/terms/**/*.js", "examples/**/*.js"]
 }
