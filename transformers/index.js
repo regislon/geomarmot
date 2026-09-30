@@ -44,7 +44,35 @@ import Sampler from "./sampler/index.js";
 import Sorter from "./sorter/index.js";
 import StatisticsCalculator from "./statistics-calculator/index.js";
 
+// Geometry
+import CentroidVector from "./centroid-vector/index.js";
+import CoordinateSystemSetter from "./coordinate-system-setter/index.js";
+import DensifyFeatures from "./densify-features/index.js";
+import EliminateCoincidentPoints from "./eliminate-coincident-points/index.js";
+import MergeLineSegments from "./merge-line-segments/index.js";
+import MinimumBoundingBox from "./minimum-bounding-box/index.js";
+import MinimumBoundingCircle from "./minimum-bounding-circle/index.js";
+import MinimumConvexHull from "./minimum-convex-hull/index.js";
+import RepresentativePointVector from "./representative-point-vector/index.js";
+import Reprojector from "./reprojector/index.js";
+import SimplifyFeatures from "./simplify-features/index.js";
+import SmoothVectors from "./smooth-vectors/index.js";
+import VertexCreator from "./vertex-creator/index.js";
+
 const NATIVE = [
+  SmoothVectors,
+  DensifyFeatures,
+  MinimumBoundingCircle,
+  MinimumBoundingBox,
+  EliminateCoincidentPoints,
+  MergeLineSegments,
+  SimplifyFeatures,
+  MinimumConvexHull,
+  RepresentativePointVector,
+  CentroidVector,
+  Reprojector,
+  CoordinateSystemSetter,
+  VertexCreator,
   SQLTransformer,
   Sampler,
   BoundingBoxReplacer,
