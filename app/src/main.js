@@ -50,6 +50,7 @@ import { initGeometryModal, initHelpModal, showGeometryInfo } from "./ui/modals.
 import { autosave, exportGraph, importGraph, restoreAutosave } from "./ui/persistence.js";
 import { initQuickAdd } from "./ui/quickadd.js";
 import { addZarrSource, loadUrl, renderPalette, renderSources } from "./ui/rail.js";
+import { initAssistant } from "./ui/assistant/index.js";
 
 /* ---------- boot ---------- */
 
@@ -131,6 +132,7 @@ async function main() {
   initGeometryModal();
   initQuickAdd();
   initHistory();
+  initAssistant();
   // Building a full tile's hexagons takes long enough to need saying so.
   setProgressReporter((message) => setStatus(message));
   setOverlayProgress((message) => setStatus(message));

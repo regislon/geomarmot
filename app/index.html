@@ -22,6 +22,7 @@
         <button id="btn-export-graph">Save graph</button>
         <button id="btn-import-graph">Open graph</button>
         <button id="btn-clear">Clear</button>
+        <button id="btn-assistant" title="Build a graph by asking">Assistant</button>
         <span class="spacer"></span>
         <span id="status">Starting the engine…</span>
       </header>
@@ -60,6 +61,27 @@
         </section>
 
         <aside id="inspector"></aside>
+
+        <aside id="assistant" hidden>
+          <div class="assistant-head">
+            <h2>Assistant</h2>
+            <span class="meta" id="assistant-level"></span>
+            <button id="assistant-settings" title="Assistant settings">⚙</button>
+            <button id="assistant-close" title="Close">×</button>
+          </div>
+          <div id="assistant-log"></div>
+          <form id="assistant-form">
+            <textarea
+              id="assistant-input"
+              rows="3"
+              placeholder="Ask for a graph: “points from the E/N columns”"
+            ></textarea>
+            <div class="assistant-actions">
+              <button id="assistant-stop" type="button" hidden>Stop</button>
+              <button id="assistant-send" type="submit" class="primary">Send</button>
+            </div>
+          </form>
+        </aside>
       </main>
 
       <div id="dock-resizer"></div>
@@ -107,6 +129,19 @@
           </div>
         </div>
       </section>
+    </div>
+
+    <div id="ai-settings-modal" class="modal" hidden>
+      <div class="modal-panel ai-settings-panel">
+        <div class="modal-head">
+          <h2>Assistant settings</h2>
+          <button id="ai-settings-close" title="Close">×</button>
+        </div>
+        <div id="ai-settings-body"></div>
+        <div class="modal-foot">
+          <button id="ai-settings-save" class="primary">Save</button>
+        </div>
+      </div>
     </div>
 
     <div id="help-modal" class="modal" hidden>
