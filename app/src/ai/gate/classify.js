@@ -33,6 +33,8 @@ export function classify(error) {
   const text = String(e.message || "");
 
   if (e.status === "blocked") return structured("UPSTREAM_ERROR", { node: e.origin });
+  const blocked = String(e.message || "").match(/^Blocked: upstream error in ([\w-]{1,40})\./);
+  if (blocked) return structured("UPSTREAM_ERROR", { node: blocked[1] });
   if (e.code === "SQL_SYNTAX") return structured("SQL_SYNTAX");
   if (e.code === "SQL_FORBIDDEN_CONSTRUCT") {
     for (const [pattern, rule] of GUARD_CONSTRUCT) {

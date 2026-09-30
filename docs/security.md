@@ -95,6 +95,14 @@ the system prompt, your own typed messages, and a summary of the graph built by 
 level. The chat keeps the full history for you, marked as not sent. Raising the level keeps the
 conversation.
 
+**Drafts and previews.** What the assistant proposes is a draft: nothing enters your graph until
+you click Apply, and Apply is one undo step. To check a draft, the assistant can preview it. A
+preview runs in a separate DuckDB instance of its own: the outputs of your graph that feed the
+draft are sampled (at most 1,000 rows) and copied into it, and the draft is compiled and read there
+(at most 100 rows per output). Nothing in that instance can read, change or drop anything in your
+graph's engine. A preview that runs longer than 10 s is stopped by terminating its instance, and the
+instance is thrown away on Apply, on Discard, and when a new draft replaces the old one.
+
 **What the assistant may not do.** It cannot add a Reader or a Writer (so it can neither open new
 files nor write output), cannot set a node's SQL mode, and every SQL fragment it writes goes
 through the guard above, at proposal and again at every compile.

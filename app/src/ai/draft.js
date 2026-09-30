@@ -31,7 +31,7 @@ export function setDraft(nodes, edges, { replace = false } = {}) {
   draft.nodes = replace ? nodes : [...draft.nodes, ...nodes];
   draft.edges = replace ? edges : [...draft.edges, ...edges];
   draft.seq += 1;
-  for (const listener of listeners) listener(draft);
+  for (const listener of listeners) listener(draft, { replaced: replace });
 }
 
 export function clearDraft() {

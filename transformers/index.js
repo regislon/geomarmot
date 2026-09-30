@@ -189,9 +189,9 @@ export function fuzzyScore(query, name) {
   return best - name.length * 0.2;
 }
 
-/** Transformer ids matching a typed fragment, best first; test-only types are never offered. */
+/** Transformer ids matching a typed fragment, best first; test-only and internal types are never offered. */
 export function searchTransformers(query) {
-  const names = [...REGISTRY.keys()].filter((id) => REGISTRY.get(id).group !== "Test");
+  const names = [...REGISTRY.keys()].filter((id) => PALETTE_GROUPS.includes(REGISTRY.get(id).group));
   if (!query.trim()) return names;
   return names
     .map((name) => ({ name, score: fuzzyScore(query.trim(), name) }))
@@ -219,6 +219,13 @@ export function defaultParams(type) {
 
 /** Register a transformer outside the palette, for the test harness only. */
 export function registerForTests(definition) {
+  REGISTRY.set(definition.id, definition);
+}
+
+/** Register an app-internal transformer (group "Internal"): never in the palette, Quick Add or the catalogue. */
+export function registerInternal(definition) {
+  if (definition.group !== "Internal")
+    throw new Error(`${definition.id}: internal transformers are in group "Internal".`);
   REGISTRY.set(definition.id, definition);
 }
 

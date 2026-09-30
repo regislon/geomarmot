@@ -79,9 +79,10 @@ export default defineTransformer({
       `CREATE OR REPLACE TABLE ${source} AS SELECT row_number() OVER () AS ${qid(FEATURE_ID_COLUMN)}, * FROM ${ctx.inputs.input}`,
     );
     const rows = Number((await ctx.engine.query(`SELECT count(*) AS n FROM ${source}`))[0]?.n ?? 0);
-    if (rows > MAX_OVERLAY_FEATURES) {
+    const cap = ctx.limits?.overlayFeatures ?? MAX_OVERLAY_FEATURES;
+    if (rows > cap) {
       throw new Error(
-        `${rows.toLocaleString()} features is past the ${MAX_OVERLAY_FEATURES.toLocaleString()} ceiling for an overlay. Filter or dissolve upstream first.`,
+        `${rows.toLocaleString()} features is past the ${cap.toLocaleString()} ceiling for an overlay. Filter or dissolve upstream first.`,
       );
     }
     const wkts = await ctx.engine.query(

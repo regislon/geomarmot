@@ -76,9 +76,10 @@ export function sampleWhere(step, expression) {
 
 /** Materialise the hexagons a geometry node needs, into ctx.tableName("cells"). */
 export async function buildCellTable(ctx, selectSql) {
-  const rows = await ctx.engine.query(`${selectSql} LIMIT ${MAX_MATERIALISED_CELLS + 1}`);
-  if (rows.length > MAX_MATERIALISED_CELLS) {
-    throw new Error(`${MAX_MATERIALISED_CELLS.toLocaleString()} cells is the ceiling. Sample, or filter upstream.`);
+  const cap = ctx.limits?.materialisedCells ?? MAX_MATERIALISED_CELLS;
+  const rows = await ctx.engine.query(`${selectSql} LIMIT ${cap + 1}`);
+  if (rows.length > cap) {
+    throw new Error(`${cap.toLocaleString()} cells is the ceiling. Sample, or filter upstream.`);
   }
   await createCellGeometryTable(rows.map((row) => row.cell).filter(Boolean), ctx.tableName("cells"), {
     signal: ctx.signal,

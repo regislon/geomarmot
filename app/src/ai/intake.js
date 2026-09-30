@@ -18,7 +18,7 @@
 import { validate as validateSchema } from "../core/jsonschema.js";
 import { nextNodeId } from "../core/graph/model.js";
 import { fragmentsOf, validate as guard } from "../core/sqlguard/index.js";
-import { REGISTRY, defaultParams } from "../../../transformers/index.js";
+import { PALETTE_GROUPS, REGISTRY, defaultParams } from "../../../transformers/index.js";
 import { paramsSchemaFor } from "./catalogue.js";
 import { draft } from "./draft.js";
 import { classify, recordAiParams, structured } from "./gate/index.js";
@@ -43,7 +43,7 @@ export async function intakeProposal(input, { graph, levelReached }) {
       continue;
     }
     const transformer = REGISTRY.get(proposed.type);
-    if (!transformer || transformer.group === "Test") {
+    if (!transformer || !PALETTE_GROUPS.includes(transformer.group)) {
       problem(proposed.ref, null, structured("UNKNOWN_TRANSFORMER", { transformer: proposed.type }));
       continue;
     }

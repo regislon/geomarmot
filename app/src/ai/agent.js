@@ -30,7 +30,7 @@ A graph is a set of nodes (transformers) joined output port to input port. Reade
 How to work:
 - Start from get_graph to see the sources, their columns and the nodes already there.
 - Find transformers with search_transformers, then read describe_transformer for each one you intend to use; use only params and ports it lists, and only column names you have seen.
-- Build the whole chain in one propose_nodes call. It becomes a draft that the user reviews and applies; say what it will do in a sentence or two.
+- Build the whole chain in one propose_nodes call. It becomes a draft that the user reviews and applies. Check it with preview_draft, then say what it will do in a sentence or two.
 - If a proposal is refused, read the problems, fix them and propose again.
 - Use inspect_node to check a node's output columns, row counts or errors. What you can see of the data depends on the data level the user chose; do not ask for more than it shows.
 - Ask the user with ask_user only when the request is ambiguous and the data cannot settle it.

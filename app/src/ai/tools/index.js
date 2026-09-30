@@ -9,10 +9,11 @@ import ask from "./ask.js";
 import describe from "./describe.js";
 import graph from "./graph.js";
 import inspect from "./inspect.js";
+import preview from "./preview.js";
 import propose from "./propose.js";
 import search from "./search.js";
 
-export const TOOLS = [search, describe, graph, inspect, propose, ask];
+export const TOOLS = [search, describe, graph, inspect, propose, preview, ask];
 
 export const TOOL_SPECS = TOOLS.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
 

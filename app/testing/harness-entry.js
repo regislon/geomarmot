@@ -18,6 +18,8 @@ import { createCompiler, mainCompiler } from "../src/core/graph/index.js";
 import * as sqlguard from "../src/core/sqlguard/index.js";
 import { REGISTRY, transformerFor } from "../../transformers/index.js";
 import { KINDS } from "../../transformers/_kit/index.js";
+import * as preview from "../src/ai/preview.js";
+import * as draft from "../src/ai/draft.js";
 
 window.__geomarmotHarness = createHarness({
   duck,
@@ -41,4 +43,6 @@ window.__geomarmotInternals = {
   transformerFor,
   KINDS,
   sources,
+  preview,
+  draft,
 };

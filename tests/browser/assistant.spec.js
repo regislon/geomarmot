@@ -73,6 +73,7 @@ test("points from an Excel-style table: get_graph, propose, Apply", async () => 
   const requests = await fakeClaude(page, [
     reply([text("Let me look."), toolUse("get_graph", {})]),
     reply([toolUse("propose_nodes", POINTS)]),
+    reply([toolUse("preview_draft", {})]),
     reply([text("A draft makes points from E/N in Swiss coordinates.")]),
   ]);
   await ask(page, "create points from this file");
@@ -94,6 +95,12 @@ test("points from an Excel-style table: get_graph, propose, Apply", async () => 
   // The summary of the graph went out; the city values did not.
   expect(JSON.stringify(first.body)).toContain('\\"name\\":\\"E\\"');
   expect(everythingSent(requests)).not.toContain("CANARY");
+  // The preview ran the draft on the sample, in its own engine, and reported it at level 1.
+  const preview = JSON.parse(requests[3].body.messages.at(-1).content[0].content);
+  const crs = preview.nodes.find((n) => n.type === "CoordinateSystemSetter");
+  expect(crs).toMatchObject({ state: "ok", draft: true });
+  expect(crs.outputs[0]).toMatchObject({ port: "output", rows: 2, crs: "EPSG:2056" });
+  expect(crs.outputs[0].sample).toBeUndefined();
 
   // One undo removes the whole draft.
   await page.click("#btn-undo");
