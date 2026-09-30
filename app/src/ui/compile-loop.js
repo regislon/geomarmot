@@ -55,12 +55,14 @@ async function updatePortCounts(lease) {
   for (const [nodeId, byPort] of views) {
     for (const [portId, view] of Object.entries(byPort)) ports.push({ nodeId, portId, view });
   }
-  if (!ports.length) {
-    setPortCounts(new Map());
-    return;
-  }
   const selection = ports.map((port, index) => `(SELECT count(*) FROM ${port.view}) AS c${index}`);
   try {
+    // Inside the try, so the lease is released on this path too — a leaked
+    // lease would keep its generation alive and block every later compile.
+    if (!ports.length) {
+      setPortCounts(new Map());
+      return;
+    }
     const rows = await query(`SELECT ${selection.join(", ")}`);
     if (seq !== countSeq) return;
     const counts = new Map();

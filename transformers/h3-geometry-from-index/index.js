@@ -58,6 +58,7 @@ export default defineTransformer({
         description: SAMPLE_DESCRIPTIONS[value] || `One cell in ${value}.`,
       })),
       default: "Auto",
+      coverage: "one",
       description: "How many cells to build hexagons for: all, one in N, or enough for about 50,000.",
     }),
     param.string("geometryColumn", "Geometry attribute", {

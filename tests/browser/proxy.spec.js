@@ -44,6 +44,15 @@ test.beforeAll(async () => {
   writeFileSync(join(root, "bucket/table.csv"), csv);
   if (hasOgr2ogr())
     writeFileSync(join(root, "bucket/sites.gpkg"), geopackage("sites.gpkg", { sites: points([[7, 46, { n: "a" }]]) }));
+  // The storage JSON API's listing, as the fake serves it (query strings are ignored).
+  mkdirSync(join(root, "storage/v1/b/bucket"), { recursive: true });
+  writeFileSync(
+    join(root, "storage/v1/b/bucket/o"),
+    JSON.stringify({
+      prefixes: ["tiles/"],
+      items: [{ name: "table.csv", size: String(csv.length), updated: "2026-01-01T00:00:00Z" }],
+    }),
+  );
   upstream = await serve({
     root,
     onRequest: (req) => requests.push({ path: req.url, range: req.headers.range || null }),
@@ -118,5 +127,18 @@ test("without the launch token, the proxy refuses", async ({ browser }) => {
   await loadUrl(page, "gs://bucket/table.csv");
   await expect(page.locator("#status")).toContainText(/Could not read/);
   expect(requests).toEqual([]);
+  await context.close();
+});
+
+test("the bucket browser lists a bucket through the server and opens a file from it", async ({ browser }) => {
+  const { context, page } = await openApp(browser, true);
+  await page.click("#btn-browse");
+  await expect(page.locator("#browse-modal")).toBeVisible();
+  await page.fill("#browse-bucket", "bucket");
+  await page.click("#browse-go");
+  await expect(page.locator("#browse-list")).toContainText("table.csv");
+  await expect(page.locator("#browse-list")).toContainText("tiles");
+  await page.locator("#browse-list").getByText("table.csv").click();
+  await expect(page.locator("#status")).toContainText("20,000 rows");
   await context.close();
 });

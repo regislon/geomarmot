@@ -64,6 +64,7 @@ export default defineTransformer({
         description: SAMPLE_DESCRIPTIONS[value] || `One row in ${value}.`,
       })),
       default: "Auto",
+      coverage: "one",
       description: "How many rows get a hexagon: all, one in N by row number, or enough for about 50,000.",
     }),
     param.string("geometryColumn", "Geometry attribute", {

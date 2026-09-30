@@ -145,13 +145,28 @@ export function blankSource(fileName, displayName, origin, extra = {}) {
  * Returns the sources the file produced — more than one for a multi-layer
  * container, none when a workbook's sheet picker was dismissed.
  */
+/**
+ * Inflate a gzipped file in the browser.
+ *
+ * This DuckDB-Wasm build cannot decompress gzip itself (it reads the bytes as
+ * text and fails on line 1), so a `.csv.gz` is inflated with the platform's
+ * DecompressionStream and registered under its name without `.gz`.
+ */
+async function gunzip(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+const GZIP = /\.gz$/i;
+
 export async function addLocalFile(file, { chooseSheets = null } = {}) {
   if (XLSX_EXTENSIONS.test(file.name)) {
     const bytes = await file.arrayBuffer();
     return xlsxSheetSources(file.name, bytes, "local", { sizeBytes: file.size }, chooseSheets);
   }
-  const fileName = logicalName(file.name);
-  await registerBuffer(fileName, new Uint8Array(await file.arrayBuffer()));
+  const zipped = GZIP.test(file.name);
+  const fileName = logicalName(zipped ? file.name.replace(GZIP, "") : file.name);
+  const raw = new Uint8Array(await file.arrayBuffer());
+  await registerBuffer(fileName, zipped ? await gunzip(raw) : raw);
   const base = blankSource(fileName, file.name, "local", { sizeBytes: file.size });
   if (base.format === "ogr") {
     return ogrLayerSources(base).catch((err) => {
@@ -178,6 +193,18 @@ export async function addRemoteFile(input, { chooseSheets = null } = {}) {
     }
     const sizeBytes = bytes.byteLength;
     return xlsxSheetSources(displayName, bytes, "url", { url, sizeBytes }, chooseSheets);
+  }
+  if (GZIP.test(displayName)) {
+    // A gzip stream has nothing to range-read, so the file is fetched whole and inflated here.
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const fileName = logicalName(displayName.replace(GZIP, ""));
+    await registerBuffer(fileName, await gunzip(await readWithProgress(response, `Downloading ${displayName}`)));
+    hideProgress();
+    const base = blankSource(fileName, displayName, "url", { url });
+    await introspect(base);
+    sources.set(base.id, base);
+    return [base];
   }
   const fileName = logicalName(displayName);
   await registerUrl(fileName, url);

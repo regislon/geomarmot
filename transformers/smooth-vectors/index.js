@@ -35,6 +35,7 @@ export default defineTransformer(
           { value: "4", description: "Four passes: sixteen times the vertices." },
         ],
         default: "2",
+        coverage: "one",
         description: "How many times to cut every corner; each pass doubles the number of vertices.",
       }),
     ],

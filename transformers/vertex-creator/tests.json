@@ -807,6 +807,92 @@
         }
       },
       "expect": { "error": "Set an X Value and a Y Value" }
+    },
+    {
+      "name": "Replace Point at Index across geometry types",
+      "params": {
+        "mode": "Replace Point at Index",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "index": { "kind": "Value", "type": "Number", "value": "-1" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", null],
+            ["point", "POINT (1 1)"],
+            ["line", "LINESTRING (0 0, 2 0)"],
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))"],
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))"],
+            ["multi", "MULTIPOINT ((0 0), (1 1))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", "POINT (9 9)"],
+            ["point", "POINT (9 9)"],
+            ["line", "LINESTRING (0 0, 9 9)"],
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 9 9, 0 0))"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))", "POLYGON_WITH_HOLES"],
+            ["multi", "MULTIPOINT (0 0, 1 1)", "UNSUPPORTED_GEOMETRY_TYPE"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Insert Point at Index -1 on a polygon inserts before its closing vertex",
+      "params": {
+        "mode": "Insert Point at Index",
+        "x": { "kind": "Value", "type": "Number", "value": "2" },
+        "y": { "kind": "Value", "type": "Number", "value": "5" },
+        "index": { "kind": "Value", "type": "Number", "value": "-1" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POLYGON ((0 0, 4 0, 4 4, 0 4, 2 5, 0 0))"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
     }
   ]
 }

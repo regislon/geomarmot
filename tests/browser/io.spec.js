@@ -5,7 +5,8 @@
 import { test, expect } from "@playwright/test";
 import * as XLSX from "xlsx";
 import { openHarness } from "../harness/target.js";
-import { geopackage, hasOgr2ogr, points, workbook } from "../fixtures/build.js";
+import { gzipSync } from "node:zlib";
+import { flatgeobuf, geopackage, hasOgr2ogr, points, workbook } from "../fixtures/build.js";
 
 let h;
 test.beforeAll(async ({ browser }) => {
@@ -79,6 +80,29 @@ test.describe("readers", () => {
       ["1", "a", 1.5],
       ["2", "b", 2],
     ]);
+  });
+
+  test("TSV and gzipped CSV", async () => {
+    const tsv = await readSource("tabs.tsv", Buffer.from("id\tname\n1\ta\n"));
+    expect(tsv.table.rows).toEqual([["1", "a"]]);
+    const gz = await readSource("packed.csv.gz", gzipSync(Buffer.from("id,name\n1,a\n2,b\n")));
+    expect(gz.table.rows.length).toBe(2);
+  });
+
+  test("GeoJSON, as .geojson and as .json", async () => {
+    const collection = JSON.stringify(points([[7, 46, { name: "a" }]]));
+    for (const name of ["pts.geojson", "pts.json"]) {
+      const read = await readSource(name, Buffer.from(collection));
+      const geometry = read.table.columns.findIndex((c) => c.type === "GEOMETRY");
+      expect(read.table.rows[0][geometry], name).toBe("POINT (7 46)");
+    }
+  });
+
+  test("FlatGeobuf", async () => {
+    test.skip(!hasOgr2ogr(), "ogr2ogr (GDAL) is needed to build the FlatGeobuf fixture");
+    const read = await readSource("sites.fgb", flatgeobuf("sites.fgb", points([[8, 47, { n: "x" }]])));
+    const geometry = read.table.columns.findIndex((c) => c.type === "GEOMETRY");
+    expect(read.table.rows[0][geometry]).toBe("POINT (8 47)");
   });
 
   test("GeoPackage: one source per layer", async () => {

@@ -62,6 +62,7 @@ export default defineTransformer({
     param.select("resolution", "Resolution", {
       options: Array.from({ length: 16 }, (_, r) => ({ value: String(r), description: `H3 resolution ${r}.` })),
       default: "7",
+      coverage: "one",
       description: "The H3 resolution of the cells, from 0 (continent-sized) to 15 (under a square metre).",
     }),
     param.select("mode", "Polygon fill mode", {

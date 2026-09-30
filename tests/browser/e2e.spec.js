@@ -134,3 +134,18 @@ test("dropping a file on the canvas adds a wired Reader and shows its rows", asy
   await expect(page.locator("#canvas .node-title")).toHaveText("Reader");
   await expect(page.locator("#table-body tr")).toHaveCount(3);
 });
+
+test("a large workbook shows the loading bar while it is read", async () => {
+  const { page } = app;
+  const rows = [["id", "name", "v"], ...Array.from({ length: 30000 }, (_, k) => [k, `row ${k}`, k / 3])];
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), "big");
+  const bytes = XLSX.write(book, { type: "buffer", bookType: "xlsx" });
+  const shown = page.waitForSelector("#progress:not([hidden])", { timeout: 30_000 });
+  await page.setInputFiles("#file-input", { name: "big.xlsx", buffer: bytes });
+  await shown;
+  await expect(page.locator("#progress-label")).not.toBeEmpty();
+  await page.click("#sheet-add");
+  await expect(page.locator("#status")).toContainText("30,000 rows", { timeout: 60_000 });
+  await expect(page.locator("#progress")).toBeHidden();
+});

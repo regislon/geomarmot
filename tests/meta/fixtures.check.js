@@ -48,7 +48,8 @@ function problems(f) {
   if (t.role !== "sink")
     for (const port of allPorts) if (!exercised.has(port)) out.push(`output port "${port}" is never exercised`);
   for (const p of t.params) {
-    if (p.kind !== "select" || !Array.isArray(p.options)) continue;
+    // Levels (resolutions, sample steps, passes) need one case, not one per value.
+    if (p.kind !== "select" || !Array.isArray(p.options) || p.coverage === "one") continue;
     const missing = optionValues(p).filter((v) => !optionsSeen.get(p.id)?.has(String(v)));
     if (missing.length)
       (OPTIONS_FAIL ? out : warnings).push(`param ${p.id}: no case for ${missing.map((m) => `"${m}"`).join(", ")}`);

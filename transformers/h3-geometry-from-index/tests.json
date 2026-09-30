@@ -63,6 +63,35 @@
           ]
         }
       }
+    },
+    {
+      "name": "Auto keeps every cell of a small input",
+      "params": { "indexColumn": "h3_index", "sample": "Auto" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "h3_index", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["8a1f8d7a49a7fff"]
+          ]
+        }
+      },
+      "geometry": {
+        "ignore": ["ringStart"],
+        "why": "h3-js chooses where each hexagon's ring starts"
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "h3_index", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["8a1f8d7a49a7fff", "POLYGON ((11.572820115676455 48.1388658441053, 11.57254030293573 48.13822169316727, 11.573258384194206 48.137778736480215, 11.574256282772167 48.13797992748678, 11.574536111428637 48.13862407846324, 11.573818025591516 48.13906703839477, 11.572820115676455 48.1388658441053))"]
+          ]
+        }
+      }
     }
   ]
 }

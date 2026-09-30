@@ -37,6 +37,17 @@ export function geopackage(fileName, layers, { srs = "EPSG:4326" } = {}) {
   return readFileSync(out);
 }
 
+/** A FlatGeobuf file from a GeoJSON FeatureCollection. */
+export function flatgeobuf(fileName, collection, { srs = "EPSG:4326" } = {}) {
+  mkdirSync(GENERATED, { recursive: true });
+  const out = join(GENERATED, fileName);
+  const src = join(GENERATED, `${fileName}.geojson`);
+  if (existsSync(out)) rmSync(out);
+  writeFileSync(src, JSON.stringify(collection));
+  execFileSync("ogr2ogr", ["-f", "FlatGeobuf", "-a_srs", srs, out, src], { stdio: "pipe" });
+  return readFileSync(out);
+}
+
 export function points(rows) {
   return {
     type: "FeatureCollection",

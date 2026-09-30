@@ -17,4 +17,40 @@ deliberately differs.
 
 ## Checklist
 
-Filled in as the parity tests land; see PLAN.md §1 for the full list.
+Every item of PLAN.md §1, with the test that holds it. `T` = fixture or I/O test, `E` = end to end.
+
+### Reading
+
+| | Item | Test |
+|---|---|---|
+| ✅ | Parquet / GeoParquet, local drop (T) and remote URL with range reads (E) | `tests/browser/io.spec.js` › Parquet, GeoParquet; `proxy.spec.js` › range requests; decision 0005 |
+| ✅ | GeoPackage, one layer per row; GeoJSON / `.json`; FlatGeobuf (T) | `io.spec.js` › GeoPackage, GeoJSON, FlatGeobuf |
+| ✅ | CSV / TSV / `.gz` via DuckDB's sniffer (T) | `io.spec.js` › CSV, TSV and gzipped CSV |
+| ✅ | Excel in a worker: sheet and header-row steps, per-cell types, dates, empty unnamed columns dropped (T + E) | `io.spec.js` › Excel; `e2e.spec.js` › Excel |
+| ✅ | Zarr v2 through the picker, with a priced plan (E) | `zarr.spec.js` |
+| ✅ | CRS per source, CRS override, reprojection to lon/lat on read (T) | `transformers/reader/tests.json`; `io.spec.js` › projected GeoPackage |
+| ✅ | Bucket browser, type a bucket, through the local proxy (E) | `proxy.spec.js` › bucket browser |
+| ✅ | Loading bar with real progress (E) | `e2e.spec.js` › loading bar |
+
+### Transformers
+
+| | Item | Test |
+|---|---|---|
+| ✅ | All 44 transformers, every output port, every main option | `transformers/*/tests.json`, run by `fixtures.spec.js`; rules by `npm run check:fixtures` |
+
+### Writing
+
+| | Item | Test |
+|---|---|---|
+| ✅ | Parquet, GeoParquet (metadata self-check), GeoJSON (CRS member when projected), CSV, Excel (WKT, 64-bit integers as text, date cells, the 32,767-character limit) (T) | `transformers/writer/tests.json`; `io.spec.js` › writers |
+
+### Workbench
+
+| | Item | Test |
+|---|---|---|
+| ✅ | Canvas: drop a file, link ports by dragging, arrange, undo/redo (E) | `e2e.spec.js` › dropping a file; `workbench.spec.js` › link, Arrange |
+| ✅ | Inspector generated from params; editing a value changes the output; `?` help (E) | `workbench.spec.js` › editing a parameter, help |
+| ✅ | Attribute grid, per-feature geometry panel (E) | `e2e.spec.js`; `workbench.spec.js` › feature panel |
+| ✅ | Map panel: draws, reprojects a labelled stream for display, refuses non-degree coordinates (E) | `workbench.spec.js` › map |
+| ✅ | H3 view with the coarsen control (E) | `workbench.spec.js` › H3 index column |
+| ✅ | Save and open graph; autosave (E) | `workbench.spec.js` › save graph and autosave; `e2e.spec.js` › open graph, export |

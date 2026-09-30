@@ -6,8 +6,8 @@
 
 import { serve } from "../harness/serve.js";
 
-export async function openApp(browser) {
-  const server = await serve({ root: "dist" });
+export async function openApp(browser, { files } = {}) {
+  const server = await serve({ root: "dist", files });
   const context = await browser.newContext({ acceptDownloads: true });
   const page = await context.newPage();
   const errors = [];

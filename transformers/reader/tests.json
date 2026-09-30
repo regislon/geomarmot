@@ -104,6 +104,41 @@
           ]
         }
       }
+    },
+    {
+      "name": "row number No never adds it, even for a dense tile",
+      "params": { "rowNumber": "No" },
+      "source": {
+        "fileName": "891f8d7a49bffff.parquet",
+        "columns": [
+          { "name": "value", "type": "DOUBLE" }
+        ],
+        "rows": [
+          [0.1],
+          [0.2],
+          [0.3],
+          [0.4],
+          [0.5],
+          [0.6],
+          [0.7]
+        ]
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "value", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [0.1],
+            [0.2],
+            [0.3],
+            [0.4],
+            [0.5],
+            [0.6],
+            [0.7]
+          ]
+        }
+      }
     }
   ]
 }

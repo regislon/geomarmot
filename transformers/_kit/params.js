@@ -59,6 +59,7 @@ export const KINDS = {
  * @property {"numeric"} [filter]
  * @property {(node: any) => boolean} [when]  show the field only when this holds
  * @property {string} [units]
+ * @property {"one"} [coverage]   for a select of levels: fixtures need one case, not one per option
  */
 
 function make(kind) {
