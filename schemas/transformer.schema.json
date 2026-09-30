@@ -34,7 +34,8 @@
         "Geometry",
         "Analysis",
         "H3",
-        "Output"
+        "Output",
+        "Custom"
       ]
     },
     "role": {

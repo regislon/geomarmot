@@ -21,8 +21,8 @@ export default {
       },
     },
   },
-  async run({ query, limit }) {
-    const results = searchCatalogue(query, { limit }).map(({ id, name, group, summary }) => ({
+  async run({ query, limit }, { level }) {
+    const results = searchCatalogue(query, { limit, level }).map(({ id, name, group, summary }) => ({
       id,
       name,
       group,

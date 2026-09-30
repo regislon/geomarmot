@@ -51,6 +51,7 @@ import { autosave, exportGraph, importGraph, restoreAutosave } from "./ui/persis
 import { initQuickAdd } from "./ui/quickadd.js";
 import { addZarrSource, loadUrl, renderPalette, renderSources } from "./ui/rail.js";
 import { initAssistant } from "./ui/assistant/index.js";
+import { installStoredCustoms, onCustomInstalled } from "./ai/spec/install.js";
 
 /* ---------- boot ---------- */
 
@@ -124,6 +125,7 @@ async function main() {
     onLayoutChange: autosave,
   });
   renderPalette();
+  onCustomInstalled(() => renderPalette());
   renderSources();
   initDropZone();
   initDockResizer();
@@ -205,7 +207,10 @@ async function main() {
   // the data engine must not wait on the scenery.
   initMap("map", el("map-status"), el("basemap-select"), { onResolution: renderCoarsenSelect });
   await boot();
-  restoreAutosave();
+  // Generated transformers first: the autosaved graph may use them.
+  await installStoredCustoms();
+  await restoreAutosave();
+  renderPalette();
   // The restored graph is the baseline; undo should not walk back past it into
   // an empty canvas the user never saw.
   resetHistoryBaseline();

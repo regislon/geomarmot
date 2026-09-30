@@ -11,7 +11,7 @@ import { KINDS } from "./params.js";
 
 export const API_VERSION = 1;
 const ROLES = new Set(["transform", "source", "sink"]);
-const HOOKS = ["sql", "crs", "prepare", "check", "write"];
+const HOOKS = ["sql", "crs", "prepare", "check", "write", "expand", "guardFragments"];
 
 /**
  * @typedef {{ id: string, label: string, description?: string }} Port
@@ -44,6 +44,10 @@ const HOOKS = ["sql", "crs", "prepare", "check", "write"];
  * @property {{id: string, label: string}} [action]
  * @property {boolean} [aiUsable]
  * @property {any} [help]
+ * @property {(node: any) => any} [expand]      generated transformers only: the internal nodes it compiles as
+ * @property {(params: any) => Array<{ context: string, sql: string, relations?: string[], path: string }>} [guardFragments]
+ *   internal template steps only: the untrusted SQL the guard must check, in placeholder form
+ * @property {{ spec: any, level: number }} [generated]  generated transformers only: the spec and the data level it was written at
  */
 
 function fail(id, message) {
@@ -120,5 +124,8 @@ export function defineTransformer(spec) {
     action: spec.action || null,
     aiUsable: spec.aiUsable ?? !["source", "sink"].includes(role),
     help: spec.help || null,
+    expand: spec.expand || null,
+    guardFragments: spec.guardFragments || null,
+    generated: spec.generated || null,
   });
 }

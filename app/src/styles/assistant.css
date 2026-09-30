@@ -173,3 +173,8 @@
   background: var(--blue-soft);
   color: #fff;
 }
+
+#palette button.generated {
+  border-style: dashed;
+  border-color: var(--blue-soft);
+}

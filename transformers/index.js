@@ -138,6 +138,7 @@ export const PALETTE_GROUPS = [
   "Analysis",
   "H3",
   "Output",
+  "Custom",
 ];
 
 /**
@@ -219,6 +220,15 @@ export function defaultParams(type) {
 
 /** Register a transformer outside the palette, for the test harness only. */
 export function registerForTests(definition) {
+  REGISTRY.set(definition.id, definition);
+}
+
+/** Register a generated transformer (Mode B, group "Custom"), replacing an older version of it. */
+export function registerGenerated(definition) {
+  if (definition.group !== "Custom" || !definition.generated)
+    throw new Error(`${definition.id}: not a generated transformer.`);
+  const existing = REGISTRY.get(definition.id);
+  if (existing && !existing.generated) throw new Error(`${definition.id} is a built-in transformer.`);
   REGISTRY.set(definition.id, definition);
 }
 

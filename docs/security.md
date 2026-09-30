@@ -103,6 +103,24 @@ draft are sampled (at most 1,000 rows) and copied into it, and the draft is comp
 graph's engine. A preview that runs longer than 10 s is stopped by terminating its instance, and the
 instance is thrown away on Apply, on Discard, and when a new draft replaces the old one.
 
+**Generated transformers.** When no built-in transformer fits, the assistant can write one: typed
+params, and steps that are SQL templates or calls to built-in transformers. Its spec is checked
+whole before it is installed, and again when a graph file brings it in.
+
+- A template is one SELECT with three kinds of placeholder and nothing else in braces:
+  `{{inputs.x}}` and `{{steps.y}}` become relation names; `{{params.z}}` is rendered by the param's
+  kind as a quoted identifier, an identifier list, a finite number or a quoted string. There is no
+  raw splicing. The rendered template goes through the SQL guard in its template context — one
+  SELECT, reading only the relations it names — at proposal and at every compile, with the node's
+  current params.
+- A call step can only call a reviewed, built-in transformer the assistant may use, never another
+  generated one. It compiles as an ordinary restricted node, so its SQL params are guarded like
+  any other, and it has no unrestricted toggle.
+- Generated transformers are kept in this browser (IndexedDB) and in any graph file that uses them.
+  Below the data level they were written at, the assistant sees only their name, ports and param
+  ids — not their descriptions, labels or literals.
+- The assistant gets three refused proposals per message; then it stops.
+
 **What the assistant may not do.** It cannot add a Reader or a Writer (so it can neither open new
 files nor write output), cannot set a node's SQL mode, and every SQL fragment it writes goes
 through the guard above, at proposal and again at every compile.

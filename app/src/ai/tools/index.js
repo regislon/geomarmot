@@ -12,8 +12,9 @@ import inspect from "./inspect.js";
 import preview from "./preview.js";
 import propose from "./propose.js";
 import search from "./search.js";
+import transformer from "./transformer.js";
 
-export const TOOLS = [search, describe, graph, inspect, propose, preview, ask];
+export const TOOLS = [search, describe, graph, inspect, propose, transformer, preview, ask];
 
 export const TOOL_SPECS = TOOLS.map(({ name, description, input_schema }) => ({ name, description, input_schema }));
 

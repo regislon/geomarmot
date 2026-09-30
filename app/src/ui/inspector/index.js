@@ -28,6 +28,8 @@ import {
 import { renderSqlCreateParam, renderSqlTextParam, renderValuesParam } from "./kinds-sql.js";
 import { renderValueSpec } from "./kinds-value.js";
 import { clearStaleSuggestionLists, columnNames, h, select, textInput } from "./widgets.js";
+import { exportAsFolder, exportBlocker } from "../assistant/export-folder.js";
+import { setStatus } from "../dom.js";
 
 const PARAM_RENDERERS = {
   // One value — a constant, an attribute, a formula or SQL — for parameters
@@ -145,6 +147,11 @@ export function renderInspector(container, node, context) {
     ask.addEventListener("click", () => context.onHelp(transformer.help));
     heading.appendChild(ask);
   }
+  if (transformer.generated) {
+    heading.appendChild(
+      h("span", { class: "badge ai", text: "generated", title: "A transformer the assistant wrote" }),
+    );
+  }
   // Display only: which params the assistant wrote. Plays no part in what the SQL guard checks.
   if (node.aiFields?.length) {
     heading.appendChild(
@@ -156,6 +163,22 @@ export function renderInspector(container, node, context) {
     );
   }
   container.appendChild(heading);
+  if (transformer.generated) {
+    const blocker = exportBlocker(transformer);
+    const button = h("button", {
+      class: "wide-btn",
+      id: "export-folder",
+      text: "Export as folder",
+      title: blocker || "Download it as a transformer folder to review and commit",
+      onclick: () =>
+        exportAsFolder(node, transformer).then(
+          (folder) => setStatus(`Exported ${folder}.tar: review it, then add it under transformers/.`),
+          (err) => setStatus(err.message, true),
+        ),
+    });
+    if (blocker) button.setAttribute("disabled", "");
+    container.appendChild(button);
+  }
   if (transformer.hint) container.appendChild(h("p", { class: "muted", text: transformer.hint }));
   /*
    * Only shown when it is not lon/lat. The whole graph is lon/lat by default,

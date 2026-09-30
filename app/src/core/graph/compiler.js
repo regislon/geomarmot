@@ -22,6 +22,7 @@ import { guardNode } from "../sqlguard/index.js";
 import { transformerFor } from "../../../../transformers/index.js";
 import { incomingEdge, topoOrder, upstreamSource } from "./model.js";
 import { runNode } from "./node.js";
+import { applyAliases, expandGraph } from "./expand.js";
 
 class AbortError extends Error {}
 
@@ -122,8 +123,9 @@ export function createCompiler({ namespace, getGraph, getSources, engine = mainE
     if (signal.aborted) throw new AbortError();
     generation += 1;
     const gen = generation;
-    const snapshot = structuredClone(getGraph());
+    let snapshot = structuredClone(getGraph());
     const sources = getSources();
+    let aliases = new Map();
     const record = {
       gen,
       views: [],
@@ -136,6 +138,8 @@ export function createCompiler({ namespace, getGraph, getSources, engine = mainE
     };
     const c = await conn();
     try {
+      // Generated transformers compile as their internal nodes (./expand.js).
+      ({ graph: snapshot, aliases } = expandGraph(snapshot));
       const ordered = topoOrder(snapshot);
       if (!ordered) {
         record.error = { message: "The graph contains a loop." };
@@ -156,6 +160,9 @@ export function createCompiler({ namespace, getGraph, getSources, engine = mainE
       await drop(record);
       throw new AbortError();
     }
+    applyAliases(record, aliases);
+    const internal = record.error?.nodeId?.split("__");
+    if (internal && internal.length > 1 && aliases.has(internal[0])) record.error.nodeId = internal[0];
     // Publish: this generation replaces the current one, which retires.
     if (current) retired.add(current);
     current = record;

@@ -15,8 +15,8 @@ export default {
       id: { type: "string", maxLength: 60, description: "The transformer id, for example VertexCreator." },
     },
   },
-  async run({ id }) {
-    const entry = catalogue().find((e) => e.id === id && e.aiUsable);
+  async run({ id }, { level }) {
+    const entry = catalogue({ level }).find((e) => e.id === id && e.aiUsable);
     if (!entry)
       return {
         type: "error",

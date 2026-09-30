@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/regislon/geomarmot/app/src/ai/spec/schema.json",
+  "title": "Generated transformer spec (Mode B)",
+  "description": "A transformer the assistant writes: typed params, and steps that are either SQL templates or calls to reviewed transformers. Every property is required so the shape also works as a strict tool schema; use empty strings and lists for what does not apply.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "summary", "description", "inputs", "outputs", "params", "steps"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^Custom[A-Z][A-Za-z0-9]{1,40}$",
+      "description": "PascalCase, starting with Custom."
+    },
+    "name": { "type": "string", "maxLength": 60 },
+    "summary": { "type": "string", "minLength": 20, "maxLength": 160 },
+    "description": { "type": "string", "maxLength": 2000 },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,30}$" },
+          "label": { "type": "string", "maxLength": 60 },
+          "description": { "type": "string", "maxLength": 300 }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "description", "from"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,30}$" },
+          "label": { "type": "string", "maxLength": 60 },
+          "description": { "type": "string", "maxLength": 300 },
+          "from": {
+            "type": "string",
+            "pattern": "^steps\\.[a-z][a-z0-9_]{0,30}(\\.[a-z][A-Za-z0-9_]{0,40})?$",
+            "description": "steps.<id> or steps.<id>.<port>"
+          }
+        }
+      }
+    },
+    "params": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "kind", "description", "options", "default_json"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,30}$" },
+          "label": { "type": "string", "maxLength": 60 },
+          "kind": { "enum": ["string", "number", "select", "column", "columns"] },
+          "description": { "type": "string", "maxLength": 300 },
+          "options": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 60 } },
+          "default_json": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "The default as JSON, or empty for none."
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "template", "transformer", "inputs", "params_json"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,30}$" },
+          "kind": { "enum": ["sql", "call"] },
+          "template": {
+            "type": "string",
+            "maxLength": 8000,
+            "description": "sql steps: a SELECT using {{inputs.x}}, {{steps.y}}, {{params.z}}; empty for call steps."
+          },
+          "transformer": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "call steps: the transformer to call; empty for sql steps."
+          },
+          "inputs": {
+            "type": "array",
+            "maxItems": 4,
+            "description": "call steps: what feeds each of the called transformer's input ports; empty for sql steps.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["port", "from"],
+              "properties": {
+                "port": { "type": "string", "maxLength": 40 },
+                "from": {
+                  "type": "string",
+                  "pattern": "^(inputs\\.[a-z][a-z0-9_]{0,30}|steps\\.[a-z][a-z0-9_]{0,30}(\\.[a-z][A-Za-z0-9_]{0,40})?)$"
+                }
+              }
+            }
+          },
+          "params_json": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "call steps: the called transformer's params as JSON; a string value \"{{params.x}}\" takes this transformer's param x. Empty for sql steps."
+          }
+        }
+      }
+    }
+  }
+}

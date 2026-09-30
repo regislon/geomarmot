@@ -7,7 +7,7 @@
  */
 
 import { LONLAT } from "../schema.js";
-import { canonicalType, defaultParams, transformerFor } from "../../../../transformers/index.js";
+import { REGISTRY, canonicalType, defaultParams, transformerFor } from "../../../../transformers/index.js";
 
 export const graph = { nodes: [], edges: [] };
 
@@ -155,7 +155,11 @@ export function serialize() {
       ...(node.paramOrigin && { paramOrigin: structuredClone(node.paramOrigin) }),
     })),
     edges: graph.edges.map((edge) => ({ ...edge })),
-    custom: [],
+    // The generated transformers this graph uses, so the file works in another browser.
+    custom: [...new Set(graph.nodes.map((node) => node.type))]
+      .map((type) => REGISTRY.get(type)?.generated)
+      .filter(Boolean)
+      .map(({ spec, level }) => ({ spec: structuredClone(spec), level })),
   };
 }
 

@@ -20,6 +20,9 @@ import { REGISTRY, transformerFor } from "../../transformers/index.js";
 import { KINDS } from "../../transformers/_kit/index.js";
 import * as preview from "../src/ai/preview.js";
 import * as draft from "../src/ai/draft.js";
+import * as specInstall from "../src/ai/spec/install.js";
+import * as specValidate from "../src/ai/spec/validate.js";
+import * as intake from "../src/ai/intake.js";
 
 window.__geomarmotHarness = createHarness({
   duck,
@@ -45,4 +48,6 @@ window.__geomarmotInternals = {
   sources,
   preview,
   draft,
+  spec: { ...specInstall, ...specValidate },
+  intake,
 };

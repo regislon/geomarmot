@@ -22,6 +22,8 @@ import { GateError, errorPayload, gate, structured } from "./gate/index.js";
 import { TOOL_SPECS, toolNamed } from "./tools/index.js";
 
 export const MAX_TURNS = 12;
+/** Refused proposals (nodes or transformers) allowed per message before the assistant stops trying. */
+export const MAX_REPAIRS = 3;
 
 export const SYSTEM_PROMPT = `You help people build data-processing graphs in GeoMarmot, a spatial ETL tool that runs in their browser.
 
@@ -34,6 +36,7 @@ How to work:
 - If a proposal is refused, read the problems, fix them and propose again.
 - Use inspect_node to check a node's output columns, row counts or errors. What you can see of the data depends on the data level the user chose; do not ask for more than it shows.
 - Ask the user with ask_user only when the request is ambiguous and the data cannot settle it.
+- Only when no built-in transformer or chain of them can do it, write one with propose_transformer, then use it in propose_nodes.
 
 SQL params (SQLTransformer, AttributeCreator's SQL mode, SQL value specs) may only read the node's own input, called input; no table functions, no other tables, no files.
 
@@ -52,6 +55,7 @@ export async function runTurn(
 ) {
   conversation.addUserMessage(text);
   onUpdate();
+  let refused = 0;
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const { signal, epoch } = conversation.begin();
     let response;
@@ -109,6 +113,12 @@ export async function runTurn(
     }
     conversation.addToolResults(results);
     onUpdate();
+    refused += results.filter((r) => r.isError && r.name.startsWith("propose_")).length;
+    if (refused >= MAX_REPAIRS) {
+      conversation.note("notice", `Stopped after ${MAX_REPAIRS} refused proposals; the problems are listed above.`);
+      onUpdate();
+      return "repair_limit";
+    }
   }
   conversation.note("notice", `Stopped after ${MAX_TURNS} steps; send another message to continue.`);
   onUpdate();

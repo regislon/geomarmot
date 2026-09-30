@@ -135,7 +135,13 @@ export function fragmentsOf(transformer, params) {
         break;
       case "creates":
       case "valuerows":
-        (value || []).forEach((row, i) => spec(`params.${p.id}[${i}].value`, row?.value));
+        (value || []).forEach((row, i) => {
+          spec(`params.${p.id}[${i}].value`, row?.value);
+          // The older `creates` rows hold a bare expression rather than a value spec.
+          if (typeof row?.expression === "string" && row.expression.trim()) {
+            out.push({ path: `params.${p.id}[${i}].expression`, context: "expression", sql: row.expression });
+          }
+        });
         break;
       case "actions":
         (value || []).forEach((row, i) => {
@@ -157,6 +163,19 @@ export function fragmentsOf(transformer, params) {
  * refusal, or null when all pass.
  */
 export async function guardNode(transformer, node) {
+  // A template step is generated SQL: always guarded, whatever mode a node claims.
+  if (transformer.guardFragments) {
+    let fragments;
+    try {
+      fragments = transformer.guardFragments(node.params);
+    } catch (err) {
+      return { ok: false, code: err.code || "SQL_FORBIDDEN_CONSTRUCT", message: err.message, path: "template" };
+    }
+    for (const fragment of fragments) {
+      const verdict = await validate(fragment.sql, fragment.context, { relations: fragment.relations });
+      if (!verdict.ok) return { ...verdict, path: fragment.path };
+    }
+  }
   if ((node.sqlMode || "restricted") === "unrestricted") return null;
   for (const fragment of fragmentsOf(transformer, node.params)) {
     const verdict = await validate(fragment.sql, fragment.context);
