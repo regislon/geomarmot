@@ -34,7 +34,25 @@ import AreaOnAreaOverlayer from "./area-on-area-overlayer/index.js";
 import FeatureJoiner from "./feature-joiner/index.js";
 import Unioner from "./unioner/index.js";
 
+// Reshape
+import Aggregator from "./aggregator/index.js";
+import BoundingBoxReplacer from "./bounding-box-replacer/index.js";
+import Bufferer from "./bufferer/index.js";
+import Dissolver from "./dissolver/index.js";
+import SQLTransformer from "./sql-transformer/index.js";
+import Sampler from "./sampler/index.js";
+import Sorter from "./sorter/index.js";
+import StatisticsCalculator from "./statistics-calculator/index.js";
+
 const NATIVE = [
+  SQLTransformer,
+  Sampler,
+  BoundingBoxReplacer,
+  Bufferer,
+  Dissolver,
+  StatisticsCalculator,
+  Aggregator,
+  Sorter,
   AreaOnAreaOverlayer,
   Unioner,
   FeatureJoiner,
@@ -160,4 +178,4 @@ export function registerForTests(definition) {
 }
 
 export { OPERATORS } from "./_kit/index.js";
-export { AGGREGATE_FUNCTIONS } from "./legacy.js";
+export { AGGREGATE_FUNCTIONS } from "./aggregator/index.js";
