@@ -1,0 +1,88 @@
+name: package
+
+# The installed forms of GeoMarmot: the wheel in a fresh virtualenv, and the Docker image. Runs when
+# anything that goes into them changes, and from release.yml before publishing.
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "transformers/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.*"
+      - "duckdb-extensions.lock.json"
+      - "scripts/fetch-duckdb-extensions.js"
+      - "server/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/**"
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update && sudo apt-get install -y gdal-bin
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Build the wheel and the sdist
+        working-directory: server
+        run: uv build --out-dir ../packages
+      - name: Install the wheel into a fresh virtualenv
+        run: |
+          uv venv /tmp/gm
+          VIRTUAL_ENV=/tmp/gm uv pip install packages/*.whl
+      - name: Smoke test the installed package
+        working-directory: /tmp
+        run: /tmp/gm/bin/python "$GITHUB_WORKSPACE/server/tests/support/smoke_installed.py"
+      - name: Offline first load against the installed server
+        run: |
+          /tmp/gm/bin/geomarmot --no-browser --port 8765 &
+          for i in $(seq 50); do curl -sf http://127.0.0.1:8765/healthz && break; sleep 0.2; done
+          OFFLINE_URL=http://127.0.0.1:8765 npx playwright test tests/browser/offline.spec.js
+      - name: A wheel built from the sdist still carries the app
+        run: |
+          mkdir /tmp/sd && tar -xzf packages/*.tar.gz -C /tmp/sd
+          cd /tmp/sd/geomarmot-* && uv build --wheel --out-dir /tmp/sdwheel
+          python3 -c "import zipfile,glob; n=zipfile.ZipFile(glob.glob('/tmp/sdwheel/*.whl')[0]).namelist(); assert 'geomarmot/static/index.html' in n"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: packages/
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y gdal-bin
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: docker build -t geomarmot:ci .
+      - name: Run the image the documented way
+        run: |
+          docker run -d --name gm -p 127.0.0.1:8080:8080 geomarmot:ci
+          for i in $(seq 100); do curl -sf -H "Host: localhost:8080" http://127.0.0.1:8080/healthz && break; sleep 0.3; done
+          docker logs gm | grep -q "#t=" # the launch link is printed
+      - name: Smoke test the container
+        run: |
+          curl -sf -H "Host: localhost:8080" http://127.0.0.1:8080/ | grep -q "<title>GeoMarmot</title>"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: 192.168.1.20:8080' http://127.0.0.1:8080/)" = 403
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: localhost:8080' http://127.0.0.1:8080/proxy/gs/b/k)" = 401
+      - name: Offline first load against the container
+        run: OFFLINE_URL=http://localhost:8080 npx playwright test tests/browser/offline.spec.js
+      - if: always()
+        run: docker logs gm || true

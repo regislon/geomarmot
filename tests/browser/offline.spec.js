@@ -9,10 +9,14 @@ import { existsSync } from "node:fs";
 import { serve } from "../harness/serve.js";
 import { geopackage, hasOgr2ogr, points, workbook } from "../fixtures/build.js";
 
-test.skip(!existsSync("dist/index.html"), "needs the production build (npm run build)");
+// OFFLINE_URL points the test at an installed server (the wheel, the Docker image) instead of dist/.
+const target = process.env.OFFLINE_URL;
+test.skip(!target && !existsSync("dist/index.html"), "needs the production build (npm run build)");
 
 test("first load with the network blocked: spatial, GeoPackage and Excel all work", async ({ browser }) => {
-  const server = await serve({ root: process.env.OFFLINE_ROOT || "dist" });
+  const server = target
+    ? { url: target.replace(/\/$/, ""), close() {} }
+    : await serve({ root: process.env.OFFLINE_ROOT || "dist" });
   const context = await browser.newContext();
   const blocked = [];
   await context.route("**/*", (route) => {
