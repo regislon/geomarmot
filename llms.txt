@@ -1,0 +1,19 @@
+# GeoMarmot
+
+> Spatial ETL in the browser. A graph of transformers compiles to DuckDB-Wasm views; each
+> transformer is one folder under transformers/ with index.js, README.md and tests.json.
+
+## Start here
+
+- [AGENTS.md](AGENTS.md): architecture, golden rules, commands
+- [docs/transformer-api.md](docs/transformer-api.md): the transformer contract
+- [docs/params.md](docs/params.md): every parameter kind
+- [docs/engines.md](docs/engines.md): pure SQL, SQL + prepare, crs hooks
+- [docs/code-economy.md](docs/code-economy.md): write less code
+
+## Reference
+
+- [docs/architecture.md](docs/architecture.md)
+- [docs/formats.md](docs/formats.md): readers and writers
+- [docs/security.md](docs/security.md): proxy, SQL guard, AI privacy
+- [docs/decisions/](docs/decisions/README.md)
