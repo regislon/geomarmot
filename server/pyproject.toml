@@ -1,0 +1,48 @@
+[project]
+name = "geomarmot"
+version = "0.0.0"
+description = "Spatial ETL in your browser: local server for GeoMarmot (static app, bucket proxy, AI relay)."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn>=0.32",
+  # The [requests] extra is required: google.auth.transport.requests will not import without it,
+  # and the proxy would then silently fall back to anonymous access.
+  "google-auth[requests]>=2.30",
+]
+
+[project.optional-dependencies]
+ai = ["anthropic>=0.60", "openai>=1.60"]
+
+[project.scripts]
+geomarmot = "geomarmot.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["geomarmot"]
+artifacts = ["geomarmot/static/**"]
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["geomarmot/static/**"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
