@@ -6,7 +6,6 @@ import {
   SINGLE_IN,
   qid,
   toCrs,
-  query,
   findGeometryColumn,
   geometryExpression,
 } from "../_kit/index.js";
@@ -66,7 +65,7 @@ export default defineTransformer({
     const to = destination(ctx.params);
     if (!to || to === ctx.incomingCrs) return;
     try {
-      await query(`SELECT ${toCrs("ST_Point(0, 0)", ctx.incomingCrs, to)} AS probe`);
+      await ctx.engine.query(`SELECT ${toCrs("ST_Point(0, 0)", ctx.incomingCrs, to)} AS probe`);
     } catch (err) {
       throw new Error(`PROJ does not know "${to}" (${err.message})`);
     }

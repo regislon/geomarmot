@@ -11,8 +11,6 @@ import {
   param,
   SINGLE_IN,
   qid,
-  exec,
-  query,
   FEATURE_ID_COLUMN,
   throwIfAborted,
 } from "../../transformers/_kit/index.js";
@@ -45,15 +43,17 @@ export default defineTransformer({
   prepare: async (ctx) => {
     const source = ctx.tableName("src");
     const results = ctx.tableName("reversed");
-    await exec(
+    await ctx.engine.exec(
       `CREATE TABLE ${source} AS SELECT row_number() OVER () AS ${qid(FEATURE_ID_COLUMN)}, * FROM ${ctx.inputs.input}`,
     );
-    const rows = await query(`SELECT ${qid(FEATURE_ID_COLUMN)} AS id, ${qid(ctx.params.column)} AS v FROM ${source}`);
+    const rows = await ctx.engine.query(
+      `SELECT ${qid(FEATURE_ID_COLUMN)} AS id, ${qid(ctx.params.column)} AS v FROM ${source}`,
+    );
     throwIfAborted(ctx.signal);
-    await exec(`CREATE TABLE ${results} (id BIGINT, reversed VARCHAR)`);
+    await ctx.engine.exec(`CREATE TABLE ${results} (id BIGINT, reversed VARCHAR)`);
     for (const row of rows) {
       const value = row.v == null ? "NULL" : `'${String(row.v).split("").reverse().join("").replace(/'/g, "''")}'`;
-      await exec(`INSERT INTO ${results} VALUES (${row.id}, ${value})`);
+      await ctx.engine.exec(`INSERT INTO ${results} VALUES (${row.id}, ${value})`);
     }
   },
   sql: (ctx) => ({

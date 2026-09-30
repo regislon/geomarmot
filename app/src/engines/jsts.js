@@ -16,7 +16,7 @@
  * pulls in a geometry library rather than staying in SQL.
  */
 
-import { db, exec, qlit } from "../core/duck.js";
+import { mainEngine, qlit } from "../core/duck.js";
 
 /**
  * Ceiling on input features.
@@ -128,14 +128,14 @@ function chaikin(jsts, geometry, iterations) {
  * feature silently because its geometry was awkward is worse than leaving it
  * unsmoothed.
  */
-export async function createShapeTable(rows, opName, options, tableName) {
+export async function createShapeTable(rows, opName, options, tableName, engine = mainEngine) {
   const jsts = await loadJsts();
   const op = JS_GEOMETRY_OPS[opName];
   if (!op) throw new Error(`Unknown geometry operation ${opName}.`);
   const reader = new jsts.io.WKTReader();
   const writer = new jsts.io.WKTWriter();
 
-  await exec(`CREATE OR REPLACE TABLE ${tableName} (fid BIGINT, geometry GEOMETRY)`);
+  await engine.exec(`CREATE OR REPLACE TABLE ${tableName} (fid BIGINT, geometry GEOMETRY)`);
   const encoder = new TextEncoder();
   const CHUNK = 5_000;
   for (let start = 0; start < rows.length; start += CHUNK) {
@@ -150,11 +150,13 @@ export async function createShapeTable(rows, opName, options, tableName) {
       lines.push(JSON.stringify({ fid: row.fid, wkt }));
     }
     const jsonName = `${tableName}_${start}.json`;
-    await db().registerFileBuffer(jsonName, encoder.encode(lines.join("\n")));
+    await engine.registerFileBuffer(jsonName, encoder.encode(lines.join("\n")));
     try {
-      await exec(`INSERT INTO ${tableName} SELECT fid, ST_GeomFromText(wkt) FROM read_json_auto(${qlit(jsonName)})`);
+      await engine.exec(
+        `INSERT INTO ${tableName} SELECT fid, ST_GeomFromText(wkt) FROM read_json_auto(${qlit(jsonName)})`,
+      );
     } finally {
-      await db().dropFile(jsonName);
+      await engine.dropFile(jsonName);
     }
     if (rows.length > CHUNK) {
       reportProgress?.(
@@ -173,7 +175,7 @@ export async function createShapeTable(rows, opName, options, tableName) {
  * them cover that face. A centroid would not do — the centroid of a crescent
  * lies outside it.
  */
-export async function createFaceTable(wkts, tableName) {
+export async function createFaceTable(wkts, tableName, engine = mainEngine) {
   const jsts = await loadJsts();
   const reader = new jsts.io.WKTReader();
   const writer = new jsts.io.WKTWriter();
@@ -199,7 +201,7 @@ export async function createFaceTable(wkts, tableName) {
   polygonizer.add(noded);
   const faces = polygonizer.getPolygons().toArray();
 
-  await exec(`CREATE OR REPLACE TABLE ${tableName} (face_id BIGINT, geometry GEOMETRY, point GEOMETRY)`);
+  await engine.exec(`CREATE OR REPLACE TABLE ${tableName} (face_id BIGINT, geometry GEOMETRY, point GEOMETRY)`);
   const encoder = new TextEncoder();
   const CHUNK = 5_000;
   for (let start = 0; start < faces.length; start += CHUNK) {
@@ -214,15 +216,15 @@ export async function createFaceTable(wkts, tableName) {
       )
       .join("\n");
     const jsonName = `${tableName}_${start}.json`;
-    await db().registerFileBuffer(jsonName, encoder.encode(lines));
+    await engine.registerFileBuffer(jsonName, encoder.encode(lines));
     try {
-      await exec(
+      await engine.exec(
         `INSERT INTO ${tableName}
          SELECT face_id, ST_GeomFromText(wkt), ST_GeomFromText(point)
          FROM read_json_auto(${qlit(jsonName)})`,
       );
     } finally {
-      await db().dropFile(jsonName);
+      await engine.dropFile(jsonName);
     }
     if (faces.length > CHUNK) {
       reportProgress?.(

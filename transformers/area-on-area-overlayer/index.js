@@ -5,8 +5,6 @@ import {
   param,
   qid,
   qlit,
-  exec,
-  query,
   findGeometryColumn,
   geometryExpression,
   createFaceTable,
@@ -77,20 +75,20 @@ export default defineTransformer({
     const faces = ctx.tableName("faces");
     ctx.state.geometry = geometry;
     // A table, so the ids the faces are matched against cannot be recomputed differently.
-    await exec(
+    await ctx.engine.exec(
       `CREATE OR REPLACE TABLE ${source} AS SELECT row_number() OVER () AS ${qid(FEATURE_ID_COLUMN)}, * FROM ${ctx.inputs.input}`,
     );
-    const rows = Number((await query(`SELECT count(*) AS n FROM ${source}`))[0]?.n ?? 0);
+    const rows = Number((await ctx.engine.query(`SELECT count(*) AS n FROM ${source}`))[0]?.n ?? 0);
     if (rows > MAX_OVERLAY_FEATURES) {
       throw new Error(
         `${rows.toLocaleString()} features is past the ${MAX_OVERLAY_FEATURES.toLocaleString()} ceiling for an overlay. Filter or dissolve upstream first.`,
       );
     }
-    const wkts = await query(
+    const wkts = await ctx.engine.query(
       `SELECT ST_AsText(${geometryExpression(geometry)}) AS wkt FROM ${source} WHERE ${qid(geometry.name)} IS NOT NULL`,
     );
     throwIfAborted(ctx.signal);
-    await createFaceTable(wkts.map((row) => row.wkt).filter(Boolean), faces);
+    await createFaceTable(wkts.map((row) => row.wkt).filter(Boolean), faces, ctx.engine);
     throwIfAborted(ctx.signal);
   },
   sql: (ctx) => {

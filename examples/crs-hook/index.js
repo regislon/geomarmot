@@ -1,15 +1,7 @@
 // @ts-check
 // Pattern 3 — a crs hook: the transformer says what coordinate system its output is in, and the compiler
 // carries that label down the graph. check() refuses a CRS PROJ does not know before anything is published.
-import {
-  defineTransformer,
-  API_VERSION,
-  param,
-  SINGLE_IN,
-  query,
-  toCrs,
-  LONLAT,
-} from "../../transformers/_kit/index.js";
+import { defineTransformer, API_VERSION, param, SINGLE_IN, toCrs, LONLAT } from "../../transformers/_kit/index.js";
 
 export default defineTransformer({
   apiVersion: API_VERSION,
@@ -36,6 +28,6 @@ export default defineTransformer({
   crs: (ctx) => ctx.params.crs || ctx.incomingCrs,
   check: async (ctx) => {
     if (!ctx.params.crs || ctx.params.crs === LONLAT) return;
-    await query(`SELECT ${toCrs("ST_Point(0, 0)", ctx.params.crs, LONLAT)} AS probe`);
+    await ctx.engine.query(`SELECT ${toCrs("ST_Point(0, 0)", ctx.params.crs, LONLAT)} AS probe`);
   },
 });

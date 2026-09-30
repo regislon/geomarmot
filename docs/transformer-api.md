@@ -61,6 +61,7 @@ Rebuilt for each node on each compile.
 | `tableName(suffix)` | `<ns>_g<gen>_t_<nodeId>_<suffix>`. Deterministic within a compile. In `prepare` it allocates the name; in `sql` and `check` a suffix `prepare` did not allocate is an error. |
 | `state` | a plain object shared by the hooks of one node in one compile, then discarded |
 | `signal`, `limits` | an `AbortSignal` that `prepare` must check between batches, and the caps it must honour |
+| `engine` | where the hooks run SQL: `await ctx.engine.exec(sql)`, `await ctx.engine.query(sql)` (rows as objects). Never import the main engine: the same hook runs in an isolated DuckDB instance for the assistant's previews. The JavaScript geometry engines (`createShapeTable`, `createCellGeometryTable`, …) take it as their last argument or `engine` option. |
 
 ## The order hooks run in
 

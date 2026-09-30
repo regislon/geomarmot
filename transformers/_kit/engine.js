@@ -1,7 +1,10 @@
 // @ts-check
-/* Engine access for prepare steps: running SQL, and the JavaScript geometry engines. */
+/*
+ * The JavaScript geometry engines for prepare steps. SQL goes through ctx.engine —
+ * never the main engine directly — so the same hook runs in an isolated preview
+ * engine too (docs/transformer-api.md).
+ */
 
-export { exec, query } from "../../app/src/core/duck.js";
 export { createFaceTable, createShapeTable, MAX_OVERLAY_FEATURES } from "../../app/src/engines/jsts.js";
 export {
   FILL_MODES,

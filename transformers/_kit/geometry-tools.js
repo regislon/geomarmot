@@ -11,7 +11,7 @@
 
 import { qid } from "../../app/src/core/duck.js";
 import { findGeometryColumn, geometryExpression } from "../../app/src/core/schema.js";
-import { createShapeTable, exec, query, throwIfAborted } from "./engine.js";
+import { createShapeTable, throwIfAborted } from "./engine.js";
 import { FEATURE_ID_COLUMN } from "./helpers.js";
 
 const GEOMETRY_IN = [{ id: "input", label: "Input", description: "Rows with a geometry column." }];
@@ -65,14 +65,14 @@ export function jsGeometryTool({ operation, options = () => ({}), outputDescript
       ctx.state.geometry = geometry;
       const source = ctx.tableName("src");
       const shapes = ctx.tableName("shape");
-      await exec(
+      await ctx.engine.exec(
         `CREATE OR REPLACE TABLE ${source} AS SELECT row_number() OVER () AS ${qid(FEATURE_ID_COLUMN)}, * FROM ${ctx.inputs.input}`,
       );
-      const rows = await query(
+      const rows = await ctx.engine.query(
         `SELECT ${qid(FEATURE_ID_COLUMN)} AS fid, ST_AsText(${geometryExpression(geometry)}) AS wkt FROM ${source} WHERE ${qid(geometry.name)} IS NOT NULL`,
       );
       throwIfAborted(ctx.signal);
-      await createShapeTable(rows, operation || spec.id, options(ctx.params), shapes);
+      await createShapeTable(rows, operation || spec.id, options(ctx.params), shapes, ctx.engine);
       throwIfAborted(ctx.signal);
     },
     sql: (ctx) => {

@@ -3,7 +3,7 @@
  * built in JavaScript because DuckDB-Wasm has no H3 extension.
  */
 
-import { db, exec, qlit } from "../../core/duck.js";
+import { mainEngine, qlit } from "../../core/duck.js";
 // h3-js 4.2 rather than 4.1: polygonToCellsExperimental — and with it every fill
 // mode other than "centroid inside" — does not exist before it.
 import { POLYGON_TO_CELLS_FLAGS, cellToBoundary, polygonToCellsExperimental } from "h3-js";
@@ -81,9 +81,13 @@ export function setProgressReporter(fn) {
  * thread back so the page keeps responding. The rows travel as newline JSON,
  * which keeps this dependency-free — `unhex` turns the WKB back into bytes and
  * ST_GeomFromWKB into a real geometry.
+ *
+ * @param {string[]} cells
+ * @param {string} tableName
+ * @param {{ signal?: AbortSignal, engine?: import("../../core/duck.js").Engine }} [options]
  */
-export async function createCellGeometryTable(cells, tableName, { signal } = {}) {
-  await exec(`CREATE OR REPLACE TABLE ${tableName} (cell VARCHAR, geometry GEOMETRY)`);
+export async function createCellGeometryTable(cells, tableName, { signal, engine = mainEngine } = {}) {
+  await engine.exec(`CREATE OR REPLACE TABLE ${tableName} (cell VARCHAR, geometry GEOMETRY)`);
   const encoder = new TextEncoder();
   for (let start = 0; start < cells.length; start += CELL_CHUNK) {
     // Between batches: a superseded compile stops here rather than finishing the tile.
@@ -91,14 +95,14 @@ export async function createCellGeometryTable(cells, tableName, { signal } = {})
     const slice = cells.slice(start, start + CELL_CHUNK);
     const lines = slice.map((cell) => JSON.stringify({ cell, wkb: toHex(cellToWkb(cell)) })).join("\n");
     const jsonName = `${tableName}_${start}.json`;
-    await db().registerFileBuffer(jsonName, encoder.encode(lines));
+    await engine.registerFileBuffer(jsonName, encoder.encode(lines));
     try {
-      await exec(
+      await engine.exec(
         `INSERT INTO ${tableName}
          SELECT cell, ST_GeomFromWKB(unhex(wkb)) FROM read_json_auto(${qlit(jsonName)})`,
       );
     } finally {
-      await db().dropFile(jsonName);
+      await engine.dropFile(jsonName);
     }
     if (cells.length > CELL_CHUNK) {
       reportProgress?.(
@@ -137,13 +141,19 @@ function cellsForGeometry(geometry, resolution, flag) {
  * attributes. `rows` carries the feature id alongside the GeoJSON so the pairing
  * survives; ids come from a materialised table upstream, because a row number
  * computed in one scan is not guaranteed to match the next.
+ *
+ * @param {any[]} rows
+ * @param {number} resolution
+ * @param {string} mode
+ * @param {string} tableName
+ * @param {{ signal?: AbortSignal, engine?: import("../../core/duck.js").Engine }} [options]
  */
-export async function createPolygonFillTable(rows, resolution, mode, tableName, { signal } = {}) {
+export async function createPolygonFillTable(rows, resolution, mode, tableName, { signal, engine = mainEngine } = {}) {
   const flag = FILL_MODES[mode] ?? FILL_MODES.ContainsCentroid;
   // The hexagon travels with the cell. The boundary is already in hand here, so
   // carrying it costs one WKB per cell — where deriving it later means a second
   // node and a second pass over every cell.
-  await exec(`CREATE OR REPLACE TABLE ${tableName} (fid BIGINT, cell VARCHAR, geometry GEOMETRY)`);
+  await engine.exec(`CREATE OR REPLACE TABLE ${tableName} (fid BIGINT, cell VARCHAR, geometry GEOMETRY)`);
   const encoder = new TextEncoder();
 
   let pairs = [];
@@ -151,14 +161,14 @@ export async function createPolygonFillTable(rows, resolution, mode, tableName, 
   const flush = async () => {
     if (!pairs.length) return;
     const jsonName = `${tableName}_${written}.json`;
-    await db().registerFileBuffer(jsonName, encoder.encode(pairs.map((pair) => JSON.stringify(pair)).join("\n")));
+    await engine.registerFileBuffer(jsonName, encoder.encode(pairs.map((pair) => JSON.stringify(pair)).join("\n")));
     try {
-      await exec(
+      await engine.exec(
         `INSERT INTO ${tableName}
          SELECT fid, cell, ST_GeomFromWKB(unhex(wkb)) FROM read_json_auto(${qlit(jsonName)})`,
       );
     } finally {
-      await db().dropFile(jsonName);
+      await engine.dropFile(jsonName);
     }
     written += pairs.length;
     pairs = [];

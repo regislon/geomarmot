@@ -7,10 +7,10 @@
 /**
  * @param {any} transformer
  * @param {any} ctx          the context the compiler built; completed here
- * @param {{ prefix: string, owned: {tables: string[]}, outputs: {id: string}[] }} env
+ * @param {{ prefix: string, owned: {tables: string[]}, outputs: {id: string}[], limits?: any }} env
  * @returns {Promise<{ statements: Record<string, string>, crs: string }>}
  */
-export async function runNode(transformer, ctx, { prefix, owned, outputs }) {
+export async function runNode(transformer, ctx, { prefix, owned, outputs, limits }) {
   const allocated = new Set();
   let inPrepare = false;
   ctx.tableName = (suffix) => {
@@ -30,7 +30,7 @@ export async function runNode(transformer, ctx, { prefix, owned, outputs }) {
   ctx.adoptTable = (name) => {
     if (!owned.tables.includes(name)) owned.tables.push(name);
   };
-  ctx.limits = { overlayFeatures: 20_000, materialisedCells: 2_000_000 };
+  ctx.limits = limits || { overlayFeatures: 20_000, materialisedCells: 2_000_000 };
 
   if (transformer.prepare) {
     inPrepare = true;

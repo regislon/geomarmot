@@ -68,28 +68,41 @@ export function qlit(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-async function start() {
+/**
+ * Boot one DuckDB instance with the bundled extensions, a memory ceiling and
+ * extension autoloading switched off. Shared by the main engine and the
+ * isolated preview engines.
+ */
+async function bootInstance({ memory = memoryLimit() } = {}) {
   const bundle = await duckdb.selectBundle(BUNDLES);
   const worker = new Worker(bundle.mainWorker);
-  _db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
-  await _db.instantiate(bundle.mainModule);
-  _conn = await _db.connect();
-  await _conn.query(`SET custom_extension_repository = '${extensionRepository()}'`);
-  await _conn.query(`SET memory_limit = '${memoryLimit()}'`);
+  const instance = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+  await instance.instantiate(bundle.mainModule);
+  const connection = await instance.connect();
+  await connection.query(`SET custom_extension_repository = '${extensionRepository()}'`);
+  await connection.query(`SET memory_limit = '${memory}'`);
+  let spatial = false;
   try {
-    await _conn.query("INSTALL spatial");
-    await _conn.query("LOAD spatial");
+    await connection.query("INSTALL spatial");
+    await connection.query("LOAD spatial");
     // Loaded explicitly, so autoloading can be switched off without breaking Parquet or JSON reads.
-    await _conn.query("LOAD parquet");
-    await _conn.query("LOAD json");
+    await connection.query("LOAD parquet");
+    await connection.query("LOAD json");
     // Defence in depth for the SQL guard: nothing may pull in another extension later.
-    await _conn.query("SET autoinstall_known_extensions = false");
-    await _conn.query("SET autoload_known_extensions = false");
-    _spatial = true;
+    await connection.query("SET autoinstall_known_extensions = false");
+    await connection.query("SET autoload_known_extensions = false");
+    spatial = true;
   } catch (err) {
     console.warn("Spatial extension unavailable — geometry features are limited", err);
-    _spatial = false;
   }
+  return { instance, connection, spatial };
+}
+
+async function start() {
+  const booted = await bootInstance();
+  _db = booted.instance;
+  _conn = booted.connection;
+  _spatial = booted.spatial;
 }
 
 export async function boot() {
@@ -307,4 +320,73 @@ export async function cancelMain() {
 /** A new connection to the same database, for work that must not share a transaction with the app's. */
 export async function newConnection() {
   return db().connect();
+}
+
+/*
+ * Engines: what the compiler and prepare steps run SQL on (ctx.engine).
+ *
+ * The main engine is the one above, holding the user's sources. An isolated
+ * engine is a separate DuckDB instance in its own worker, for the assistant's
+ * previews: it only ever holds sampled copies, and it can be terminated at any
+ * moment without touching the user's graph (docs/decisions/0004).
+ *
+ * @typedef {object} Engine
+ * @property {"main"|"isolated"} kind
+ * @property {() => Promise<any>} connect                   a new connection
+ * @property {(sql: string) => Promise<void>} exec
+ * @property {(sql: string) => Promise<any[]>} query         plain row objects
+ * @property {(name: string, bytes: Uint8Array) => Promise<void>} registerFileBuffer
+ * @property {(name: string) => Promise<void>} dropFile
+ */
+
+/** @type {Engine} */
+export const mainEngine = Object.freeze({
+  kind: "main",
+  connect: () => newConnection(),
+  exec: (sql) => exec(sql),
+  query: (sql) => query(sql),
+  registerFileBuffer: (name, bytes) => db().registerFileBuffer(name, bytes),
+  dropFile: (name) => db().dropFile(name),
+});
+
+/**
+ * A separate DuckDB instance. `terminate()` kills its worker; anything still
+ * running on it fails rather than hangs.
+ * @returns {Promise<Engine & { terminate: () => Promise<void>, terminated: () => boolean }>}
+ */
+export async function createIsolatedEngine({ memory = "512MB" } = {}) {
+  const { instance, connection } = await bootInstance({ memory });
+  let dead = false;
+  const alive = () => {
+    if (dead) throw new Error("The preview engine was stopped.");
+  };
+  return {
+    kind: "isolated",
+    async connect() {
+      alive();
+      return instance.connect();
+    },
+    async exec(sql) {
+      alive();
+      await connection.query(sql);
+    },
+    async query(sql) {
+      alive();
+      return rowsOf(await connection.query(sql));
+    },
+    async registerFileBuffer(name, bytes) {
+      alive();
+      await instance.registerFileBuffer(name, bytes);
+    },
+    async dropFile(name) {
+      alive();
+      await instance.dropFile(name);
+    },
+    terminate: async () => {
+      if (dead) return;
+      dead = true;
+      await instance.terminate().catch(() => {});
+    },
+    terminated: () => dead,
+  };
 }

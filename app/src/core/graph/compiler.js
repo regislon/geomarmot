@@ -15,7 +15,7 @@
  *   (b) a failed node's resources, and an aborted compile's, go at once.
  */
 
-import { newConnection, onEngineRestart, qid, qlit } from "../duck.js";
+import { mainEngine, onEngineRestart, qid, qlit } from "../duck.js";
 import { LONLAT, isLonLatCode } from "../schema.js";
 import { sourceRelation } from "../../io/sources.js";
 import { guardNode } from "../sqlguard/index.js";
@@ -26,9 +26,11 @@ import { runNode } from "./node.js";
 class AbortError extends Error {}
 
 /**
- * @param {{ namespace: string, getGraph: () => {nodes: any[], edges: any[]}, getSources: () => Map<string, any> }} options
+ * @param {{ namespace: string, getGraph: () => {nodes: any[], edges: any[]}, getSources: () => Map<string, any>,
+ *   engine?: import("../duck.js").Engine, limits?: { overlayFeatures: number, materialisedCells: number } }} options
+ *   `engine` is what the compiler and every hook run SQL on (ctx.engine): the main engine unless given.
  */
-export function createCompiler({ namespace, getGraph, getSources }) {
+export function createCompiler({ namespace, getGraph, getSources, engine = mainEngine, limits }) {
   let connection = null;
   let generation = 0;
   let current = null; // the generation new leases get
@@ -39,7 +41,7 @@ export function createCompiler({ namespace, getGraph, getSources }) {
   const idleWaiters = [];
 
   async function conn() {
-    if (!connection) connection = await newConnection();
+    if (!connection) connection = await engine.connect();
     return connection;
   }
 
@@ -218,6 +220,7 @@ export function createCompiler({ namespace, getGraph, getSources }) {
         source: null,
         state: {},
         signal,
+        engine,
         sources: { get: (id) => sources.get(id), relation: sourceRelation },
       };
       if (transformer.needs.schema) {
@@ -236,7 +239,15 @@ export function createCompiler({ namespace, getGraph, getSources }) {
         ctx.rowCount = Number(counted.n ?? 0);
         ctx.source = upstreamSource(node.id, sources, snapshot);
       }
-      const { statements, crs } = await runNode(transformer, ctx, { prefix, owned, conn: c, outputs, qid, qlit });
+      const { statements, crs } = await runNode(transformer, ctx, {
+        prefix,
+        owned,
+        conn: c,
+        outputs,
+        qid,
+        qlit,
+        limits,
+      });
       // Publish this node's views atomically.
       await c.query("BEGIN TRANSACTION");
       const produced = {};
@@ -311,7 +322,9 @@ export function createCompiler({ namespace, getGraph, getSources }) {
   }
 
   // After an engine restart every relation and connection is gone: start from nothing.
+  // Only the main engine restarts; an isolated one is simply thrown away.
   onEngineRestart(() => {
+    if (engine !== mainEngine) return;
     running?.controller.abort();
     connection = null;
     current = null;

@@ -4,8 +4,6 @@ import {
   API_VERSION,
   param,
   qid,
-  exec,
-  query,
   findGeometryColumn,
   geometryExpression,
   createPolygonFillTable,
@@ -90,10 +88,10 @@ export default defineTransformer({
     ctx.state.geometry = geometry;
     const source = ctx.tableName("src");
     // A table, not a view: the ids must not be recomputed between this read and the join.
-    await exec(
+    await ctx.engine.exec(
       `CREATE OR REPLACE TABLE ${source} AS SELECT row_number() OVER () AS ${qid(FEATURE_ID_COLUMN)}, * FROM ${ctx.inputs.input}`,
     );
-    const rows = await query(
+    const rows = await ctx.engine.query(
       `SELECT ${qid(FEATURE_ID_COLUMN)} AS fid, ST_AsGeoJSON(${geometryExpression(geometry)}) AS geojson FROM ${source}`,
     );
     await createPolygonFillTable(
@@ -101,9 +99,7 @@ export default defineTransformer({
       Number(ctx.params.resolution ?? 7),
       ctx.params.mode || "ContainsCentroid",
       ctx.tableName("fill"),
-      {
-        signal: ctx.signal,
-      },
+      { signal: ctx.signal, engine: ctx.engine },
     );
   },
   sql: (ctx) => {

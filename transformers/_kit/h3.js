@@ -5,7 +5,6 @@
  */
 
 import { qid } from "../../app/src/core/duck.js";
-import { query } from "./engine.js";
 import {
   MAX_MATERIALISED_CELLS,
   ROW_NUMBER_COLUMN,
@@ -77,11 +76,12 @@ export function sampleWhere(step, expression) {
 
 /** Materialise the hexagons a geometry node needs, into ctx.tableName("cells"). */
 export async function buildCellTable(ctx, selectSql) {
-  const rows = await query(`${selectSql} LIMIT ${MAX_MATERIALISED_CELLS + 1}`);
+  const rows = await ctx.engine.query(`${selectSql} LIMIT ${MAX_MATERIALISED_CELLS + 1}`);
   if (rows.length > MAX_MATERIALISED_CELLS) {
     throw new Error(`${MAX_MATERIALISED_CELLS.toLocaleString()} cells is the ceiling. Sample, or filter upstream.`);
   }
   await createCellGeometryTable(rows.map((row) => row.cell).filter(Boolean), ctx.tableName("cells"), {
     signal: ctx.signal,
+    engine: ctx.engine,
   });
 }

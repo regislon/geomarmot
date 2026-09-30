@@ -1,5 +1,5 @@
 // @ts-check
-import { defineTransformer, API_VERSION, param, SINGLE_IN, toCrs, query, LONLAT } from "../_kit/index.js";
+import { defineTransformer, API_VERSION, param, SINGLE_IN, toCrs, LONLAT } from "../_kit/index.js";
 
 export default defineTransformer({
   apiVersion: API_VERSION,
@@ -50,7 +50,7 @@ export default defineTransformer({
     const crs = (ctx.params.crs || "").trim();
     if (!crs || crs === LONLAT) return;
     try {
-      await query(`SELECT ${toCrs("ST_Point(0, 0)", crs, LONLAT)} AS probe`);
+      await ctx.engine.query(`SELECT ${toCrs("ST_Point(0, 0)", crs, LONLAT)} AS probe`);
     } catch (err) {
       throw new Error(`PROJ does not know "${crs}" (${err.message})`);
     }
