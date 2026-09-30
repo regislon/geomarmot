@@ -10,14 +10,7 @@
 
 import { distinctValues, valueSuggestions, isLonLatCode } from "./schema.js";
 import { VALUE_KINDS, VALUE_TYPES, FORMULA_OPERATORS, blankValue } from "./valuespec.js";
-import {
-  checkSql,
-  clearProfiles,
-  PROFILE_ROWS,
-  profileCategories,
-  promptText,
-  schemaText,
-} from "./sqlnode.js";
+import { checkSql, clearProfiles, PROFILE_ROWS, profileCategories, promptText, schemaText } from "./sqlnode.js";
 import { transformerFor, OPERATORS, AGGREGATE_FUNCTIONS } from "./transformers.js";
 
 const DISTINCT_VALUE_LIMIT = 50;
@@ -182,8 +175,7 @@ function selectAllToggle(names, chosen, boxes, apply) {
 function renderColumnsParam(param, node, columns, commit) {
   // `filter: "numeric"` keeps sum and mean away from a text column, where they
   // would compile into SQL that only fails once the node runs.
-  const offered =
-    param.filter === "numeric" ? columns.filter((column) => NUMERIC_TYPE.test(column.type)) : columns;
+  const offered = param.filter === "numeric" ? columns.filter((column) => NUMERIC_TYPE.test(column.type)) : columns;
   const names = columnNames(offered);
   const chosen = new Set(node.params[param.id] || []);
   const list = h("div", { class: "check-list" });
@@ -267,10 +259,14 @@ function renderRenamesParam(param, node, columns, commit) {
         commit({ rerender: false });
       }),
       h("span", { class: "arrow", text: "→" }),
-      textInput(row.to, (value) => {
-        row.to = value;
-        commit({ rerender: false });
-      }, "new name"),
+      textInput(
+        row.to,
+        (value) => {
+          row.to = value;
+          commit({ rerender: false });
+        },
+        "new name",
+      ),
     ],
     () => ({ from: "", to: "" }),
     commit,
@@ -291,9 +287,7 @@ function renderValueSpec(spec, columns, commit) {
     commit(rerender ? {} : { rerender: false });
   };
 
-  group.appendChild(
-    select(VALUE_KINDS, spec.kind || "Value", (value) => set("kind", value, true)),
-  );
+  group.appendChild(select(VALUE_KINDS, spec.kind || "Value", (value) => set("kind", value, true)));
 
   if ((spec.kind || "Value") === "Value") {
     group.appendChild(select(VALUE_TYPES, spec.type || "Text", (value) => set("type", value, true)));
@@ -334,9 +328,7 @@ function renderValueSpec(spec, columns, commit) {
       return box;
     };
     group.appendChild(operand("left"));
-    group.appendChild(
-      select(FORMULA_OPERATORS, spec.operator || "+", (value) => set("operator", value)),
-    );
+    group.appendChild(select(FORMULA_OPERATORS, spec.operator || "+", (value) => set("operator", value)));
     group.appendChild(operand("right"));
   } else {
     group.appendChild(textInput(spec.sql, (value) => set("sql", value), "SQL expression"));
@@ -453,15 +445,23 @@ function renderCreatesParam(param, node, columns, commit) {
   return repeatable(
     rows,
     (row) => [
-      textInput(row.name, (value) => {
-        row.name = value;
-        commit({ rerender: false });
-      }, "attribute"),
+      textInput(
+        row.name,
+        (value) => {
+          row.name = value;
+          commit({ rerender: false });
+        },
+        "attribute",
+      ),
       h("span", { class: "arrow", text: "=" }),
-      textInput(row.expression, (value) => {
-        row.expression = value;
-        commit({ rerender: false });
-      }, "SQL expression"),
+      textInput(
+        row.expression,
+        (value) => {
+          row.expression = value;
+          commit({ rerender: false });
+        },
+        "SQL expression",
+      ),
     ],
     () => ({ name: "", expression: "" }),
     commit,
@@ -500,10 +500,14 @@ function renderAggregatesParam(param, node, columns, commit) {
         row.column = value;
         commit({ rerender: false });
       }),
-      textInput(row.alias, (value) => {
-        row.alias = value;
-        commit({ rerender: false });
-      }, "as…"),
+      textInput(
+        row.alias,
+        (value) => {
+          row.alias = value;
+          commit({ rerender: false });
+        },
+        "as…",
+      ),
     ],
     () => ({ func: "count", column: "", alias: "" }),
     commit,
@@ -516,10 +520,14 @@ function renderRulesParam(param, node, context, commit) {
   return repeatable(
     rows,
     (row, index) => [
-      textInput(row.label, (value) => {
-        row.label = value;
-        commit();
-      }, `Rule ${index + 1}`),
+      textInput(
+        row.label,
+        (value) => {
+          row.label = value;
+          commit();
+        },
+        `Rule ${index + 1}`,
+      ),
       select(columnNames(columns), row.column, (value) => {
         row.column = value;
         // Re-render: the suggestions belong to the column just chosen.
@@ -572,9 +580,7 @@ function renderJoinKeysParam(param, node, context, commit) {
     ),
   );
   if (!left.length || !right.length) {
-    container.appendChild(
-      h("p", { class: "muted", text: "Connect both inputs to choose attributes." }),
-    );
+    container.appendChild(h("p", { class: "muted", text: "Connect both inputs to choose attributes." }));
   }
   return container;
 }
@@ -714,10 +720,14 @@ function renderValuesParam(param, node, context, commit) {
     repeatable(
       rows,
       (row, index) => [
-        textInput(row, (value) => {
-          rows[index] = value;
-          commit({ rerender: false });
-        }, "value"),
+        textInput(
+          row,
+          (value) => {
+            rows[index] = value;
+            commit({ rerender: false });
+          },
+          "value",
+        ),
       ],
       () => "",
       commit,

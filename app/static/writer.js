@@ -53,7 +53,11 @@ async function materialiseH3Geometry(viewName, tag) {
      SELECT v.*, c.geometry FROM ${viewName} v
      LEFT JOIN ${tableName} c ON v.${qid(H3_INDEX_COLUMN)} = c.cell`,
   );
-  return { view: joined, cells: cells.length, cleanup: [`DROP VIEW IF EXISTS ${joined}`, `DROP TABLE IF EXISTS ${tableName}`] };
+  return {
+    view: joined,
+    cells: cells.length,
+    cleanup: [`DROP VIEW IF EXISTS ${joined}`, `DROP TABLE IF EXISTS ${tableName}`],
+  };
 }
 
 /** Unique name in the WASM filesystem, so a double-click cannot race itself. */
@@ -73,10 +77,7 @@ function download(bytes, fileName, mimeType) {
 
 async function exportParquet(viewName, baseName) {
   const virtual = virtualName("parquet");
-  const bytes = await copyToBuffer(
-    `COPY (SELECT * FROM ${viewName}) TO ${qlit(virtual)} (FORMAT PARQUET)`,
-    virtual,
-  );
+  const bytes = await copyToBuffer(`COPY (SELECT * FROM ${viewName}) TO ${qlit(virtual)} (FORMAT PARQUET)`, virtual);
   download(bytes, `${baseName}.parquet`, "application/octet-stream");
   return { file: `${baseName}.parquet`, note: null };
 }
@@ -137,9 +138,7 @@ async function exportGeoParquet(viewName, baseName, crs = LONLAT) {
 
   // Present the geometry as DuckDB's GEOMETRY type, which is the only form the
   // spatial writer would attach metadata to.
-  const others = columns
-    .filter((column) => column.name !== geometry.name)
-    .map((column) => qid(column.name));
+  const others = columns.filter((column) => column.name !== geometry.name).map((column) => qid(column.name));
   const selection = [...others, `${geometryExpression(geometry)} AS ${qid(geometry.name)}`].join(", ");
   const virtual = virtualName("parquet");
 
@@ -236,8 +235,7 @@ async function exportGeoJson(viewName, baseName, crs = LONLAT) {
   // still honours it expects to find it.
   const projected = !isLonLatCode(crs);
   const header = projected ? `"crs":${JSON.stringify(crsMember(crs))},` : "";
-  const document =
-    `{"type":"FeatureCollection",${header}"features":[${rows.map((row) => row.feature).join(",")}]}`;
+  const document = `{"type":"FeatureCollection",${header}"features":[${rows.map((row) => row.feature).join(",")}]}`;
   download(new TextEncoder().encode(document), `${baseName}.geojson`, "application/geo+json");
   return {
     file: `${baseName}.geojson`,
@@ -270,9 +268,7 @@ async function excelColumns(viewName, columns, geometry) {
   const wide = columns.filter((column) => column !== geometry && WIDE_INTEGER.test(column.type));
   let tooWide = new Set();
   if (wide.length) {
-    const checks = wide.map(
-      (column, i) => `bool_or(abs(${qid(column.name)}::HUGEINT) > ${MAX_SAFE}) AS w${i}`,
-    );
+    const checks = wide.map((column, i) => `bool_or(abs(${qid(column.name)}::HUGEINT) > ${MAX_SAFE}) AS w${i}`);
     const [row] = await query(`SELECT ${checks.join(", ")} FROM ${viewName}`);
     tooWide = new Set(wide.filter((_, i) => row?.[`w${i}`]).map((column) => column.name));
   }
@@ -310,7 +306,9 @@ function sheetNameFor(baseName) {
 async function exportExcel(viewName, baseName, crs = LONLAT) {
   const columns = await describe(viewName);
   if (columns.length > MAX_EXCEL_COLUMNS) {
-    throw new Error(`${columns.length.toLocaleString()} columns is more than Excel's ${MAX_EXCEL_COLUMNS.toLocaleString()} — write Parquet or CSV instead.`);
+    throw new Error(
+      `${columns.length.toLocaleString()} columns is more than Excel's ${MAX_EXCEL_COLUMNS.toLocaleString()} — write Parquet or CSV instead.`,
+    );
   }
   const [{ n }] = await query(`SELECT count(*) AS n FROM ${viewName}`);
   if (Number(n) > MAX_EXCEL_ROWS) {
@@ -345,7 +343,11 @@ async function exportExcel(viewName, baseName, crs = LONLAT) {
       {
         onProgress: ({ stage, done, total }) => {
           if (stage === "zip") showProgress(`Compressing ${baseName}.xlsx…`);
-          else showProgress(`Writing ${baseName}.xlsx — ${done.toLocaleString()} of ${total.toLocaleString()} rows`, done / total);
+          else
+            showProgress(
+              `Writing ${baseName}.xlsx — ${done.toLocaleString()} of ${total.toLocaleString()} rows`,
+              done / total,
+            );
         },
       },
     );
@@ -354,7 +356,8 @@ async function exportExcel(viewName, baseName, crs = LONLAT) {
     const notes = [];
     if (geometry) {
       notes.push(
-        `Geometry written as WKT in "${geometry.name}"` + (isLonLatCode(crs) ? "." : `, in ${crs} — the file itself cannot say so.`),
+        `Geometry written as WKT in "${geometry.name}"` +
+          (isLonLatCode(crs) ? "." : `, in ${crs} — the file itself cannot say so.`),
       );
     }
     if (blanked) {

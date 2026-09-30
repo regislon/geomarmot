@@ -8,16 +8,7 @@
  * because that path runs at pointer rate.
  */
 
-import {
-  graph,
-  addEdge,
-  removeEdge,
-  removeNode,
-  nodeById,
-  inputPorts,
-  outputPorts,
-  incomingEdge,
-} from "./graph.js";
+import { graph, addEdge, removeEdge, removeNode, nodeById, inputPorts, outputPorts, incomingEdge } from "./graph.js";
 import { transformerFor } from "./transformers.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -77,7 +68,10 @@ export function nodeHeight(node) {
 
 function portPosition(node, portId, side) {
   const ports = side === "in" ? inputPorts(node) : outputPorts(node);
-  const index = Math.max(0, ports.findIndex((port) => port.id === portId));
+  const index = Math.max(
+    0,
+    ports.findIndex((port) => port.id === portId),
+  );
   return {
     x: node.x + (side === "in" ? 0 : NODE_WIDTH),
     y: node.y + HEADER_HEIGHT + PORT_TOP_OFFSET + index * PORT_ROW_HEIGHT,
@@ -224,9 +218,7 @@ function renderNode(node) {
   if (hasIssue) classes.push("invalid");
 
   const group = el("g", { class: classes.join(" "), "data-node": node.id });
-  group.appendChild(
-    el("rect", { x: node.x, y: node.y, width: NODE_WIDTH, height, rx: 8, class: "node-body" }),
-  );
+  group.appendChild(el("rect", { x: node.x, y: node.y, width: NODE_WIDTH, height, rx: 8, class: "node-body" }));
   group.appendChild(
     el("rect", {
       x: node.x,

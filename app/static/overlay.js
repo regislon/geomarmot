@@ -18,9 +18,6 @@
 
 import { db, exec, qlit } from "./duck.js";
 
-/** UMD, so importing it defines a global rather than exporting anything. */
-const JSTS_URL = "https://cdn.jsdelivr.net/npm/jsts@2.12.1/dist/jsts.min.js";
-
 /**
  * Ceiling on input features.
  *
@@ -34,11 +31,12 @@ let jstsPromise = null;
 
 async function loadJsts() {
   if (!jstsPromise) {
-    jstsPromise = import(/* @vite-ignore */ JSTS_URL).then(() => {
-      if (!globalThis.jsts?.operation?.polygonize?.Polygonizer) {
-        throw new Error("The geometry library did not load; check the network.");
-      }
-      return globalThis.jsts;
+    // UMD: depending on how it is bundled it either defines a global or
+    // exports the namespace, so accept both.
+    jstsPromise = import("jsts/dist/jsts.min.js").then((module) => {
+      const jsts = globalThis.jsts || module.default || module;
+      if (!jsts?.operation?.polygonize?.Polygonizer) throw new Error("The geometry library did not load.");
+      return jsts;
     });
   }
   return jstsPromise;
@@ -61,16 +59,13 @@ export function setOverlayProgress(fn) {
  */
 export const JS_GEOMETRY_OPS = {
   // The smallest rectangle at any angle, unlike ST_Envelope's axis-aligned one.
-  MinimumBoundingBox: (jsts, geometry) =>
-    jsts.algorithm.MinimumDiameter.getMinimumRectangle(geometry),
+  MinimumBoundingBox: (jsts, geometry) => jsts.algorithm.MinimumDiameter.getMinimumRectangle(geometry),
   // The smallest enclosing circle, as a polygon.
-  MinimumBoundingCircle: (jsts, geometry) =>
-    new jsts.algorithm.MinimumBoundingCircle(geometry).getCircle(),
+  MinimumBoundingCircle: (jsts, geometry) => new jsts.algorithm.MinimumBoundingCircle(geometry).getCircle(),
   // Extra vertices so no segment is longer than the tolerance. Straight lines
   // in lon/lat are not straight on the ground, and this is what fixes that
   // before a reprojection.
-  DensifyFeatures: (jsts, geometry, options) =>
-    jsts.densify.Densifier.densify(geometry, options.tolerance),
+  DensifyFeatures: (jsts, geometry, options) => jsts.densify.Densifier.densify(geometry, options.tolerance),
   // Chaikin corner cutting: each pass replaces every corner with two points a
   // quarter and three quarters along, which converges on a quadratic B-spline.
   // JTS has no smoother, and Chaikin is four lines.
@@ -157,9 +152,7 @@ export async function createShapeTable(rows, opName, options, tableName) {
     const jsonName = `${tableName}_${start}.json`;
     await db().registerFileBuffer(jsonName, encoder.encode(lines.join("\n")));
     try {
-      await exec(
-        `INSERT INTO ${tableName} SELECT fid, ST_GeomFromText(wkt) FROM read_json_auto(${qlit(jsonName)})`,
-      );
+      await exec(`INSERT INTO ${tableName} SELECT fid, ST_GeomFromText(wkt) FROM read_json_auto(${qlit(jsonName)})`);
     } finally {
       await db().dropFile(jsonName);
     }

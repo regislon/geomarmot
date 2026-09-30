@@ -81,8 +81,7 @@ function row(icon, label, detail, onClick, disabled = false) {
   item.className = `browse-row${disabled ? " disabled" : ""}`;
   item.disabled = disabled;
   item.innerHTML =
-    `<span class="browse-icon">${icon}</span><span class="browse-name"></span>` +
-    `<span class="browse-detail"></span>`;
+    `<span class="browse-icon">${icon}</span><span class="browse-name"></span>` + `<span class="browse-detail"></span>`;
   item.querySelector(".browse-name").textContent = label;
   item.querySelector(".browse-detail").textContent = detail;
   if (onClick) item.addEventListener("click", onClick);
@@ -164,9 +163,7 @@ async function open(bucket, prefix, pageToken = "") {
   }
 
   if (page.nextPageToken) {
-    elements.list.appendChild(
-      row("⋯", "Load more", "", () => open(bucket, prefix, page.nextPageToken)),
-    );
+    elements.list.appendChild(row("⋯", "Load more", "", () => open(bucket, prefix, page.nextPageToken)));
   }
 
   state.loading = false;

@@ -194,9 +194,7 @@ function renderSources() {
  * data has to be supplied again.
  */
 async function removeLayer(source) {
-  const readers = graph.nodes.filter(
-    (node) => node.type === "Reader" && node.params.sourceId === source.id,
-  );
+  const readers = graph.nodes.filter((node) => node.type === "Reader" && node.params.sourceId === source.id);
   for (const reader of readers) {
     const pinnedHere = inspectedKeys.filter((key) => splitKey(key).nodeId === reader.id);
     if (pinnedHere.length) {
@@ -253,8 +251,8 @@ async function loadFiles(files, dropAt = null) {
         !added.length
           ? `${file.name}: no sheet opened.`
           : added.length === 1
-          ? `${added[0].name}: ${added[0].rows.toLocaleString()} rows.`
-          : `${file.name}: ${added.length} layers.`,
+            ? `${added[0].name}: ${added[0].rows.toLocaleString()} rows.`
+            : `${file.name}: ${added.length} layers.`,
       );
     } catch (err) {
       setStatus(`${file.name}: ${err.message}`, true);
@@ -284,8 +282,8 @@ async function loadUrl(input, { clearInput = true } = {}) {
       !added.length
         ? "No sheet opened."
         : added.length === 1
-        ? `${added[0].name}: ${added[0].rows.toLocaleString()} rows.`
-        : `${added.length} layers loaded.`,
+          ? `${added[0].name}: ${added[0].rows.toLocaleString()} rows.`
+          : `${added.length} layers loaded.`,
     );
     if (clearInput) el("url-input").value = "";
   } catch (err) {
@@ -1066,7 +1064,9 @@ function showHelp(help) {
     body.appendChild(Object.assign(document.createElement("p"), { textContent: paragraph }));
   }
   if (help.code) {
-    body.appendChild(Object.assign(document.createElement("pre"), { className: "syntax-text", textContent: help.code }));
+    body.appendChild(
+      Object.assign(document.createElement("pre"), { className: "syntax-text", textContent: help.code }),
+    );
   }
   el("help-modal").hidden = false;
 }
@@ -1126,10 +1126,7 @@ function initDockResizer() {
   resizer.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     const move = (moveEvent) => {
-      const height = Math.min(
-        Math.max(120, window.innerHeight - moveEvent.clientY),
-        window.innerHeight - 220,
-      );
+      const height = Math.min(Math.max(120, window.innerHeight - moveEvent.clientY), window.innerHeight - 220);
       shell.style.setProperty("--dock-height", `${height}px`);
       resizeMap();
     };

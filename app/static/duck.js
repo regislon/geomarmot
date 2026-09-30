@@ -7,7 +7,30 @@
  * a 2 GB parquet costs a footer, not 2 GB.
  */
 
-import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm";
+import * as duckdb from "@duckdb/duckdb-wasm";
+import mvpWasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
+import ehWasm from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
+import mvpWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";
+import ehWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
+
+/*
+ * Both bundles ship with the app, and so do the extensions (see
+ * scripts/fetch-duckdb-extensions.js): nothing is fetched from a CDN, which is
+ * what lets the local server work with no network at all.
+ */
+const BUNDLES = {
+  mvp: { mainModule: mvpWasm, mainWorker: mvpWorker },
+  eh: { mainModule: ehWasm, mainWorker: ehWorker },
+};
+
+/**
+ * Where the bundled extensions are served: the site root, found from this
+ * module's own URL (it sits one folder down, in assets/ or static/), so it is
+ * right whichever page loaded it and under any path prefix.
+ */
+function extensionRepository() {
+  return new URL("../duckdb-extensions", import.meta.url).href;
+}
 
 let _db = null;
 let _conn = null;
@@ -49,15 +72,12 @@ export function normalize(value) {
 
 export async function boot() {
   if (_conn) return _conn;
-  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
-  const workerUrl = URL.createObjectURL(
-    new Blob([`importScripts("${bundle.mainWorker}");`], { type: "text/javascript" }),
-  );
-  const worker = new Worker(workerUrl);
-  _db = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), worker);
-  await _db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-  URL.revokeObjectURL(workerUrl);
+  const bundle = await duckdb.selectBundle(BUNDLES);
+  const worker = new Worker(bundle.mainWorker);
+  _db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+  await _db.instantiate(bundle.mainModule);
   _conn = await _db.connect();
+  await _conn.query(`SET custom_extension_repository = '${extensionRepository()}'`);
   await loadSpatial();
   return _conn;
 }
@@ -76,6 +96,10 @@ async function loadSpatial() {
   try {
     await _conn.query("INSTALL spatial");
     await _conn.query("LOAD spatial");
+    // Loaded now rather than on first use, so extension autoloading can be
+    // switched off later without breaking Parquet or JSON reads.
+    await _conn.query("LOAD parquet");
+    await _conn.query("LOAD json");
     _spatial = true;
   } catch (err) {
     // Worth continuing without: plain parquet still works entirely.

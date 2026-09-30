@@ -5,11 +5,10 @@
  *   HARNESS_TARGET=bundle        the production build in dist/
  */
 
-import { existsSync } from "node:fs";
 import { serve } from "../harness/serve.js";
 
 export async function openApp(browser) {
-  const spec = process.env.HARNESS_TARGET || (existsSync("dist/index.html") ? "bundle" : "static:app");
+  const spec = process.env.HARNESS_TARGET || "bundle";
   const root = spec === "bundle" ? "dist" : spec.slice("static:".length);
   const server = await serve({ root });
   const context = await browser.newContext({ acceptDownloads: true });

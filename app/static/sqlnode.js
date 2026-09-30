@@ -13,7 +13,8 @@ import { query, qid } from "./duck.js";
 import { describe } from "./schema.js";
 
 /** Statements that have no business in a slot that must yield a relation. */
-const NOT_A_QUERY = /^(insert|update|delete|create|drop|alter|attach|detach|copy|pragma|set|call|export|install|load|begin|commit|rollback|vacuum|checkpoint|use)\b/i;
+const NOT_A_QUERY =
+  /^(insert|update|delete|create|drop|alter|attach|detach|copy|pragma|set|call|export|install|load|begin|commit|rollback|vacuum|checkpoint|use)\b/i;
 
 /** Leading line and block comments — an AI-written query often opens with one. */
 const LEADING_COMMENTS = /^(?:\s|--[^\n]*\n|\/\*[\s\S]*?\*\/)+/;
@@ -158,8 +159,7 @@ export async function profileCategories(view, columns) {
     const projection = candidates
       .map((column, index) => `approx_top_k(${qid(column.name)}, ${MAX_CATEGORIES + 1}) AS v${index}`)
       .join(", ");
-    const row =
-      (await query(`SELECT ${projection} FROM (SELECT * FROM ${view} LIMIT ${PROFILE_ROWS})`))[0] || {};
+    const row = (await query(`SELECT ${projection} FROM (SELECT * FROM ${view} LIMIT ${PROFILE_ROWS})`))[0] || {};
 
     candidates.forEach((column, index) => {
       const raw = row[`v${index}`];
@@ -170,10 +170,7 @@ export async function profileCategories(view, columns) {
       if (raw.length > MAX_CATEGORIES) return;
       // approx_top_k orders by frequency; sort so the list is stable between
       // renders rather than whatever the scan happened to produce.
-      found.set(
-        column.name,
-        raw.map((value) => String(value)).sort(),
-      );
+      found.set(column.name, raw.map((value) => String(value)).sort());
     });
     return found;
   })();
@@ -275,9 +272,7 @@ export async function checkSql(sql, upstreamView, inputColumns, { requireNewColu
 
   const before = new Set(inputColumns.map((column) => column.name));
   const added = columns.filter((column) => !before.has(column.name));
-  const dropped = inputColumns.filter(
-    (column) => !columns.some((existing) => existing.name === column.name),
-  );
+  const dropped = inputColumns.filter((column) => !columns.some((existing) => existing.name === column.name));
 
   if (requireNewColumns && !added.length) {
     return {

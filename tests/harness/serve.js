@@ -33,11 +33,12 @@ function safeJoin(base, path) {
 }
 
 /**
- * @param {{ root: string, port?: number, files?: Map<string, Uint8Array> }} options
+ * @param {{ root: string, port?: number, files?: Map<string, Uint8Array>, onRequest?: Function }} options
  *   `files` are extra in-memory files served under /__files/<name>.
  */
-export function serve({ root, port = 0, files = new Map() }) {
+export function serve({ root, port = 0, files = new Map(), onRequest = null }) {
   const server = createServer((req, res) => {
+    onRequest?.(req);
     const url = new URL(req.url, "http://localhost");
     let path = url.pathname;
     if (path.startsWith("/__files/")) {

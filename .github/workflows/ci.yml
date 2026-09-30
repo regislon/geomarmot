@@ -42,9 +42,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: astral-sh/setup-uv@v6
       - run: sudo apt-get update && sudo apt-get install -y gdal-bin
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - run: uv sync --project server
       - run: npm run test:browser
       - uses: actions/upload-artifact@v4
         if: failure()

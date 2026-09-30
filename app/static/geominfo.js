@@ -171,9 +171,7 @@ export function renderFeature(container, info) {
   container.replaceChildren();
 
   container.appendChild(section("Geometry"));
-  container.appendChild(
-    row("Coordinate system", info.lonLat ? `${info.crs} (longitude/latitude)` : info.crs),
-  );
+  container.appendChild(row("Coordinate system", info.lonLat ? `${info.crs} (longitude/latitude)` : info.crs));
   if (info.cell) container.appendChild(row("H3 cell", info.cell));
   container.appendChild(row("Type", info.type || "unknown"));
   container.appendChild(row("Dimension", info.has_z ? "3D" : "2D"));

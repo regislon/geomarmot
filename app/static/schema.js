@@ -38,9 +38,7 @@ export function findGeometryColumn(columns) {
   const native = columns.find((column) => column.type === "GEOMETRY");
   if (native) return { name: native.name, kind: "geometry" };
 
-  const blob = columns.find(
-    (column) => column.type === "BLOB" && GEOMETRY_COLUMN_NAMES.has(column.name.toLowerCase()),
-  );
+  const blob = columns.find((column) => column.type === "BLOB" && GEOMETRY_COLUMN_NAMES.has(column.name.toLowerCase()));
   if (blob) return { name: blob.name, kind: "wkb" };
 
   return null;

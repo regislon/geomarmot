@@ -37,7 +37,7 @@ import {
   polygonToCellsExperimental,
   // 4.2 rather than 4.1: polygonToCellsExperimental — and with it every fill
   // mode other than "centroid inside" — does not exist before it.
-} from "https://cdn.jsdelivr.net/npm/h3-js@4.2.1/+esm";
+} from "h3-js";
 
 import { db, exec, qid, qlit } from "./duck.js";
 

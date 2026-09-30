@@ -147,15 +147,12 @@ async function renderHeaderStep(state) {
   if (!previews.has(name)) previews.set(name, state.preview(name));
 
   const instruction = "the row that holds the column names. Rows above it are skipped.";
-  elements.hint.textContent = state.skippedFirstStep
-    ? `Click ${instruction}`
-    : `Step 2 of 2 — click ${instruction}`;
+  elements.hint.textContent = state.skippedFirstStep ? `Click ${instruction}` : `Step 2 of 2 — click ${instruction}`;
   elements.back.hidden = state.skippedFirstStep;
   elements.back.onclick = () => renderSheetStep(state);
   elements.add.disabled = false;
   elements.add.textContent = picked.length > 1 ? `Open ${picked.length} sheets` : "Open sheet";
-  elements.add.onclick = () =>
-    finish(picked.map((sheet) => ({ name: sheet, headerRow: headers.get(sheet) ?? null })));
+  elements.add.onclick = () => finish(picked.map((sheet) => ({ name: sheet, headerRow: headers.get(sheet) ?? null })));
 
   const tabs =
     picked.length > 1
@@ -194,13 +191,17 @@ async function renderHeaderStep(state) {
     headers.set(name, row);
     renderHeaderStep(state);
   };
-  const input = h("input", { type: "number", min: String(preview.startRow), step: "1", value: String(headers.get(name)) });
+  const input = h("input", {
+    type: "number",
+    min: String(preview.startRow),
+    step: "1",
+    value: String(headers.get(name)),
+  });
   input.addEventListener("change", () => {
     const row = Math.max(preview.startRow, Math.round(Number(input.value)));
     if (Number.isFinite(row)) pick(row);
   });
-  const suggested =
-    headers.get(name) === preview.suggested ? "suggested" : `suggested: row ${preview.suggested}`;
+  const suggested = headers.get(name) === preview.suggested ? "suggested" : `suggested: row ${preview.suggested}`;
   const controls = h("div", { class: "sheet-header-controls" }, [
     h("label", { class: "field-label", text: "Header row" }),
     input,

@@ -11,7 +11,8 @@
  * preview and says so rather than pretending to show everything.
  */
 
-import maplibregl from "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/+esm";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 import { hasSpatial, query, qid, qlit } from "./duck.js";
 import { H3_INDEX_COLUMN, cellToPolygon, parentIndexExpr, resolutionExpr } from "./h3.js";
@@ -37,9 +38,7 @@ const BASEMAPS = {
   },
   aerial: {
     label: "Aerial",
-    tiles: [
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    ],
+    tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
     attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
   },
 };
@@ -128,7 +127,12 @@ function addDataLayers() {
     type: "circle",
     source: "picked",
     filter: ["==", ["geometry-type"], "Point"],
-    paint: { "circle-radius": 7, "circle-color": "#eca72c", "circle-stroke-color": "#c0563f", "circle-stroke-width": 2 },
+    paint: {
+      "circle-radius": 7,
+      "circle-color": "#eca72c",
+      "circle-stroke-color": "#c0563f",
+      "circle-stroke-width": 2,
+    },
   });
 }
 
@@ -152,9 +156,7 @@ let hiddenKeys = [];
 function applyHiddenFilter() {
   for (const [layerId, base] of Object.entries(BASE_FILTERS)) {
     if (!map?.getLayer(layerId)) continue;
-    const filter = hiddenKeys.length
-      ? ["all", base, ["!", ["in", ["get", "_pv_key"], ["literal", hiddenKeys]]]]
-      : base;
+    const filter = hiddenKeys.length ? ["all", base, ["!", ["in", ["get", "_pv_key"], ["literal", hiddenKeys]]]] : base;
     map.setFilter(layerId, filter);
   }
 }
@@ -247,13 +249,9 @@ const NUMERIC_TYPE = /^(DOUBLE|FLOAT|REAL|DECIMAL|U?BIGINT|U?INTEGER|U?SMALLINT|
 
 /** Every cell drawn as itself. */
 async function fetchH3Detail(viewName, columns) {
-  const attributes = columns
-    .filter((column) => column.name !== H3_INDEX_COLUMN)
-    .map((column) => qid(column.name));
+  const attributes = columns.filter((column) => column.name !== H3_INDEX_COLUMN).map((column) => qid(column.name));
   const selection = [qid(H3_INDEX_COLUMN), ...attributes].join(", ");
-  return query(
-    `SELECT ${selection} FROM ${viewName} WHERE ${qid(H3_INDEX_COLUMN)} IS NOT NULL${limitClause()}`,
-  );
+  return query(`SELECT ${selection} FROM ${viewName} WHERE ${qid(H3_INDEX_COLUMN)} IS NOT NULL${limitClause()}`);
 }
 
 /**
@@ -323,9 +321,7 @@ async function geometryFeatures(viewName, columns, geometry, crs = LONLAT) {
     return { features: [], note: "the spatial extension did not load" };
   }
 
-  const attributeColumns = columns
-    .filter((column) => column.name !== geometry.name)
-    .map((column) => qid(column.name));
+  const attributeColumns = columns.filter((column) => column.name !== geometry.name).map((column) => qid(column.name));
   /*
    * A Reprojector upstream means these coordinates are not lon/lat, and
    * MapLibre only speaks lon/lat — so the stream comes home for drawing only.
@@ -424,9 +420,7 @@ export async function showGeometries(targets) {
   setData({ type: "FeatureCollection", features: all });
   applyHiddenFilter();
   // Fit to what is actually shown, so hiding a distant layer zooms back in.
-  const visible = hiddenKeys.length
-    ? all.filter((feature) => !hiddenKeys.includes(feature.properties._pv_key))
-    : all;
+  const visible = hiddenKeys.length ? all.filter((feature) => !hiddenKeys.includes(feature.properties._pv_key)) : all;
   const bounds = boundsOf(visible.length ? visible : all);
   if (bounds) fitTo(bounds);
   setStatus(notes.join(" · "));

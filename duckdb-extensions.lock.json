@@ -1,0 +1,31 @@
+{
+  "duckdbWasm": "1.29.0",
+  "duckdb": "v1.1.1",
+  "platforms": ["wasm_mvp", "wasm_eh"],
+  "files": {
+    "v1.1.1/wasm_mvp/spatial.duckdb_extension.wasm": {
+      "size": 22686214,
+      "sha256": "11ca079c4b408ccefc984181b71f486bf98c13d648cf42f35f54f289c370912c"
+    },
+    "v1.1.1/wasm_mvp/parquet.duckdb_extension.wasm": {
+      "size": 2713313,
+      "sha256": "e73e280539207f51ca56f3d302ca6051182ef6213999fae9f809bfe2113b9311"
+    },
+    "v1.1.1/wasm_mvp/json.duckdb_extension.wasm": {
+      "size": 609515,
+      "sha256": "9e17312a863a49a00394e74b340446ac99ce96172c2fa641e1aa7cc271aaae29"
+    },
+    "v1.1.1/wasm_eh/spatial.duckdb_extension.wasm": {
+      "size": 22808679,
+      "sha256": "1d5f88e12cba094f1f75ec35aa75429fe0bf431f759b36358af0615b6836103d"
+    },
+    "v1.1.1/wasm_eh/parquet.duckdb_extension.wasm": {
+      "size": 2803379,
+      "sha256": "e24fb2953c6a80e32d17fa3921f90f1f05ccbfa40f382e77702c1e6af9b79479"
+    },
+    "v1.1.1/wasm_eh/json.duckdb_extension.wasm": {
+      "size": 696809,
+      "sha256": "84958e8b52814ff0035dfcb208dbac80d99d30e582c668090879d3b814c571e4"
+    }
+  }
+}

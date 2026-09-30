@@ -14,7 +14,7 @@
 import { exec, qid, qlit, query } from "./duck.js";
 import { checkSql, composeSql, SYNTAX_REFERENCE } from "./sqlnode.js";
 import { valueSql } from "./valuespec.js";
-import { findGeometryColumn, geometryExpression, isLonLatCode, LONLAT } from "./schema.js";
+import { findGeometryColumn, geometryExpression, LONLAT } from "./schema.js";
 import { MAX_OVERLAY_FEATURES, createFaceTable, createShapeTable } from "./overlay.js";
 import {
   FILL_MODES,
@@ -334,15 +334,11 @@ async function buildCellTable(node, selectSql) {
   const rows = await query(`${selectSql} LIMIT ${MAX_MATERIALISED_CELLS + 1}`);
   if (rows.length > MAX_MATERIALISED_CELLS) {
     throw new Error(
-      `${MAX_MATERIALISED_CELLS.toLocaleString()} cells is the ceiling. ` +
-        "Sample, or filter upstream.",
+      `${MAX_MATERIALISED_CELLS.toLocaleString()} cells is the ceiling. ` + "Sample, or filter upstream.",
     );
   }
   const table = cellTableName(node);
-  await createCellGeometryTable(
-    rows.map((row) => row.cell).filter(Boolean),
-    table,
-  );
+  await createCellGeometryTable(rows.map((row) => row.cell).filter(Boolean), table);
   return { tables: [table] };
 }
 
@@ -547,9 +543,7 @@ function computedZSql(mode, conflict, custom) {
   if (mode === "Add Point") return orElse("_vc_v[_vc_n].z");
   // Otherwise, the neighbours either side of where the vertex will be.
   const [before, after] =
-    mode === "Insert Point at Index"
-      ? ["_vc_v[_vc_p - 1]", "_vc_v[_vc_p]"]
-      : ["_vc_v[_vc_p - 1]", "_vc_v[_vc_p + 1]"];
+    mode === "Insert Point at Index" ? ["_vc_v[_vc_p - 1]", "_vc_v[_vc_p]"] : ["_vc_v[_vc_p - 1]", "_vc_v[_vc_p + 1]"];
   const dist = (a) => `sqrt(power(${a}.x - _vc_x, 2) + power(${a}.y - _vc_y, 2))`;
   const interpolated =
     `CASE WHEN ${before} IS NULL AND ${after} IS NULL THEN _vc_v[_vc_p].z ` +
@@ -624,7 +618,22 @@ function vertexCreatorSql(node, upstream, columns) {
   const column = qid(geometry?.name || "geometry");
   const source = geometry ? geometryExpression(geometry) : "NULL::GEOMETRY";
   const removed = params.removeAttributes === "Yes" ? vertexSourceColumns(params, columns) : [];
-  const dropped = ["_vc_g", "_vc_t", "_vc_x", "_vc_y", "_vc_z", "_vc_i", "_vc_v", "_vc_n", "_vc_p", "_vc_r", "_vc_nz", "_vc_3d", "_vc_fill", "_vc_e"];
+  const dropped = [
+    "_vc_g",
+    "_vc_t",
+    "_vc_x",
+    "_vc_y",
+    "_vc_z",
+    "_vc_i",
+    "_vc_v",
+    "_vc_n",
+    "_vc_p",
+    "_vc_r",
+    "_vc_nz",
+    "_vc_3d",
+    "_vc_fill",
+    "_vc_e",
+  ];
 
   // Stage 1: the inputs, evaluated once.
   const stage1 =
@@ -744,9 +753,7 @@ export const TRANSFORMERS = {
       if (!renames.size || !columns.length) return { output: `SELECT * FROM ${upstream.input}` };
       const selection = columns
         .map((column) =>
-          renames.has(column.name)
-            ? `${qid(column.name)} AS ${qid(renames.get(column.name))}`
-            : qid(column.name),
+          renames.has(column.name) ? `${qid(column.name)} AS ${qid(renames.get(column.name))}` : qid(column.name),
         )
         .join(", ");
       return { output: `SELECT ${selection} FROM ${upstream.input}` };
@@ -995,7 +1002,7 @@ export const TRANSFORMERS = {
           ? [`ST_Union_Agg(${geometryExpression(geometry)}) AS ${qid(geometry.name)}`]
           : [];
 
-      if (!aggregates.length && !dissolve.length) aggregates.push("count(*) AS \"count\"");
+      if (!aggregates.length && !dissolve.length) aggregates.push('count(*) AS "count"');
       const selection = [...groupSql, ...aggregates, ...dissolve].join(", ");
       const groupClause = groupSql.length ? ` GROUP BY ${groupSql.join(", ")}` : "";
       return { output: `SELECT ${selection} FROM ${upstream.input}${groupClause}` };
@@ -1121,8 +1128,7 @@ export const TRANSFORMERS = {
         };
       }
       const numbered =
-        `SELECT *, row_number() OVER (PARTITION BY ${keys.map(qid).join(", ")}) AS _pv_rn ` +
-        `FROM ${upstream.input}`;
+        `SELECT *, row_number() OVER (PARTITION BY ${keys.map(qid).join(", ")}) AS _pv_rn ` + `FROM ${upstream.input}`;
       return {
         unique: `SELECT * EXCLUDE (_pv_rn) FROM (${numbered}) WHERE _pv_rn = 1`,
         duplicate: `SELECT * EXCLUDE (_pv_rn) FROM (${numbered}) WHERE _pv_rn > 1`,
@@ -1359,9 +1365,7 @@ export const TRANSFORMERS = {
       if (!Number.isFinite(min) || (max !== null && !Number.isFinite(max))) {
         throw new Error("Area bounds must be numbers of hectares.");
       }
-      const test = [`${area} >= ${min}`, max === null ? null : `${area} <= ${max}`]
-        .filter(Boolean)
-        .join(" AND ");
+      const test = [`${area} >= ${min}`, max === null ? null : `${area} <= ${max}`].filter(Boolean).join(" AND ");
       return {
         kept: `SELECT * FROM ${upstream.input} WHERE ${test}`,
         removed: `SELECT * FROM ${upstream.input} WHERE NOT (${test})`,
@@ -1565,9 +1569,7 @@ export const TRANSFORMERS = {
   ...jsGeometryTool({
     label: "SmoothVectors",
     hint: "Rounds off corners by Chaikin subdivision. Each pass doubles the vertices.",
-    params: [
-      { id: "iterations", label: "Passes", kind: "select", options: ["1", "2", "3", "4"], default: "2" },
-    ],
+    params: [{ id: "iterations", label: "Passes", kind: "select", options: ["1", "2", "3", "4"], default: "2" }],
     options: (params) => ({ iterations: Math.max(1, Math.round(Number(params.iterations ?? 2))) }),
   }),
 
@@ -1681,10 +1683,7 @@ export const TRANSFORMERS = {
         `SELECT ST_AsText(${geometryExpression(geometry)}) AS wkt FROM ${source} ` +
           `WHERE ${qid(geometry.name)} IS NOT NULL`,
       );
-      await createFaceTable(
-        wkts.map((row) => row.wkt).filter(Boolean),
-        faces,
-      );
+      await createFaceTable(wkts.map((row) => row.wkt).filter(Boolean), faces);
       return { tables: [source, faces] };
     },
     sql: (node, upstream, ctx) => {
@@ -1701,8 +1700,7 @@ export const TRANSFORMERS = {
         .filter(Boolean)
         .filter((name) => name !== geometry?.name)
         .map(
-          (name) =>
-            `string_agg(DISTINCT s.${qid(name)}, ${qlit(separator)} ORDER BY s.${qid(name)}) AS ${qid(name)}`,
+          (name) => `string_agg(DISTINCT s.${qid(name)}, ${qlit(separator)} ORDER BY s.${qid(name)}) AS ${qid(name)}`,
         );
 
       // ST_Contains on the face's interior point: a point inside exactly the

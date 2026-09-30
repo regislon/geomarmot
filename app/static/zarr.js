@@ -28,7 +28,7 @@
  * session that never opens a Zarr never pays for them.
  */
 
-import * as zarrita from "https://cdn.jsdelivr.net/npm/zarrita@0.7.5/+esm";
+import * as zarrita from "zarrita";
 
 import { db, exec, qid, qlit } from "./duck.js";
 import { describe, findGeometryColumn } from "./schema.js";
@@ -136,8 +136,7 @@ function crsFromAttributes(...attributeSets) {
       if (/^(EPSG|ESRI|OGC):/i.test(text)) {
         return { code: text.toUpperCase(), display: text.toUpperCase(), wkt: null, assumed: false };
       }
-      if (/^\d+$/.test(text))
-        return { code: `EPSG:${text}`, display: `EPSG:${text}`, wkt: null, assumed: false };
+      if (/^\d+$/.test(text)) return { code: `EPSG:${text}`, display: `EPSG:${text}`, wkt: null, assumed: false };
       const code = epsgFromWkt(text);
       // A WKT with no EPSG code in it is still perfectly good to reproject
       // from — PROJ takes the WKT itself — but it is far too long to show, so
@@ -662,8 +661,7 @@ function geometryExpressionFor(plan, georeference) {
   const x1 = `(x - ${cellX / 2} + ${cellX * plan.step})`;
   const y1 = `(y - ${cellY / 2} + ${cellY * plan.step})`;
   return (
-    `ST_MakeEnvelope(least(${x0}, ${x1}), least(${y0}, ${y1}), ` +
-    `greatest(${x0}, ${x1}), greatest(${y0}, ${y1}))`
+    `ST_MakeEnvelope(least(${x0}, ${x1}), least(${y0}, ${y1}), ` + `greatest(${x0}, ${x1}), greatest(${y0}, ${y1}))`
   );
 }
 
@@ -770,11 +768,7 @@ export async function materialize(store, variable, plan, georeference, tableName
           record.y = y;
         }
         Object.assign(record, pinValues);
-        record[names.value] = isNodata
-          ? null
-          : scaled
-            ? raw * variable.scaleFactor + variable.addOffset
-            : raw;
+        record[names.value] = isNodata ? null : scaled ? raw * variable.scaleFactor + variable.addOffset : raw;
         pending.push(JSON.stringify(record));
         written += 1;
         if (pending.length >= INSERT_BATCH) await flush();

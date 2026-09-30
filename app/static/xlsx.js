@@ -44,7 +44,9 @@ function getWorker() {
   // message — fail everything waiting and start afresh next time.
   worker.onerror = (event) => {
     event.preventDefault();
-    const error = new Error(`The spreadsheet library did not load; check the network (${event.message || "worker failed"}).`);
+    const error = new Error(
+      `The spreadsheet library did not load; check the network (${event.message || "worker failed"}).`,
+    );
     for (const request of pending.values()) request.reject(error);
     pending.clear();
     worker.terminate();

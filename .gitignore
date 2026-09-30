@@ -16,3 +16,4 @@ server/.venv/
 .pytest_cache/
 .ruff_cache/
 tests/fixtures/generated/
+app/dist-test/

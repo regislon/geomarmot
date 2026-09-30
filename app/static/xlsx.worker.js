@@ -21,7 +21,7 @@
  *   write {names, kinds, ndjson, sheetName} → done {bytes, blanked}
  */
 
-import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
+import * as XLSX from "xlsx";
 
 /** Excel's hard limit on one cell's text; longer and Excel "repairs" the file. */
 const MAX_CELL_TEXT = 32_767;
@@ -110,11 +110,7 @@ function columnType(rows, column) {
     const value = row[column];
     if (value == null) continue;
     const here =
-      value instanceof Date
-        ? "date"
-        : typeof value === "number" || typeof value === "boolean"
-          ? typeof value
-          : "text";
+      value instanceof Date ? "date" : typeof value === "number" || typeof value === "boolean" ? typeof value : "text";
     if (kind && kind !== here) return "VARCHAR";
     kind = here;
     if (here === "number" && !Number.isSafeInteger(value)) integral = false;
@@ -309,7 +305,10 @@ function cellFor(value, kind, counter) {
  */
 function writeBook(id, { names, kinds, ndjson, sheetName }) {
   const counter = { blanked: 0 };
-  const lines = new TextDecoder().decode(ndjson).split("\n").filter((line) => line.length);
+  const lines = new TextDecoder()
+    .decode(ndjson)
+    .split("\n")
+    .filter((line) => line.length);
   const keys = names.map((_, c) => `c${c}`);
   const sheet = [];
   sheet.push(names.map((name) => ({ t: "s", v: name })));

@@ -151,9 +151,7 @@ function georeferenceSummary() {
   }
   const where = kind === "affine" ? `affine from \`${affine.source}\`` : "coordinate arrays";
   const cell =
-    kind === "affine"
-      ? `${Math.abs(affine.a)} × ${Math.abs(affine.e)} cells`
-      : "cell size from the coordinate spacing";
+    kind === "affine" ? `${Math.abs(affine.a)} × ${Math.abs(affine.e)} cells` : "cell size from the coordinate spacing";
   const crsText = crs ? crs.code : "no CRS declared — taken as lon/lat";
   return `${crsText} · ${cell} · ${where}${rotated ? " · rotated grid, footprints unavailable" : ""}`;
 }
@@ -215,9 +213,7 @@ function renderPlan() {
       retune();
     });
     pair.append(from, document.createTextNode("→"), to);
-    windowRow.appendChild(
-      field(`${variable.dims[axis]} range`, pair, `0 – ${variable.shape[axis].toLocaleString()}`),
-    );
+    windowRow.appendChild(field(`${variable.dims[axis]} range`, pair, `0 – ${variable.shape[axis].toLocaleString()}`));
   }
   panel.appendChild(windowRow);
 
@@ -261,9 +257,7 @@ function renderPlan() {
     plan.geometry = geometry.value;
     renderPlan();
   });
-  panel.appendChild(
-    field("Geometry", geometry, plan.geometry === "footprint" ? "one polygon per sampled block" : ""),
-  );
+  panel.appendChild(field("Geometry", geometry, plan.geometry === "footprint" ? "one polygon per sampled block" : ""));
 
   const skip = document.createElement("input");
   skip.type = "checkbox";
@@ -300,8 +294,7 @@ function retune() {
   if (plan.window.x[1] <= plan.window.x[0]) plan.window.x[1] = plan.window.x[0] + 1;
   const height = plan.window.y[1] - plan.window.y[0];
   const width = plan.window.x[1] - plan.window.x[0];
-  plan.step =
-    height * width <= plan.budget ? 1 : Math.max(1, Math.ceil(Math.sqrt((height * width) / plan.budget)));
+  plan.step = height * width <= plan.budget ? 1 : Math.max(1, Math.ceil(Math.sqrt((height * width) / plan.budget)));
   // The note is about the window the picker chose, not the one you now have.
   plan.narrowed = false;
   renderPlan();
