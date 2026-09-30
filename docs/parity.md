@@ -14,6 +14,8 @@ deliberately differs.
 | Rejected rows | a vendor-specific attribute name | `rejection_code` | independent naming |
 | SQL in parameters | unrestricted | restricted to the node's input unless unrestricted is chosen explicitly | security (docs/security.md) |
 | Saved graphs | an unversioned format | `geomarmot-graph` v1 | docs/decisions/0007 |
+| `.csv.gz` | accepted, but failed to read: this DuckDB-Wasm build cannot decompress gzip | inflated in the browser before registration | the documented behaviour |
+| Runaway queries | none; a stuck query froze the engine | cancelled, then the engine restarted with sources restored | docs/decisions/0004 |
 
 ## Checklist
 

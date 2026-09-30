@@ -13,7 +13,7 @@
  */
 
 import { guardedRead } from "./read-guard.js";
-import { query, qlit } from "../core/duck.js";
+import { readQuery, qlit } from "../core/duck.js";
 import { cellToWkb } from "../engines/h3/index.js";
 import { decodeWKB, toBytes } from "../core/wkb.js";
 import { isLonLatCode, LONLAT } from "../core/schema.js";
@@ -74,7 +74,7 @@ export async function describeFeature(pick, crs = LONLAT) {
 
   const base = (
     await guardedRead(() =>
-      query(
+      readQuery(
         `SELECT ST_GeometryType(${geometry}) AS type,
               ST_Dimension(${geometry}) AS dimension,
               ST_NPoints(${geometry}) AS vertices,
@@ -101,7 +101,7 @@ export async function describeFeature(pick, crs = LONLAT) {
   if (base.type === "POLYGON") {
     rings = (
       await guardedRead(() =>
-        query(
+        readQuery(
           `SELECT ST_NInteriorRings(${geometry}) AS holes,
                 ST_IsClosed(ST_ExteriorRing(${geometry})) AS closed,
                 ST_IsRing(ST_ExteriorRing(${geometry})) AS is_ring,

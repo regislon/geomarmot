@@ -7,7 +7,7 @@
  */
 
 export { resolveUrl } from "./remote.js";
-import { dropFile, qid, qlit, query, registerBuffer, registerUrl } from "../core/duck.js";
+import { dropFile, forgetTable, qid, qlit, query, registerBuffer, registerUrl, rememberTable } from "../core/duck.js";
 import { crsFromGeoMetadata, describe, findGeometryColumn, readGeoMetadata } from "../core/schema.js";
 import { describeH3Source } from "../engines/h3/index.js";
 import { hideProgress, readWithProgress } from "../ui/progress.js";
@@ -166,7 +166,12 @@ export async function addLocalFile(file, { chooseSheets = null } = {}) {
   const zipped = GZIP.test(file.name);
   const fileName = logicalName(zipped ? file.name.replace(GZIP, "") : file.name);
   const raw = new Uint8Array(await file.arrayBuffer());
-  await registerBuffer(fileName, zipped ? await gunzip(raw) : raw);
+  // The File is kept as the way to restore the bytes after an engine restart: it is backed by the disk.
+  const read = async () => {
+    const fresh = new Uint8Array(await file.arrayBuffer());
+    return zipped ? gunzip(fresh) : fresh;
+  };
+  await registerBuffer(fileName, zipped ? await gunzip(raw) : raw, read);
   const base = blankSource(fileName, file.name, "local", { sizeBytes: file.size });
   if (base.format === "ogr") {
     return ogrLayerSources(base).catch((err) => {
@@ -199,7 +204,10 @@ export async function addRemoteFile(input, { chooseSheets = null } = {}) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     const fileName = logicalName(displayName.replace(GZIP, ""));
-    await registerBuffer(fileName, await gunzip(await readWithProgress(response, `Downloading ${displayName}`)));
+    const inflated = await gunzip(await readWithProgress(response, `Downloading ${displayName}`));
+    // Kept to restore after an engine restart; a copy, since DuckDB takes the buffer it is given.
+    const kept = inflated.slice();
+    await registerBuffer(fileName, inflated, async () => kept.slice());
     hideProgress();
     const base = blankSource(fileName, displayName, "url", { url });
     await introspect(base);
@@ -236,6 +244,7 @@ export async function addZarrLayer({ store, variable, plan, georeference }) {
   _zarrCounter += 1;
   const table = `zarr_${_zarrCounter}`;
   const built = await materialize(store, variable, plan, georeference, table);
+  await rememberTable(table);
   const source = {
     id: table,
     name: `${store.name} \u203a ${variable.name}`,
@@ -272,6 +281,7 @@ export async function removeSource(id) {
   if (!source) return;
   sources.delete(id);
   if (source.table) {
+    forgetTable(source.table);
     await dropTable(source.table);
     return;
   }

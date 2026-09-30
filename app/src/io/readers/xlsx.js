@@ -1,5 +1,6 @@
 /* Excel workbooks: one source per chosen sheet, each built into a table. */
 
+import { rememberTable } from "../../core/duck.js";
 import { hideProgress, showProgress } from "../../ui/progress.js";
 import { closeWorkbook, materializeSheet, previewSheet, readWorkbook } from "../xlsx.js";
 import { blankSource, introspect, sources } from "../sources.js";
@@ -56,6 +57,8 @@ export async function xlsxSheetSources(displayName, bytes, origin, extra = {}, c
         },
       });
       if (!built) continue;
+      // A snapshot, so an engine restart can rebuild the sheet without the workbook.
+      await rememberTable(table);
       const source = blankSource(table, displayName, origin, {
         ...extra,
         table,

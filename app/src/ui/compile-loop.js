@@ -3,7 +3,7 @@
  * says when the graph has settled.
  */
 
-import { query } from "../core/duck.js";
+import { onEngineRestart, readQuery } from "../core/duck.js";
 import { graph, mainCompiler, validate } from "../core/graph/index.js";
 import { sources } from "../io/sources.js";
 import { setIssues, setPortCounts } from "./canvas/index.js";
@@ -63,7 +63,7 @@ async function updatePortCounts(lease) {
       setPortCounts(new Map());
       return;
     }
-    const rows = await query(`SELECT ${selection.join(", ")}`);
+    const rows = await readQuery(`SELECT ${selection.join(", ")}`);
     if (seq !== countSeq) return;
     const counts = new Map();
     ports.forEach((port, index) => counts.set(`${port.nodeId}:${port.portId}`, Number(rows[0][`c${index}`])));
@@ -145,6 +145,16 @@ export async function graphSettled() {
   await flushPendingCompile();
   while (compileInFlight) await compileInFlight;
 }
+
+// A restarted engine has none of the old generation's views: recompile, and say what happened.
+onEngineRestart(async (reason) => {
+  uiLease = mainCompiler.acquire();
+  views = uiLease.views;
+  crsByNode = uiLease.crsByNode;
+  nodeStates = uiLease.states;
+  await recompile();
+  setStatus(`The engine was restarted because ${reason}. Sources were reloaded and the graph rebuilt.`, true);
+});
 
 export function onGraphChange() {
   autosave();

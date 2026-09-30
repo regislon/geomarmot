@@ -5,7 +5,7 @@
 
 import { guardedRead } from "../read-guard.js";
 import { LONLAT, geometryExpression, isLonLatCode, wkbExpression } from "../../core/schema.js";
-import { hasSpatial, qid, qlit, query } from "../../core/duck.js";
+import { hasSpatial, qid, qlit, query, readQuery } from "../../core/duck.js";
 import { decodeWKB } from "../../core/wkb.js";
 import { H3_INDEX_COLUMN, cellToPolygon, parentIndexExpr, resolutionExpr } from "../../engines/h3/index.js";
 import { SLOW_FEATURE_COUNT, boundsOf, coarsenResolution, featureLimit } from "./index.js";
@@ -76,7 +76,7 @@ async function fetchH3Coarse(viewName, columns, parentRes) {
  */
 export async function h3Features(viewName, columns) {
   const detected = await guardedRead(() =>
-    query(
+    readQuery(
       `SELECT ${resolutionExpr(H3_INDEX_COLUMN)} AS res FROM ${viewName}
      WHERE ${qid(H3_INDEX_COLUMN)} IS NOT NULL LIMIT 1`,
     ),
@@ -127,7 +127,7 @@ export async function geometryFeatures(viewName, columns, geometry, crs = LONLAT
     : `ST_AsWKB(ST_Transform(${geometryExpression(geometry)}, ${qlit(crs)}, ${qlit(LONLAT)}, always_xy := true))`;
   const selection = [`${drawable} AS _wkb`, ...attributeColumns].join(", ");
   const rows = await guardedRead(() =>
-    query(`SELECT ${selection} FROM ${viewName} WHERE ${qid(geometry.name)} IS NOT NULL${limitClause()}`),
+    readQuery(`SELECT ${selection} FROM ${viewName} WHERE ${qid(geometry.name)} IS NOT NULL${limitClause()}`),
   );
 
   const features = [];

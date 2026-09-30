@@ -9,7 +9,7 @@
  * both rather than only the one being worked on.
  */
 
-import { query, qid } from "./duck.js";
+import { qid, readQuery } from "./duck.js";
 import { describe } from "./schema.js";
 
 /** Statements that have no business in a slot that must yield a relation. */
@@ -159,7 +159,7 @@ export async function profileCategories(view, columns) {
     const projection = candidates
       .map((column, index) => `approx_top_k(${qid(column.name)}, ${MAX_CATEGORIES + 1}) AS v${index}`)
       .join(", ");
-    const row = (await query(`SELECT ${projection} FROM (SELECT * FROM ${view} LIMIT ${PROFILE_ROWS})`))[0] || {};
+    const row = (await readQuery(`SELECT ${projection} FROM (SELECT * FROM ${view} LIMIT ${PROFILE_ROWS})`))[0] || {};
 
     candidates.forEach((column, index) => {
       const raw = row[`v${index}`];

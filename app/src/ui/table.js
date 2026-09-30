@@ -11,7 +11,7 @@
  */
 
 import { guardedRead } from "./read-guard.js";
-import { query, qid } from "../core/duck.js";
+import { readQuery, qid } from "../core/duck.js";
 import { H3_INDEX_COLUMN } from "../engines/h3/index.js";
 import { findGeometryColumn, wkbExpression } from "../core/schema.js";
 
@@ -132,7 +132,7 @@ async function loadPage() {
     .filter(Boolean)
     .join(", ");
   const rows = await guardedRead(() =>
-    query(`SELECT ${selection} FROM ${state.view} LIMIT ${PAGE_SIZE} OFFSET ${state.page * PAGE_SIZE}`),
+    readQuery(`SELECT ${selection} FROM ${state.view} LIMIT ${PAGE_SIZE} OFFSET ${state.page * PAGE_SIZE}`),
   );
   renderHead();
   renderBody(rows);
@@ -235,7 +235,7 @@ export async function showView(viewName, columns) {
     pick: geometry ? "wkb" : h3 ? "h3" : null,
     pickExpr: geometry ? wkbExpression(geometry) : h3 ? qid(H3_INDEX_COLUMN) : null,
   };
-  const counted = await guardedRead(() => query(`SELECT count(*) AS n FROM ${viewName}`));
+  const counted = await guardedRead(() => readQuery(`SELECT count(*) AS n FROM ${viewName}`));
   state.total = Number(counted[0]?.n ?? 0);
   await loadPage();
   // Says where the column went, not what the map did with it — the map may

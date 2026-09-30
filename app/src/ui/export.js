@@ -1,5 +1,6 @@
 /* Export: running the connected Writers. */
 
+import { cancelMain } from "../core/duck.js";
 import { graph, upstreamCrs, upstreamView } from "../core/graph/index.js";
 import { transformerFor } from "../../../transformers/index.js";
 import { flushPendingCompile, retainShown, views } from "./compile-loop.js";
@@ -15,6 +16,14 @@ export function connectedWriters() {
 export async function exportWriters(writers) {
   const button = el("btn-export");
   button.disabled = true;
+  // Exports have no timeout — a big file takes as long as it takes — but can be stopped.
+  const cancel = el("btn-cancel");
+  cancel.hidden = false;
+  cancel.onclick = () => {
+    cancel.disabled = true;
+    setStatus("Stopping the export…");
+    cancelMain().catch((err) => setStatus(err.message, true));
+  };
   let lease = null;
   try {
     await flushPendingCompile();
@@ -45,6 +54,8 @@ export async function exportWriters(writers) {
     setStatus(err.message, true);
   } finally {
     lease?.release();
+    cancel.hidden = true;
+    cancel.disabled = false;
     updateExportButton();
   }
 }

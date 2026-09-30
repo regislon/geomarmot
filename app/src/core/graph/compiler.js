@@ -15,7 +15,7 @@
  *   (b) a failed node's resources, and an aborted compile's, go at once.
  */
 
-import { newConnection, qid, qlit } from "../duck.js";
+import { newConnection, onEngineRestart, qid, qlit } from "../duck.js";
 import { LONLAT, isLonLatCode } from "../schema.js";
 import { sourceRelation } from "../../io/sources.js";
 import { guardNode } from "../sqlguard/index.js";
@@ -72,9 +72,22 @@ export function createCompiler({ namespace, getGraph, getSources }) {
   }
   /** Backpressure: a new generation is only allocated once every retired one has been dropped. */
   async function waitForRetired(signal) {
+    const started = Date.now();
+    let warned = false;
     while (retired.size) {
       if (signal.aborted) throw new AbortError();
-      await new Promise((resolve) => backpressureWaiters.push(resolve));
+      await new Promise((resolve) => {
+        backpressureWaiters.push(resolve);
+        setTimeout(resolve, 5_000);
+      });
+      // A lease held this long is almost certainly a read that forgot to release it.
+      if (!warned && Date.now() - started > 10_000 && retired.size) {
+        warned = true;
+        console.warn(
+          `${namespace}: a compile has waited 10 s for leased generations`,
+          [...retired].map((r) => ({ gen: r.gen, leases: r.leases })),
+        );
+      }
     }
   }
 
@@ -296,6 +309,15 @@ export function createCompiler({ namespace, getGraph, getSources }) {
       error: record.error,
     };
   }
+
+  // After an engine restart every relation and connection is gone: start from nothing.
+  onEngineRestart(() => {
+    running?.controller.abort();
+    connection = null;
+    current = null;
+    retired.clear();
+    wakeBackpressure();
+  });
 
   return {
     namespace,

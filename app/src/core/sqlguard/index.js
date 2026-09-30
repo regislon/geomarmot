@@ -12,7 +12,7 @@
  * Parsing does not execute anything.
  */
 
-import { newConnection, qlit } from "../duck.js";
+import { newConnection, onEngineRestart, qlit } from "../duck.js";
 import { CONTEXTS } from "./contexts.js";
 import { check } from "./rules.js";
 
@@ -22,6 +22,9 @@ export { collect } from "./rules.js";
 let parserConnection = null;
 let knownFunctions = null;
 const cache = new Map();
+onEngineRestart(() => {
+  parserConnection = null;
+});
 
 async function parser() {
   if (!parserConnection) parserConnection = await newConnection();

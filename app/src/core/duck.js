@@ -1,10 +1,15 @@
 /*
- * DuckDB-WASM boot, file registration and query helpers.
+ * DuckDB-Wasm: boot, file registration, queries — and keeping the engine alive.
  *
  * Everything the app does to data goes through here. The engine runs in a
  * worker in the user's own browser: a dropped file is registered as a buffer
- * and never uploaded, and a remote file is read with range requests so opening
- * a 2 GB parquet costs a footer, not 2 GB.
+ * and never uploaded, and a remote file is read with range requests.
+ *
+ * A runaway query is stopped in two steps (docs/decisions/0004): cancelSent()
+ * first, which stops most queries at once; if the engine does not answer within
+ * a grace period — some nested-loop joins never check for it — the worker is
+ * terminated and a fresh engine booted, and every source is registered again
+ * from what was kept to restore it.
  */
 
 import * as duckdb from "@duckdb/duckdb-wasm";
@@ -12,16 +17,30 @@ import mvpWasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
 import ehWasm from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
 import mvpWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";
 import ehWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
+import { rowsOf } from "./rows.js";
 
-/*
- * Both bundles ship with the app, and so do the extensions (see
- * scripts/fetch-duckdb-extensions.js): nothing is fetched from a CDN, which is
- * what lets the local server work with no network at all.
- */
+export { normalize } from "./rows.js";
+
+/* Both bundles and the extensions ship with the app: nothing comes from a CDN. */
 const BUNDLES = {
   mvp: { mainModule: mvpWasm, mainWorker: mvpWorker },
   eh: { mainModule: ehWasm, mainWorker: ehWorker },
 };
+
+/** How long an interactive read may run before it is stopped. */
+export const READ_TIMEOUT_MS = 30_000;
+/** How long a cancelled query gets to stop before the engine is restarted. */
+const CANCEL_GRACE_MS = 2_000;
+
+let _db = null;
+let _conn = null;
+let _spatial = false;
+let _restarts = 0;
+/** name -> { url } or { restore: () => Promise<Uint8Array> }: how to register each file again. */
+const _registrations = new Map();
+/** table name -> Parquet bytes, for tables built on open (Excel sheets, Zarr arrays). */
+const _snapshots = new Map();
+const _restartListeners = new Set();
 
 /**
  * Where the bundled extensions are served: the site root. In a build this
@@ -33,14 +52,11 @@ function extensionRepository() {
   return new URL("../duckdb-extensions", import.meta.url).href;
 }
 
-let _db = null;
-let _conn = null;
-let _spatial = false;
-// registerFileURL / registerFileBuffer throw "File already registered" on a
-// repeat name, so every registration is guarded by this set rather than by
-// try/catch — a swallowed catch here would hide a genuine name collision
-// between two files the user dropped with the same basename.
-const _registered = new Set();
+/** A memory ceiling, so running out gives a DuckDB error rather than a crashed tab. */
+function memoryLimit() {
+  const deviceGb = /** @type {any} */ (navigator).deviceMemory || 4;
+  return `${Math.max(1, Math.min(4, Math.floor(deviceGb * 0.6)))}GB`;
+}
 
 /** Quote an identifier so columns with spaces, accents or keywords survive. */
 export function qid(name) {
@@ -52,61 +68,33 @@ export function qlit(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-/**
- * Arrow hands back proxies, BigInts and nested structs. Flatten to plain JS so
- * the rest of the app can treat a row as an ordinary object.
- */
-export function normalize(value) {
-  if (value == null) return value;
-  if (typeof value === "bigint") return Number(value);
-  if (value instanceof Uint8Array) return value;
-  if (typeof value === "object") {
-    if (typeof value.toJSON === "function") return normalize(value.toJSON());
-    if (Array.isArray(value)) return value.map(normalize);
-    if (typeof value[Symbol.iterator] === "function") return Array.from(value, normalize);
-    const out = {};
-    for (const key in value) out[key] = normalize(value[key]);
-    return out;
-  }
-  return value;
-}
-
-export async function boot() {
-  if (_conn) return _conn;
+async function start() {
   const bundle = await duckdb.selectBundle(BUNDLES);
   const worker = new Worker(bundle.mainWorker);
   _db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
   await _db.instantiate(bundle.mainModule);
   _conn = await _db.connect();
   await _conn.query(`SET custom_extension_repository = '${extensionRepository()}'`);
-  await loadSpatial();
-  return _conn;
-}
-
-/**
- * Load the spatial extension up front.
- *
- * DuckDB auto-loads it when it *reads* a GeoParquet, which makes `ST_AsWKB`
- * appear to be built in — but only once such a file has been opened. Anything
- * that calls a spatial function first (building geometry from H3 indexes, say)
- * gets "Scalar Function with name st_geomfromwkb is not in the catalog" from a
- * database that would happily have loaded it. Doing it here removes the
- * ordering dependency.
- */
-async function loadSpatial() {
+  await _conn.query(`SET memory_limit = '${memoryLimit()}'`);
   try {
     await _conn.query("INSTALL spatial");
     await _conn.query("LOAD spatial");
-    // Loaded now rather than on first use, so extension autoloading can be
-    // switched off later without breaking Parquet or JSON reads.
+    // Loaded explicitly, so autoloading can be switched off without breaking Parquet or JSON reads.
     await _conn.query("LOAD parquet");
     await _conn.query("LOAD json");
+    // Defence in depth for the SQL guard: nothing may pull in another extension later.
+    await _conn.query("SET autoinstall_known_extensions = false");
+    await _conn.query("SET autoload_known_extensions = false");
     _spatial = true;
   } catch (err) {
-    // Worth continuing without: plain parquet still works entirely.
     console.warn("Spatial extension unavailable — geometry features are limited", err);
     _spatial = false;
   }
+}
+
+export async function boot() {
+  if (!_conn) await start();
+  return _conn;
 }
 
 /** Whether spatial functions can be used. */
@@ -124,30 +112,89 @@ export function conn() {
   return _conn;
 }
 
-export function isRegistered(name) {
-  return _registered.has(name);
+/** How many times the engine has been restarted this session. */
+export function engineRestarts() {
+  return _restarts;
 }
 
-/** Register a dropped file's bytes under a logical name. */
-export async function registerBuffer(name, bytes) {
-  if (_registered.has(name)) return name;
+/** Be told when the engine restarts: every connection and database object from before is gone. */
+export function onEngineRestart(listener) {
+  _restartListeners.add(listener);
+  return () => _restartListeners.delete(listener);
+}
+
+/**
+ * Terminate the worker, boot a fresh engine, and restore every source: files
+ * are registered again, snapshot tables rebuilt from their Parquet copies.
+ * Everything a compile made is gone; the listeners recompile.
+ */
+export async function restartEngine(reason = "a query did not stop when asked") {
+  _restarts += 1;
+  try {
+    await _db?.terminate();
+  } catch {
+    // A worker stuck in a query cannot answer; terminate() still kills it.
+  }
+  _db = null;
+  _conn = null;
+  await start();
+  for (const [name, how] of _registrations) {
+    if (how.url) await _db.registerFileURL(name, how.url, duckdb.DuckDBDataProtocol.HTTP, false);
+    else await _db.registerFileBuffer(name, await how.restore());
+  }
+  for (const [table, bytes] of _snapshots) {
+    const file = `__snapshot_${table}.parquet`;
+    await _db.registerFileBuffer(file, bytes.slice());
+    await _conn.query(`CREATE TABLE ${qid(table)} AS SELECT * FROM read_parquet(${qlit(file)})`);
+    await _db.dropFile(file);
+  }
+  for (const listener of _restartListeners) {
+    try {
+      await listener(reason);
+    } catch (err) {
+      console.warn("A restart listener failed", err);
+    }
+  }
+}
+
+export function isRegistered(name) {
+  return _registrations.has(name);
+}
+
+/**
+ * Register a file's bytes under a logical name. DuckDB takes the buffer, so
+ * `restore` must be able to produce the bytes again after an engine restart —
+ * for a dropped file, reading the File once more.
+ */
+export async function registerBuffer(name, bytes, restore = null) {
+  if (_registrations.has(name)) return name;
   await db().registerFileBuffer(name, bytes);
-  _registered.add(name);
+  _registrations.set(name, { restore: restore || (() => Promise.reject(new Error(`${name} cannot be restored.`))) });
   return name;
 }
 
 /** Register a remote file for range reads under a logical name. */
 export async function registerUrl(name, url) {
-  if (_registered.has(name)) return name;
+  if (_registrations.has(name)) return name;
   await db().registerFileURL(name, url, duckdb.DuckDBDataProtocol.HTTP, false);
-  _registered.add(name);
+  _registrations.set(name, { url });
   return name;
 }
 
 export async function dropFile(name) {
-  if (!_registered.has(name)) return;
+  if (!_registrations.has(name)) return;
+  _registrations.delete(name);
   await db().dropFile(name);
-  _registered.delete(name);
+}
+
+/** Keep a Parquet copy of a table built on open, so an engine restart can rebuild it. */
+export async function rememberTable(table) {
+  const file = `__snapshot_${table}.parquet`;
+  _snapshots.set(table, await copyToBuffer(`COPY ${qid(table)} TO ${qlit(file)} (FORMAT PARQUET)`, file));
+}
+
+export function forgetTable(table) {
+  _snapshots.delete(table);
 }
 
 /** Run a statement, ignoring the result. */
@@ -155,44 +202,66 @@ export async function exec(sql) {
   await conn().query(sql);
 }
 
+class QueryTimeout extends Error {}
+
 /**
- * Rebuild a DECIMAL from the little-endian 32-bit words Arrow hands back.
+ * Run a query with a watchdog: cancel after `timeoutMs`, and restart the
+ * engine if the cancel is not honoured within the grace period.
  *
- * Arrow carries a decimal as its unscaled 128-bit integer, and the scale lives
- * in the schema rather than on the value — so `toJSON()` produces the unscaled
- * digits and 1.50 arrives as "150". Anything wide enough to matter here is
- * beyond a double anyway; a Number is what the grid and the map can use.
+ * Each watched query streams on a connection of its own: a connection holds one
+ * pending streamed query at a time, so two reads sharing one would cut each
+ * other off, and a cancel must only ever stop the query it was meant for.
  */
-function decodeDecimal(words, scale) {
-  if (words == null) return null;
-  let magnitude = 0n;
-  for (let i = words.length - 1; i >= 0; i--) magnitude = (magnitude << 32n) | BigInt(words[i]);
-  const bits = BigInt(words.length * 32);
-  // Two's complement: the top bit set means the value is negative.
-  const signed = magnitude >= 1n << (bits - 1n) ? magnitude - (1n << bits) : magnitude;
-  return Number(signed) / 10 ** scale;
-}
-
-/** Scale by column name for the decimal fields of a result, or null if none. */
-function decimalScales(schema) {
-  const scales = new Map();
-  for (const field of schema.fields) {
-    // Only Decimal carries a numeric `scale`; Timestamp has `unit` instead.
-    if (typeof field.type?.scale === "number") scales.set(field.name, field.type.scale);
+async function watched(sql, timeoutMs) {
+  const connection = await db().connect();
+  try {
+    return await watchedOn(connection, sql, timeoutMs);
+  } finally {
+    connection.close().catch(() => {});
   }
-  return scales.size ? scales : null;
 }
 
-/** Run a query and return plain JS row objects. */
-export async function query(sql) {
-  const result = await conn().query(sql);
-  const scales = decimalScales(result.schema);
-  return result.toArray().map((row) => {
-    const plain = normalize(row.toJSON());
-    // Read the decimals off the Arrow row, where the words are still intact.
-    if (scales) for (const [name, scale] of scales) plain[name] = decodeDecimal(row[name], scale);
-    return plain;
+async function watchedOn(connection, sql, timeoutMs) {
+  const rows = [];
+  let settled = false;
+  const run = (async () => {
+    const reader = await connection.send(sql);
+    for await (const batch of reader) rows.push(...rowsOf(batch));
+    return rows;
+  })().finally(() => {
+    settled = true;
   });
+  let timer;
+  const overdue = new Promise((resolve) => {
+    timer = setTimeout(() => resolve("overdue"), timeoutMs);
+  });
+  const first = await Promise.race([run.then(() => "done"), overdue]).catch((err) => {
+    clearTimeout(timer);
+    throw err;
+  });
+  clearTimeout(timer);
+  if (first === "done") return rows;
+  const seconds = Math.round(timeoutMs / 1000);
+  await Promise.race([connection.cancelSent().catch(() => {}), new Promise((r) => setTimeout(r, CANCEL_GRACE_MS))]);
+  await Promise.race([run.catch(() => {}), new Promise((r) => setTimeout(r, CANCEL_GRACE_MS))]);
+  if (settled) throw new QueryTimeout(`The query took longer than ${seconds} s and was stopped.`);
+  await restartEngine(`a query ran past ${seconds} s and ignored the cancel`);
+  throw new QueryTimeout(`The query took longer than ${seconds} s and did not stop, so the engine was restarted.`);
+}
+
+/**
+ * Run a query and return plain JS row objects.
+ * @param {string} sql
+ * @param {{ timeoutMs?: number }} [options]  with a timeout, the watchdog applies
+ */
+export async function query(sql, { timeoutMs } = {}) {
+  if (timeoutMs) return watched(sql, timeoutMs);
+  return rowsOf(await conn().query(sql));
+}
+
+/** An interactive read (the table, the map, counts, suggestions): watched, with the standard timeout. */
+export function readQuery(sql) {
+  return query(sql, { timeoutMs: READ_TIMEOUT_MS });
 }
 
 /** Run a query and return the Arrow table, for callers that want columns too. */
@@ -207,11 +276,8 @@ export async function queryOne(sql) {
 }
 
 /**
- * Write a query result into the WASM filesystem and hand back the bytes.
- *
- * The virtual file is removed afterwards: leaving it behind holds the whole
- * export in WASM memory for the rest of the session, and a second export to the
- * same name would fail.
+ * Write a query result into the WASM filesystem and hand back the bytes. The
+ * virtual file is removed afterwards, so it does not hold memory for the session.
  */
 export async function copyToBuffer(sql, virtualName) {
   await exec(sql);
@@ -224,6 +290,18 @@ export async function copyToBuffer(sql, virtualName) {
       console.warn(`Could not drop ${virtualName} from the WASM filesystem`, err);
     }
   }
+}
+
+/** Stop whatever the main connection is running (the Export button's Cancel). */
+export async function cancelMain() {
+  const stopped = await Promise.race([
+    conn()
+      .cancelSent()
+      .then(() => true)
+      .catch(() => false),
+    new Promise((resolve) => setTimeout(() => resolve(false), CANCEL_GRACE_MS)),
+  ]);
+  if (!stopped) await restartEngine("an export was cancelled and did not stop");
 }
 
 /** A new connection to the same database, for work that must not share a transaction with the app's. */

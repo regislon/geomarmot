@@ -18,7 +18,7 @@
  * has actually been read.
  */
 
-import { query, qid, qlit } from "./duck.js";
+import { query, qid, qlit, readQuery } from "./duck.js";
 
 const GEOMETRY_COLUMN_NAMES = new Set(["geometry", "geom", "the_geom", "wkb_geometry", "geometry_wkb", "wkb"]);
 
@@ -133,7 +133,7 @@ export async function valueSuggestions(relation, column, type) {
   if (!relation || !column) return [];
   const reference = qid(column);
   if (NUMERIC_TYPE.test(type || "")) {
-    const rows = await query(
+    const rows = await readQuery(
       `SELECT min(v) AS lo, quantile_cont(v, 0.25) AS q1, median(v) AS mid,
               quantile_cont(v, 0.75) AS q3, max(v) AS hi
        FROM (SELECT ${reference} AS v FROM ${relation} WHERE ${reference} IS NOT NULL)`,
@@ -149,7 +149,7 @@ export async function valueSuggestions(relation, column, type) {
 
 /** Distinct values of a column, capped — used to build AttributeFilter ports. */
 export async function distinctValues(relation, column, limit = 50) {
-  const rows = await query(
+  const rows = await readQuery(
     `SELECT ${qid(column)} AS value, count(*) AS n FROM ${relation}
      WHERE ${qid(column)} IS NOT NULL
      GROUP BY 1 ORDER BY n DESC, 1 LIMIT ${limit}`,
