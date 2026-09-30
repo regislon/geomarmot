@@ -30,7 +30,9 @@ export default defineTransformer({
   inputs: SINGLE_IN,
   outputs: [{ id: "output", label: "Output", description: "One row per non-empty bin: bin, bin_start, bin_end, n." }],
   params: [
-    param.column("column", "Attribute", { description: "The numeric attribute whose values are binned and counted." }),
+    param.column("column", "Attribute", {
+      description: "The numeric attribute whose values are binned and counted; NULLs are skipped.",
+    }),
     param.string("bins", "Bins", {
       default: "20",
       description: "How many equal-width bins the range from minimum to maximum is divided into.",

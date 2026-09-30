@@ -32,7 +32,9 @@ export default defineTransformer({
   inputs: SINGLE_IN,
   outputs: [{ id: "output", label: "Output", description: "One row per value: value, n and percent." }],
   params: [
-    param.column("column", "Attribute", { description: "The attribute whose distinct values are listed and counted." }),
+    param.column("column", "Attribute", {
+      description: "The attribute whose distinct values are listed and counted, NULL included.",
+    }),
   ],
   sql: (ctx) => {
     if (!ctx.params.column) throw new Error("Choose an attribute to list.");
