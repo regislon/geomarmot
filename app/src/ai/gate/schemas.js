@@ -16,7 +16,7 @@
  */
 
 import { ERROR_CODES, ERROR_PARAM_NAMES } from "./errors.js";
-import transformerSchema from "../../../../schemas/transformer.schema.json";
+import transformerSchema from "../../../../schemas/transformer.schema.json" with { type: "json" };
 
 export const LIMITS = Object.freeze({ topValues: 5, topValueChars: 100, rows: 20, cellChars: 200, errorChars: 500 });
 

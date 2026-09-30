@@ -46,18 +46,18 @@ export async function fakeClaude(page, script) {
         headers: CORS,
         body: JSON.stringify({ type: "error", error: { type: "api_error", message: "script ended" } }),
       });
-    const message = typeof next === "function" ? next(body) : next;
-    if (message.status)
-      return route.fulfill({
-        status: message.status,
-        headers: { ...CORS, "content-type": "application/json" },
-        body: JSON.stringify(message.body),
-      });
-    return route.fulfill({
-      status: 200,
-      headers: { ...CORS, "content-type": "application/json" },
-      body: JSON.stringify(message),
-    });
+    const scripted = typeof next === "function" ? next(body) : next;
+    // { delayMs, reply }: answer late, so a test can act while the request is in flight.
+    if (scripted.delayMs) await new Promise((resolve) => setTimeout(resolve, scripted.delayMs));
+    const message = scripted.reply || scripted;
+    const json = { ...CORS, "content-type": "application/json" };
+    try {
+      if (message.status)
+        await route.fulfill({ status: message.status, headers: json, body: JSON.stringify(message.body) });
+      else await route.fulfill({ status: 200, headers: json, body: JSON.stringify(message) });
+    } catch {
+      // The page cancelled the request meanwhile.
+    }
   });
   return requests;
 }

@@ -67,6 +67,8 @@ export function classify(error) {
   if (/inputs are in different coordinate systems/.test(text)) return structured("CRS_MISMATCH");
   if ((m = text.match(/works in longitude\/latitude, but its input is in ([A-Z]+:\d+)/)))
     return structured("NEEDS_LONLAT", { crs: m[1] });
+  if ((m = text.match(/^PROJ does not know "((?:EPSG|ESRI|IGNF|OGC):\w{1,20})"/)))
+    return structured("CRS_UNKNOWN", { crs: m[1] });
   if (
     (m = text.match(/\b((?:EPSG|ESRI|IGNF|OGC):\w{1,20})\b[^.]*\b(?:not known|unknown|not recognised|not recognized)/i))
   )

@@ -22,7 +22,7 @@ import { PALETTE_GROUPS, REGISTRY } from "../../../../transformers/index.js";
 import { paramsSchemaFor } from "../catalogue.js";
 import { classify, structured } from "../gate/index.js";
 import { callParams, parseFrom, specDefaults, stepOutputs } from "./runtime.js";
-import specSchema from "./schema.json";
+import specSchema from "./schema.json" with { type: "json" };
 
 export { specSchema };
 

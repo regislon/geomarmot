@@ -28,6 +28,8 @@ export const world = {
   retain: () => loop.retainShown(),
   readQuery,
   describe,
+  /** Resolves once the shown generation matches the graph: tools read nothing half-compiled. */
+  settled: () => loop.graphSettled(),
 };
 
 /** Merge the draft into the graph as one history step, then recompile. */

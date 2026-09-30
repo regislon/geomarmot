@@ -1,0 +1,48 @@
+{
+  "about": "Requests a user might make, and what the applied draft must contain. Run with npm run eval (needs ANTHROPIC_API_KEY; costs real tokens).",
+  "cases": [
+    {
+      "name": "points from Swiss coordinates",
+      "csv": "city,E,N\nBern,2600000,1200000\nZug,2681000,1224000\n",
+      "prompt": "Create points from this file.",
+      "level": 1,
+      "expect": [
+        { "type": "VertexCreator", "params": { "mode": "Replace with Point", "x.column": "E", "y.column": "N" } },
+        { "type": "CoordinateSystemSetter", "params": { "crs": "EPSG:2056" } }
+      ]
+    },
+    {
+      "name": "a filter on a number",
+      "csv": "city,pop\nBern,134000\nZug,30000\nLugano,63000\n",
+      "prompt": "Keep only the cities with more than 50000 people.",
+      "level": 1,
+      "expect": [
+        {
+          "type": "Tester",
+          "params": { "conditions.0.column": "pop", "conditions.0.operator": ">", "conditions.0.value": "50000" }
+        }
+      ]
+    },
+    {
+      "name": "duplicates",
+      "csv": "name,v\na,1\na,1\nb,2\n",
+      "prompt": "Remove the duplicate rows.",
+      "level": 1,
+      "expect": [{ "type": "DuplicateFilter" }]
+    },
+    {
+      "name": "a computed column",
+      "csv": "city,pop\nBern,134000\nZug,30000\n",
+      "prompt": "Add a column with the population in thousands.",
+      "level": 2,
+      "expect": [{ "type": "AttributeCreator" }]
+    },
+    {
+      "name": "reproject",
+      "csv": "city,lon,lat\nBern,7.44,46.95\nZug,8.52,47.17\n",
+      "prompt": "Make points from lon/lat and reproject them to Swiss LV95.",
+      "level": 1,
+      "expect": [{ "type": "VertexCreator" }, { "type": "Reprojector", "params": { "crs": "EPSG:2056" } }]
+    }
+  ]
+}

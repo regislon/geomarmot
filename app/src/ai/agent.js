@@ -144,6 +144,8 @@ async function runTool(call, { world, conversation, askUser }) {
     return fail(structured("INVALID_INPUT", { param }), problems);
   }
   try {
+    // A tool reads the graph as it stands, never one still compiling after an edit.
+    await world.settled?.();
     const result = await tool.run(call.input, { world, level, conversation, askUser });
     const payload = gate(result.type, result.payload, level);
     return {

@@ -27,7 +27,8 @@
     "prepare": "git config core.hooksPath .githooks || true",
     "check:imports": "node scripts/check-imports.js",
     "build:schemas": "vite-node scripts/build-schemas.js",
-    "check:schemas": "vite-node scripts/build-schemas.js -- --check"
+    "check:schemas": "vite-node scripts/build-schemas.js -- --check",
+    "eval": "npm run build && node evals/run.js"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
