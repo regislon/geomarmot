@@ -1,1 +1,46 @@
-{}
+{
+  "app/src/core/graph.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 412
+  },
+  "app/src/engines/h3.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 409
+  },
+  "app/src/io/sources.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 447
+  },
+  "app/src/io/writer.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 426
+  },
+  "app/src/io/zarr.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 799
+  },
+  "app/src/main.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 1361
+  },
+  "app/src/styles/style.css": {
+    "until": "PR 9 (split large files)",
+    "lines": 1694
+  },
+  "app/src/ui/canvas.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 577
+  },
+  "app/src/ui/inspector.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 910
+  },
+  "app/src/ui/mapview.js": {
+    "until": "PR 9 (split large files)",
+    "lines": 546
+  },
+  "transformers/legacy.js": {
+    "until": "M3 (split into transformer folders)",
+    "lines": 2349
+  }
+}

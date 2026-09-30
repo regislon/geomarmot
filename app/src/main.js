@@ -9,7 +9,7 @@
  * overwriting the panel for the node you are now looking at.
  */
 
-import { boot, query } from "./duck.js";
+import { boot, query } from "./core/duck.js";
 import {
   graph,
   addNode,
@@ -24,7 +24,7 @@ import {
   serialize,
   load as loadGraph,
   clear as clearGraph,
-} from "./graph.js";
+} from "./core/graph.js";
 import {
   initCanvas,
   render as renderCanvas,
@@ -35,10 +35,10 @@ import {
   selected,
   arrange,
   screenToWorld,
-} from "./canvas.js";
-import { renderInspector } from "./inspector.js";
-import { initTable, showSheets, clearTable, setSheetVisible, currentSheet } from "./table.js";
-import { describeFeature, renderFeature } from "./geominfo.js";
+} from "./ui/canvas.js";
+import { renderInspector } from "./ui/inspector.js";
+import { initTable, showSheets, clearTable, setSheetVisible, currentSheet } from "./ui/table.js";
+import { describeFeature, renderFeature } from "./ui/geominfo.js";
 import {
   initMap,
   showGeometries,
@@ -49,19 +49,19 @@ import {
   setHiddenLayers,
   zoomToFeature,
   clearPicked,
-} from "./mapview.js";
-import { sources, addLocalFile, addRemoteFile, addZarrLayer, isSupportedFile, removeSource } from "./sources.js";
-import { TRANSFORMERS, PALETTE_GROUPS, searchTransformers } from "./transformers.js";
-import { setProgressReporter } from "./h3.js";
-import { setOverlayProgress } from "./overlay.js";
-import { inspectColour } from "./palette.js";
-import { initBrowser, openBrowser } from "./browser.js";
-import { isZarrPath, setProgressReporter as setZarrProgress } from "./zarr.js";
-import { initZarrPicker, openZarrPicker } from "./zarrpicker.js";
-import { initSheetPicker, pickSheets } from "./sheetpicker.js";
-import { initProgress } from "./progress.js";
-import { describe, isLonLat, LONLAT } from "./schema.js";
-import { runWriter } from "./writer.js";
+} from "./ui/mapview.js";
+import { sources, addLocalFile, addRemoteFile, addZarrLayer, isSupportedFile, removeSource } from "./io/sources.js";
+import { TRANSFORMERS, PALETTE_GROUPS, searchTransformers } from "../../transformers/legacy.js";
+import { setProgressReporter } from "./engines/h3.js";
+import { setOverlayProgress } from "./engines/jsts.js";
+import { inspectColour } from "./ui/palette.js";
+import { initBrowser, openBrowser } from "./ui/browser.js";
+import { isZarrPath, setProgressReporter as setZarrProgress } from "./io/zarr.js";
+import { initZarrPicker, openZarrPicker } from "./ui/zarrpicker.js";
+import { initSheetPicker, pickSheets } from "./ui/sheetpicker.js";
+import { initProgress } from "./ui/progress.js";
+import { describe, isLonLat, LONLAT } from "./core/schema.js";
+import { runWriter } from "./io/writer.js";
 
 const AUTOSAVE_KEY = "geomarmot:graph.v1";
 const RECOMPILE_DEBOUNCE_MS = 220;

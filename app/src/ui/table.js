@@ -10,9 +10,9 @@
  * the geometry has its own panel.
  */
 
-import { query, qid } from "./duck.js";
-import { H3_INDEX_COLUMN } from "./h3.js";
-import { findGeometryColumn, wkbExpression } from "./schema.js";
+import { query, qid } from "../core/duck.js";
+import { H3_INDEX_COLUMN } from "../engines/h3.js";
+import { findGeometryColumn, wkbExpression } from "../core/schema.js";
 
 const PAGE_SIZE = 50;
 const MAX_CELL_CHARS = 200;

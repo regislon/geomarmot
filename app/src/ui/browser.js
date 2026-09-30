@@ -10,8 +10,8 @@
  * million objects costs one small page per folder you open.
  */
 
-import { isSupportedName } from "./sources.js";
-import { isZarrStore } from "./zarr.js";
+import { isSupportedName } from "../io/sources.js";
+import { isZarrStore } from "../io/zarr.js";
 
 /** Where the browser was last pointed, so a reload does not cost a retype. */
 const LAST_PLACE_KEY = "geomarmot:bucket.v1";

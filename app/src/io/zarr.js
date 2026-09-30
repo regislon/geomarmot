@@ -30,8 +30,8 @@
 
 import * as zarrita from "zarrita";
 
-import { db, exec, qid, qlit } from "./duck.js";
-import { describe, findGeometryColumn } from "./schema.js";
+import { db, exec, qid, qlit } from "../core/duck.js";
+import { describe, findGeometryColumn } from "../core/schema.js";
 
 /** A store is a folder whose name ends in .zarr — there is no file to test. */
 const STORE_SUFFIX = /\.zarr\/?$/i;

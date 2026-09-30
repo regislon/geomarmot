@@ -24,11 +24,12 @@ const BUNDLES = {
 };
 
 /**
- * Where the bundled extensions are served: the site root, found from this
- * module's own URL (it sits one folder down, in assets/ or static/), so it is
- * right whichever page loaded it and under any path prefix.
+ * Where the bundled extensions are served: the site root. In a build this
+ * module sits in assets/, one folder down, so its own URL finds the root under
+ * any path prefix and whichever page loaded it; the dev server serves them at /.
  */
 function extensionRepository() {
+  if (import.meta.env?.DEV) return new URL("/duckdb-extensions", window.location.href).href;
   return new URL("../duckdb-extensions", import.meta.url).href;
 }
 

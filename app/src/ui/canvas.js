@@ -8,8 +8,17 @@
  * because that path runs at pointer rate.
  */
 
-import { graph, addEdge, removeEdge, removeNode, nodeById, inputPorts, outputPorts, incomingEdge } from "./graph.js";
-import { transformerFor } from "./transformers.js";
+import {
+  graph,
+  addEdge,
+  removeEdge,
+  removeNode,
+  nodeById,
+  inputPorts,
+  outputPorts,
+  incomingEdge,
+} from "../core/graph.js";
+import { transformerFor } from "../../../transformers/legacy.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 

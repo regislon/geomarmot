@@ -11,10 +11,10 @@
  * thing is worse than an honest pair of files.
  */
 
-import { copyToBuffer, db, exec, query, qid, qlit } from "./duck.js";
-import { H3_INDEX_COLUMN, MAX_MATERIALISED_CELLS, createCellGeometryTable } from "./h3.js";
-import { findGeometryColumn, geometryExpression, describe, isLonLatCode, LONLAT } from "./schema.js";
-import { hideProgress, showProgress } from "./progress.js";
+import { copyToBuffer, db, exec, query, qid, qlit } from "../core/duck.js";
+import { H3_INDEX_COLUMN, MAX_MATERIALISED_CELLS, createCellGeometryTable } from "../engines/h3.js";
+import { findGeometryColumn, geometryExpression, describe, isLonLatCode, LONLAT } from "../core/schema.js";
+import { hideProgress, showProgress } from "../ui/progress.js";
 import { MAX_EXCEL_COLUMNS, MAX_EXCEL_ROWS, writeWorkbook } from "./xlsx.js";
 
 let _exportCounter = 0;

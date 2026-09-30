@@ -12,10 +12,10 @@
  * the query helper inlines its SQL — there is nowhere to bind to.
  */
 
-import { query, qlit } from "./duck.js";
-import { cellToWkb } from "./h3.js";
-import { decodeWKB, toBytes } from "./wkb.js";
-import { isLonLatCode, LONLAT } from "./schema.js";
+import { query, qlit } from "../core/duck.js";
+import { cellToWkb } from "../engines/h3.js";
+import { decodeWKB, toBytes } from "../core/wkb.js";
+import { isLonLatCode, LONLAT } from "../core/schema.js";
 
 /** Past this the WKT is cut for display; the copy button still gets it whole. */
 const WKT_PREVIEW_CHARS = 4000;

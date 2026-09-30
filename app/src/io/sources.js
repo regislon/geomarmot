@@ -6,12 +6,12 @@
  * remote parquet costs its footer rather than its whole body.
  */
 
-import { dropFile, registerBuffer, registerUrl, query, qid, qlit } from "./duck.js";
-import { describeH3Source } from "./h3.js";
+import { dropFile, registerBuffer, registerUrl, query, qid, qlit } from "../core/duck.js";
+import { describeH3Source } from "../engines/h3.js";
 import { dropTable, materialize } from "./zarr.js";
 import { closeWorkbook, materializeSheet, previewSheet, readWorkbook } from "./xlsx.js";
-import { hideProgress, readWithProgress, showProgress } from "./progress.js";
-import { describe, findGeometryColumn, readGeoMetadata, crsFromGeoMetadata } from "./schema.js";
+import { hideProgress, readWithProgress, showProgress } from "../ui/progress.js";
+import { describe, findGeometryColumn, readGeoMetadata, crsFromGeoMetadata } from "../core/schema.js";
 
 /** id -> source record. */
 export const sources = new Map();

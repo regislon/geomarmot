@@ -11,8 +11,8 @@
 
 import { exec, qid, qlit, query } from "./duck.js";
 import { describe, geometryExpression, isLonLat, isLonLatCode, LONLAT } from "./schema.js";
-import { sourceRelation } from "./sources.js";
-import { transformerFor, defaultParams } from "./transformers.js";
+import { sourceRelation } from "../io/sources.js";
+import { transformerFor, defaultParams } from "../../../transformers/legacy.js";
 
 export const graph = { nodes: [], edges: [] };
 

@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * The forbidden-terms gate: tokenising, hashing and matching.
  *

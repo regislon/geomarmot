@@ -16,7 +16,7 @@
  * pulls in a geometry library rather than staying in SQL.
  */
 
-import { db, exec, qlit } from "./duck.js";
+import { db, exec, qlit } from "../core/duck.js";
 
 /**
  * Ceiling on input features.

@@ -8,10 +8,10 @@
  * here.
  */
 
-import { distinctValues, valueSuggestions, isLonLatCode } from "./schema.js";
-import { VALUE_KINDS, VALUE_TYPES, FORMULA_OPERATORS, blankValue } from "./valuespec.js";
-import { checkSql, clearProfiles, PROFILE_ROWS, profileCategories, promptText, schemaText } from "./sqlnode.js";
-import { transformerFor, OPERATORS, AGGREGATE_FUNCTIONS } from "./transformers.js";
+import { distinctValues, valueSuggestions, isLonLatCode } from "../core/schema.js";
+import { VALUE_KINDS, VALUE_TYPES, FORMULA_OPERATORS, blankValue } from "../core/valuespec.js";
+import { checkSql, clearProfiles, PROFILE_ROWS, profileCategories, promptText, schemaText } from "../core/sqlnode.js";
+import { transformerFor, OPERATORS, AGGREGATE_FUNCTIONS } from "../../../transformers/legacy.js";
 
 const DISTINCT_VALUE_LIMIT = 50;
 

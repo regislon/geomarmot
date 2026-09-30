@@ -17,7 +17,7 @@
  * workbook is opened or written.
  */
 
-import { db, exec, qid, qlit } from "./duck.js";
+import { db, exec, qid, qlit } from "../core/duck.js";
 
 /** Rows per INSERT — the JSON for one batch sits in wasm memory at once. */
 const INSERT_BATCH = 50_000;

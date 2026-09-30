@@ -11,11 +11,11 @@
  * SQL it compiles to. Nothing else in the app needs to know it exists.
  */
 
-import { exec, qid, qlit, query } from "./duck.js";
-import { checkSql, composeSql, SYNTAX_REFERENCE } from "./sqlnode.js";
-import { valueSql } from "./valuespec.js";
-import { findGeometryColumn, geometryExpression, LONLAT } from "./schema.js";
-import { MAX_OVERLAY_FEATURES, createFaceTable, createShapeTable } from "./overlay.js";
+import { exec, qid, qlit, query } from "../app/src/core/duck.js";
+import { checkSql, composeSql, SYNTAX_REFERENCE } from "../app/src/core/sqlnode.js";
+import { valueSql } from "../app/src/core/valuespec.js";
+import { findGeometryColumn, geometryExpression, LONLAT } from "../app/src/core/schema.js";
+import { MAX_OVERLAY_FEATURES, createFaceTable, createShapeTable } from "../app/src/engines/jsts.js";
 import {
   FILL_MODES,
   H3_INDEX_COLUMN,
@@ -26,7 +26,7 @@ import {
   createPolygonFillTable,
   parseParentCell,
   positionalIndexExpr,
-} from "./h3.js";
+} from "../app/src/engines/h3.js";
 
 /** Internal join key for PolygonToH3 and the overlayer; never leaves a node. */
 const FEATURE_ID_COLUMN = "_pv_fid";

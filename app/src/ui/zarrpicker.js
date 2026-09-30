@@ -14,7 +14,7 @@
  * only sees a row count will happily ask for 2 GB by accident.
  */
 
-import { resolveUrl } from "./sources.js";
+import { resolveUrl } from "../io/sources.js";
 import {
   DEFAULT_CELL_BUDGET,
   defaultPlan,
@@ -22,7 +22,7 @@ import {
   planRefusal,
   planStats,
   resolveGeoreference,
-} from "./zarr.js";
+} from "../io/zarr.js";
 
 /** Cell budgets offered, against the map's own 8k-250k drawing limits. */
 const BUDGETS = [25_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000];

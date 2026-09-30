@@ -14,10 +14,10 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { hasSpatial, query, qid, qlit } from "./duck.js";
-import { H3_INDEX_COLUMN, cellToPolygon, parentIndexExpr, resolutionExpr } from "./h3.js";
-import { findGeometryColumn, geometryExpression, wkbExpression, isLonLatCode, LONLAT } from "./schema.js";
-import { decodeWKB } from "./wkb.js";
+import { hasSpatial, query, qid, qlit } from "../core/duck.js";
+import { H3_INDEX_COLUMN, cellToPolygon, parentIndexExpr, resolutionExpr } from "../engines/h3.js";
+import { findGeometryColumn, geometryExpression, wkbExpression, isLonLatCode, LONLAT } from "../core/schema.js";
+import { decodeWKB } from "../core/wkb.js";
 
 const DEFAULT_FEATURE_LIMIT = 8000;
 /**

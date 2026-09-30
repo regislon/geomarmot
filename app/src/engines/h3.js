@@ -39,7 +39,7 @@ import {
   // mode other than "centroid inside" — does not exist before it.
 } from "h3-js";
 
-import { db, exec, qid, qlit } from "./duck.js";
+import { db, exec, qid, qlit } from "../core/duck.js";
 
 /** The canonical column this module produces: an H3 cell id as lowercase hex. */
 export const H3_INDEX_COLUMN = "h3_index";

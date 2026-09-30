@@ -6,11 +6,11 @@
  * Built only with `vite build --mode test`.
  */
 
-import * as duck from "../static/duck.js";
-import * as graph from "../static/graph.js";
-import * as transformers from "../static/transformers.js";
-import * as sources from "../static/sources.js";
-import * as writer from "../static/writer.js";
+import * as duck from "../src/core/duck.js";
+import * as graph from "../src/core/graph.js";
+import * as transformers from "../../transformers/legacy.js";
+import * as sources from "../src/io/sources.js";
+import * as writer from "../src/io/writer.js";
 import { createHarness } from "../../tests/harness/pages/harness-core.js";
 
 window.__geomarmotHarness = createHarness({
