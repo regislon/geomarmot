@@ -6,8 +6,8 @@
  *
  * `mods` = { duck, graph, registry, sources, writer }:
  *   duck      boot, query, exec, qid, qlit, db
- *   graph     clear, addNode, addEdge, compile, nodeById
- *   registry  { register(type, transformer), defaultParams(type) }
+ *   graph     clear, addNode, addEdge, nodeById, mainCompiler
+ *   registry  { register(definition), define(spec) }
  *   sources   { sources: Map, addLocalFile(File) }
  *   writer    runWriter(view, format, fileName, { crs })
  */
@@ -39,6 +39,7 @@ function typedLiteral(qlit, value, type) {
 export function createHarness(mods) {
   const { duck, graph, registry, sources, writer } = mods;
   const tables = new Set();
+  let lease = null;
   const downloads = [];
 
   // The writers hand their bytes to a download; capture them instead.
@@ -64,15 +65,18 @@ export function createHarness(mods) {
     },
 
     registerFixtureSource() {
-      registry.register("FixtureSource", {
-        label: "FixtureSource",
-        group: "Test",
-        inputs: [],
-        outputs: () => [{ id: "output", label: "Output" }],
-        params: [],
-        sql: (node) => ({ output: `SELECT * FROM ${duck.qid(node.params.table)}` }),
-        crs: (node) => node.params.crs || "EPSG:4326",
-      });
+      registry.register(
+        registry.define({
+          apiVersion: 1,
+          id: "FixtureSource",
+          group: "Test",
+          summary: "Test-only: reads a fixture table, labelled with the case's CRS.",
+          inputs: [],
+          outputs: [{ id: "output", label: "Output" }],
+          sql: (ctx) => ({ output: `SELECT * FROM ${duck.qid(ctx.params.table)}` }),
+          crs: (ctx) => ctx.params.crs || "EPSG:4326",
+        }),
+      );
     },
 
     async createTable(name, columns, rows) {
@@ -115,11 +119,16 @@ export function createHarness(mods) {
     },
 
     async compile() {
-      const result = await graph.compile(sources.sources);
+      await graph.mainCompiler.compile();
+      // Held until the next compile or teardown, so the ports can be read.
+      lease?.release();
+      lease = graph.mainCompiler.acquire();
+      const firstError = [...lease.states].find(([, state]) => state.status === "error");
       return {
-        views: Object.fromEntries(result.views),
-        crs: Object.fromEntries(result.crsByNode),
-        error: result.error,
+        views: Object.fromEntries(lease.views),
+        crs: Object.fromEntries(lease.crsByNode),
+        states: Object.fromEntries(lease.states),
+        error: firstError ? { nodeId: firstError[0], message: firstError[1].message, code: firstError[1].code } : null,
       };
     },
 
@@ -148,7 +157,9 @@ export function createHarness(mods) {
 
     async teardown() {
       graph.clear();
-      await graph.compile(sources.sources).catch(() => {});
+      lease?.release();
+      lease = null;
+      await graph.mainCompiler.compile().catch(() => {});
       for (const name of tables) await duck.exec(`DROP TABLE IF EXISTS ${duck.qid(name)}`);
       tables.clear();
     },

@@ -1,4 +1,1 @@
-{
-  "app/src/core/graph.js": { "until": "PR 11 (compiler refactor splits it into model and compiler)" },
-  "transformers/legacy.js": { "until": "M3 (split into transformer folders)" }
-}
+{ "transformers/legacy.js": { "until": "M3 (split into transformer folders)" } }

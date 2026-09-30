@@ -3,7 +3,7 @@
  * nodes, and drawing or re-aiming links.
  */
 
-import { addEdge, graph, incomingEdge, nodeById, removeEdge, removeNode } from "../../core/graph.js";
+import { addEdge, graph, incomingEdge, nodeById, removeEdge, removeNode } from "../../core/graph/index.js";
 import {
   MAX_ZOOM,
   MIN_ZOOM,

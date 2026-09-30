@@ -2,8 +2,8 @@
  * Quick Add: type over the canvas to drop a transformer where the pointer is.
  */
 
-import { TRANSFORMERS, searchTransformers } from "../../../transformers/legacy.js";
-import { addNode } from "../core/graph.js";
+import { searchTransformers, transformerFor } from "../../../transformers/index.js";
+import { addNode } from "../core/graph/index.js";
 import { screenToWorld, select as selectNode } from "./canvas/index.js";
 import { onGraphChange } from "./compile-loop.js";
 import { el } from "./dom.js";
@@ -33,7 +33,7 @@ function renderQuickAddList() {
   quickAddMatches.forEach((type, index) => {
     const item = document.createElement("li");
     item.className = index === quickAddIndex ? "selected" : "";
-    item.innerHTML = `<span>${type}</span><span class="muted">${TRANSFORMERS[type].group}</span>`;
+    item.innerHTML = `<span>${type}</span><span class="muted">${transformerFor(type).group}</span>`;
     // mousedown, not click: the input's blur would otherwise close the panel
     // before a click could land.
     item.addEventListener("mousedown", (event) => {

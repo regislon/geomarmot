@@ -12,6 +12,7 @@
  * the query helper inlines its SQL — there is nowhere to bind to.
  */
 
+import { guardedRead } from "./read-guard.js";
 import { query, qlit } from "../core/duck.js";
 import { cellToWkb } from "../engines/h3/index.js";
 import { decodeWKB, toBytes } from "../core/wkb.js";
@@ -72,8 +73,9 @@ export async function describeFeature(pick, crs = LONLAT) {
   const geometry = `ST_GeomFromWKB(from_hex(${qlit(toHex(bytes))}))`;
 
   const base = (
-    await query(
-      `SELECT ST_GeometryType(${geometry}) AS type,
+    await guardedRead(() =>
+      query(
+        `SELECT ST_GeometryType(${geometry}) AS type,
               ST_Dimension(${geometry}) AS dimension,
               ST_NPoints(${geometry}) AS vertices,
               ST_NumGeometries(${geometry}) AS parts,
@@ -88,6 +90,7 @@ export async function describeFeature(pick, crs = LONLAT) {
               ST_Length(ST_Transform(${geometry}, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS length_m,
               ST_Perimeter(ST_Transform(${geometry}, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS perimeter_m,
               ST_AsText(${geometry}) AS wkt`,
+      ),
     )
   )[0];
 
@@ -97,11 +100,13 @@ export async function describeFeature(pick, crs = LONLAT) {
   let rings = null;
   if (base.type === "POLYGON") {
     rings = (
-      await query(
-        `SELECT ST_NInteriorRings(${geometry}) AS holes,
+      await guardedRead(() =>
+        query(
+          `SELECT ST_NInteriorRings(${geometry}) AS holes,
                 ST_IsClosed(ST_ExteriorRing(${geometry})) AS closed,
                 ST_IsRing(ST_ExteriorRing(${geometry})) AS is_ring,
                 ST_Equals(${geometry}, ST_ConvexHull(${geometry})) AS convex`,
+        ),
       )
     )[0];
   }

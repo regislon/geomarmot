@@ -1,8 +1,8 @@
 /* Export: running the connected Writers. */
 
-import { graph, upstreamCrs, upstreamView } from "../core/graph.js";
-import { runWriter } from "../io/writers/index.js";
-import { crsByNode, flushPendingCompile, views } from "./compile-loop.js";
+import { graph, upstreamCrs, upstreamView } from "../core/graph/index.js";
+import { transformerFor } from "../../../transformers/index.js";
+import { flushPendingCompile, retainShown, views } from "./compile-loop.js";
 import { el, setStatus } from "./dom.js";
 
 /* ---------- run ---------- */
@@ -15,16 +15,23 @@ export function connectedWriters() {
 export async function exportWriters(writers) {
   const button = el("btn-export");
   button.disabled = true;
+  let lease = null;
   try {
     await flushPendingCompile();
+    // Held for the whole export, so no recompile can drop what is being written.
+    lease = retainShown();
     const written = [];
     for (const writer of writers) {
-      const view = upstreamView(writer.id, "input", views);
+      const view = upstreamView(writer.id, "input", lease.views);
       if (!view) continue;
       setStatus(`Writing ${writer.params.filename || "output"}…`);
+      const sink = transformerFor(writer.type);
       written.push(
-        await runWriter(view, writer.params.format || "Parquet", writer.params.filename, {
-          crs: upstreamCrs(writer.id, "input", crsByNode),
+        await sink.write({
+          nodeId: writer.id,
+          params: structuredClone(writer.params),
+          inputs: { input: view },
+          incomingCrs: upstreamCrs(writer.id, "input", lease.crsByNode),
         }),
       );
     }
@@ -37,6 +44,7 @@ export async function exportWriters(writers) {
   } catch (err) {
     setStatus(err.message, true);
   } finally {
+    lease?.release();
     updateExportButton();
   }
 }

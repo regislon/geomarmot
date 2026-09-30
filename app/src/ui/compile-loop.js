@@ -4,7 +4,7 @@
  */
 
 import { query } from "../core/duck.js";
-import { compile, graph, validate } from "../core/graph.js";
+import { graph, mainCompiler, validate } from "../core/graph/index.js";
 import { sources } from "../io/sources.js";
 import { setIssues, setPortCounts } from "./canvas/index.js";
 import { setStatus } from "./dom.js";
@@ -12,12 +12,26 @@ import { updateExportButton } from "./export.js";
 import { recordHistory } from "./history.js";
 import { refreshInspection, refreshInspector } from "./inspect.js";
 import { autosave } from "./persistence.js";
+import { setReadGuard } from "./read-guard.js";
 
 const RECOMPILE_DEBOUNCE_MS = 220;
-export let views = new Map();
+// The generation the UI is showing, held by a lease so its views stay valid
+// until the UI has moved on to a newer one.
+let uiLease = mainCompiler.acquire();
+export let views = uiLease.views;
 // Which coordinate system each node's output is in, so the map can bring a
 // reprojected stream home for drawing and a Writer knows what it is holding.
-export let crsByNode = new Map();
+export let crsByNode = uiLease.crsByNode;
+// nodeId -> { status: "ok" | "error" | "blocked", message } for the shown generation.
+export let nodeStates = uiLease.states;
+/** A lease on the generation the UI is showing, for a read that must finish against it. */
+export function retainShown() {
+  return uiLease.retain();
+}
+setReadGuard(() => {
+  const lease = uiLease.retain();
+  return () => lease.release();
+});
 export let recompileTimer = null;
 let compileInFlight = null;
 
@@ -34,8 +48,9 @@ let countSeq = 0;
  * per-query overhead worth avoiding. Deliberately not awaited by the caller —
  * counts are informational, and the graph is usable before they arrive.
  */
-async function updatePortCounts(views) {
+async function updatePortCounts(lease) {
   const seq = ++countSeq;
+  const views = lease.views;
   const ports = [];
   for (const [nodeId, byPort] of views) {
     for (const [portId, view] of Object.entries(byPort)) ports.push({ nodeId, portId, view });
@@ -56,17 +71,28 @@ async function updatePortCounts(views) {
     // A count is a nicety; losing it should not look like a broken graph.
     console.warn("Could not count port outputs", err);
     setPortCounts(new Map());
+  } finally {
+    lease.release();
   }
 }
 
 export async function recompile() {
   currentIssues = validate(sources);
   setIssues(currentIssues);
-  const result = await compile(sources);
-  views = result.views;
-  crsByNode = result.crsByNode;
+  const result = await mainCompiler.compile();
+  const next = mainCompiler.acquire();
+  if (next.gen <= uiLease.gen) {
+    // Another recompile already moved the UI to this generation or a newer one.
+    next.release();
+    return;
+  }
+  const previous = uiLease;
+  uiLease = next;
+  views = next.views;
+  crsByNode = next.crsByNode;
+  nodeStates = next.states;
   // Not awaited: the graph should be usable before the counts land.
-  updatePortCounts(views);
+  updatePortCounts(next.retain());
   if (result.error) {
     const node = result.error.nodeId ? ` (${result.error.nodeId})` : "";
     setStatus(`${result.error.message}${node}`, true);
@@ -78,8 +104,13 @@ export async function recompile() {
     setStatus("Drop a file to start.");
   }
   updateExportButton();
-  await refreshInspection();
-  refreshInspector();
+  try {
+    await refreshInspection();
+    refreshInspector();
+  } finally {
+    // Only now is nothing on screen reading the previous generation.
+    previous.release();
+  }
 }
 
 export function scheduleRecompile() {
@@ -107,14 +138,7 @@ export function track(promise) {
   return tracked;
 }
 
-/**
- * Resolve once the views match the graph — nothing pending, nothing in flight.
- *
- * Anything that reads a compiled view outside the compile itself has to wait
- * for this. A rebuild drops every view before recreating it, so a query run
- * against `n_x_output` mid-rebuild fails with "table does not exist" — which
- * reads as a mistake in the user's SQL rather than as a race.
- */
+/** Resolve once the views match the graph — nothing pending, nothing in flight. */
 export async function graphSettled() {
   await flushPendingCompile();
   while (compileInFlight) await compileInFlight;

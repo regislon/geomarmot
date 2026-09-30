@@ -3,6 +3,8 @@
  * for the value list of AttributeFilter.
  */
 
+import { validate } from "../../core/sqlguard/index.js";
+import { guardedRead } from "../read-guard.js";
 import { distinctValues } from "../../core/schema.js";
 import {
   PROFILE_ROWS,
@@ -63,7 +65,7 @@ export function renderSqlCreateParam(param, node, context, commit) {
   const loadCategories = () => {
     if (!columns.length || !context.upstreamView) return;
     count.textContent = `input · ${columns.length} columns · reading values…`;
-    profileCategories(context.upstreamView, columns)
+    guardedRead(() => profileCategories(context.upstreamView, columns))
       .then((found) => {
         if (!schemaBody.isConnected) return;
         categories = found;
@@ -105,9 +107,12 @@ export function renderSqlCreateParam(param, node, context, commit) {
       // rebuild reports "table does not exist", which looks like a fault in the
       // query rather than in the timing — so wait for the graph to settle.
       await context.settle?.();
-      const result = await checkSql(area.value, context.upstreamView, columns, {
-        requireNewColumns: true,
-      });
+      // The guard first: restricted SQL never reaches DuckDB until it passes.
+      const restricted = (node.sqlMode || "restricted") !== "unrestricted";
+      const refusal = restricted && area.value.trim() ? await validate(area.value, "query") : { ok: true };
+      const result = !refusal.ok
+        ? { ok: false, message: refusal.message }
+        : await guardedRead(() => checkSql(area.value, context.upstreamView, columns, { requireNewColumns: true }));
       // The settle above may have rebuilt the panel; if so this element is
       // detached and a newer editor is already showing its own verdict.
       if (!verdict.isConnected) return;
@@ -168,7 +173,9 @@ export function renderValuesParam(param, node, context, commit) {
       text: "Fill from data",
       onclick: async () => {
         if (!node.params.column || !context.upstreamView) return;
-        const found = await distinctValues(context.upstreamView, node.params.column, DISTINCT_VALUE_LIMIT);
+        const found = await guardedRead(() =>
+          distinctValues(context.upstreamView, node.params.column, DISTINCT_VALUE_LIMIT),
+        );
         node.params[param.id] = found.map((entry) => String(entry.value));
         commit();
       },

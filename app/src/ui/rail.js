@@ -2,8 +2,8 @@
  * The left rail: the loaded sources (Layers) and the transformer palette.
  */
 
-import { PALETTE_GROUPS, TRANSFORMERS } from "../../../transformers/legacy.js";
-import { addNode, graph, removeNode } from "../core/graph.js";
+import { PALETTE_GROUPS, REGISTRY } from "../../../transformers/index.js";
+import { addNode, graph, removeNode } from "../core/graph/index.js";
 import { isLonLat } from "../core/schema.js";
 import { addLocalFile, addRemoteFile, addZarrLayer, isSupportedFile, removeSource, sources } from "../io/sources.js";
 import { isZarrPath } from "../io/zarr/index.js";
@@ -242,7 +242,7 @@ export function renderPalette() {
     label.className = "group-label";
     label.textContent = group;
     palette.appendChild(label);
-    for (const [type, transformer] of Object.entries(TRANSFORMERS)) {
+    for (const [type, transformer] of REGISTRY) {
       if (transformer.group !== group) continue;
       const button = document.createElement("button");
       button.textContent = type;

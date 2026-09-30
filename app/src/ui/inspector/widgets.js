@@ -3,6 +3,7 @@
  * value suggestions, repeatable rows and select-all toggles.
  */
 
+import { guardedRead } from "../read-guard.js";
 import { valueSuggestions } from "../../core/schema.js";
 
 export const DISTINCT_VALUE_LIMIT = 50;
@@ -23,9 +24,10 @@ export function select(options, value, onChange, placeholder = "—") {
   const node = h("select", { onchange: (event) => onChange(event.target.value) });
   node.appendChild(h("option", { value: "", text: placeholder }));
   for (const option of options) {
-    const label = typeof option === "string" ? option : option.label;
+    const label = typeof option === "string" ? option : (option.label ?? option.value);
     const optionValue = typeof option === "string" ? option : option.value;
     const element = h("option", { value: optionValue, text: label });
+    if (typeof option !== "string" && option.description) element.title = option.description;
     if (String(optionValue) === String(value ?? "")) element.selected = true;
     node.appendChild(element);
   }
@@ -85,7 +87,7 @@ export function suggestingInput(value, onChange, placeholder, context, column) {
   if (suggestionCache.has(key)) {
     fill(suggestionCache.get(key));
   } else {
-    valueSuggestions(view, column, columnType)
+    guardedRead(() => valueSuggestions(view, column, columnType))
       .then((values) => {
         suggestionCache.set(key, values);
         fill(values);

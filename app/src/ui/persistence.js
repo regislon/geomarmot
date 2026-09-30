@@ -1,6 +1,6 @@
 /* Autosave, and saving and opening graph files. */
 
-import { load as loadGraph, serialize } from "../core/graph.js";
+import { load as loadGraph, serialize } from "../core/graph/index.js";
 import { render as renderCanvas, select as selectNode } from "./canvas/index.js";
 import { onGraphChange } from "./compile-loop.js";
 import { setStatus } from "./dom.js";
@@ -20,7 +20,7 @@ export function restoreAutosave() {
   try {
     const saved = localStorage.getItem(AUTOSAVE_KEY);
     if (!saved) return;
-    loadGraph(JSON.parse(saved));
+    loadGraph(JSON.parse(saved), { trusted: true });
     renderCanvas();
   } catch (err) {
     console.warn("Could not restore the saved graph", err);
@@ -39,11 +39,16 @@ export function exportGraph() {
 
 export async function importGraph(file) {
   try {
-    loadGraph(JSON.parse(await file.text()));
+    // A graph from a file is never trusted with unrestricted SQL (docs/security.md).
+    const { unrestrictedRequested } = loadGraph(JSON.parse(await file.text()));
     renderCanvas();
     selectNode(null);
     onGraphChange();
-    setStatus(`Opened ${file.name}. Load the files its Readers need.`);
+    const restricted = unrestrictedRequested
+      ? ` ${unrestrictedRequested} node${unrestrictedRequested === 1 ? "" : "s"} asked for unrestricted SQL; ` +
+        "it is off until you review each one and allow it again in the inspector."
+      : "";
+    setStatus(`Opened ${file.name}. Load the files its Readers need.${restricted}`, Boolean(unrestrictedRequested));
   } catch (err) {
     setStatus(`Could not open that graph: ${err.message}`, true);
   }

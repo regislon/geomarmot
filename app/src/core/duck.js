@@ -225,3 +225,8 @@ export async function copyToBuffer(sql, virtualName) {
     }
   }
 }
+
+/** A new connection to the same database, for work that must not share a transaction with the app's. */
+export async function newConnection() {
+  return db().connect();
+}

@@ -1,6 +1,6 @@
 /* Undo and redo, as debounced snapshots of the graph. */
 
-import { load as loadGraph, serialize } from "../core/graph.js";
+import { load as loadGraph, serialize } from "../core/graph/index.js";
 import { render as renderCanvas, select as selectNode } from "./canvas/index.js";
 import { scheduleRecompile } from "./compile-loop.js";
 import { el } from "./dom.js";
@@ -48,7 +48,7 @@ export function recordHistory() {
 }
 
 function applySnapshot(json) {
-  loadGraph(JSON.parse(json));
+  loadGraph(JSON.parse(json), { trusted: true });
   committed = json;
   renderCanvas();
   selectNode(null);

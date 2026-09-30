@@ -9,7 +9,7 @@
  */
 
 export { render, screenToWorld } from "./draw.js";
-import { graph } from "../../core/graph.js";
+import { graph } from "../../core/graph/index.js";
 import { ARRANGE_COLUMN_GAP, ARRANGE_ROW_GAP, el, render, state } from "./draw.js";
 import { onKeyDown, onPointerDown, onPointerMove, onPointerUp, onWheel } from "./interact.js";
 

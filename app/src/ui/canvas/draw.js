@@ -3,8 +3,8 @@
  * edges and the inspection eyes.
  */
 
-import { transformerFor } from "../../../../transformers/legacy.js";
-import { graph, incomingEdge, inputPorts, nodeById, outputPorts, removeEdge } from "../../core/graph.js";
+import { transformerFor } from "../../../../transformers/index.js";
+import { graph, incomingEdge, inputPorts, nodeById, outputPorts, removeEdge } from "../../core/graph/index.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 

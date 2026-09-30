@@ -253,3 +253,9 @@
   color: var(--err);
   font-size: 12px;
 }
+
+/* Unrestricted SQL is a deliberate, visible choice. */
+.sql-mode.unrestricted {
+  color: var(--err);
+  font-weight: 600;
+}

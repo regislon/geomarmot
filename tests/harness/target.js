@@ -10,9 +10,9 @@ import { serve } from "./serve.js";
 export function targetSpec() {
   return { kind: "bundle", root: "dist-test", page: "/testing/harness.html" };
 }
-export async function openHarness(browser, { files } = {}) {
+export async function openHarness(browser, { files, onRequest } = {}) {
   const spec = targetSpec();
-  const server = await serve({ root: spec.root, files });
+  const server = await serve({ root: spec.root, files, onRequest });
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));

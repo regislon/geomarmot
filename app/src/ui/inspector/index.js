@@ -8,7 +8,8 @@
  * here.
  */
 
-import { transformerFor } from "../../../../transformers/legacy.js";
+import { transformerFor } from "../../../../transformers/index.js";
+import { KINDS } from "../../../../transformers/_kit/params.js";
 import { isLonLatCode } from "../../core/schema.js";
 import { blankValue } from "../../core/valuespec.js";
 import {
@@ -169,6 +170,10 @@ export function renderInspector(container, node, context) {
     container.appendChild(field);
   }
 
+  if (transformer.params.some((param) => ["expression", "query"].includes(KINDS[param.kind]?.sql))) {
+    container.appendChild(sqlModeToggle(node, context.commit));
+  }
+
   if (transformer.action) {
     const button = h("button", {
       class: "primary action-btn",
@@ -186,4 +191,36 @@ export function renderInspector(container, node, context) {
   }
 
   restoreFocus(container, focused);
+}
+
+/**
+ * SQL here is restricted by default: it may only read this node's input
+ * (docs/security.md). Lifting that is a deliberate act by the person at the
+ * keyboard — it is never set by the assistant, and a graph opened from a file
+ * arrives with it off.
+ */
+function sqlModeToggle(node, commit) {
+  const unrestricted = node.sqlMode === "unrestricted";
+  const box = h("input", { type: "checkbox" });
+  box.checked = unrestricted;
+  box.addEventListener("change", () => {
+    if (box.checked) {
+      const ok = window.confirm(
+        "Allow unrestricted SQL on this node?\n\nUnrestricted SQL can read other files and remote URLs, " +
+          "and see the engine's settings. Only allow it for SQL you wrote or have read and trust.",
+      );
+      if (!ok) {
+        box.checked = false;
+        return;
+      }
+      node.sqlMode = "unrestricted";
+    } else {
+      delete node.sqlMode;
+    }
+    commit();
+  });
+  return h("label", { class: "field sql-mode" + (unrestricted ? " unrestricted" : "") }, [
+    box,
+    h("span", { text: unrestricted ? " Unrestricted SQL (can read files and settings)" : " Allow unrestricted SQL" }),
+  ]);
 }

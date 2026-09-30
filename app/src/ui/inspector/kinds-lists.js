@@ -3,7 +3,7 @@
  * value rows, choices, actions, creates, sorts, aggregates, rules, join keys.
  */
 
-import { AGGREGATE_FUNCTIONS, OPERATORS } from "../../../../transformers/legacy.js";
+import { AGGREGATE_FUNCTIONS, OPERATORS } from "../../../../transformers/index.js";
 import { blankValue } from "../../core/valuespec.js";
 import { renderValueSpec } from "./kinds-value.js";
 import {

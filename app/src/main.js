@@ -10,7 +10,7 @@
  */
 
 import { boot } from "./core/duck.js";
-import { clear as clearGraph, graph } from "./core/graph.js";
+import { clear as clearGraph, graph } from "./core/graph/index.js";
 import { setProgressReporter } from "./engines/h3/index.js";
 import { setOverlayProgress } from "./engines/jsts.js";
 import { setProgressReporter as setZarrProgress } from "./io/zarr/index.js";

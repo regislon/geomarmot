@@ -3,7 +3,7 @@
  * legend, and the inspector for the selected node.
  */
 
-import { graph, inputPorts, nodeById, outputPorts, upstreamView } from "../core/graph.js";
+import { graph, inputPorts, nodeById, outputPorts, upstreamView } from "../core/graph/index.js";
 import { LONLAT, describe } from "../core/schema.js";
 import { sources } from "../io/sources.js";
 import { selected } from "./canvas/index.js";
@@ -11,7 +11,7 @@ import { renderInspector } from "./inspector/index.js";
 import { clearMap, clearPicked, setHiddenLayers, showGeometries } from "./map/index.js";
 import { inspectColour } from "./palette.js";
 import { clearTable, setSheetVisible, showSheets } from "./table.js";
-import { crsByNode, currentIssues, graphSettled, onGraphChange, views } from "./compile-loop.js";
+import { crsByNode, currentIssues, graphSettled, nodeStates, onGraphChange, views } from "./compile-loop.js";
 import { el } from "./dom.js";
 import { exportWriters } from "./export.js";
 import { showHelp } from "./modals.js";
@@ -241,7 +241,9 @@ export async function refreshInspection() {
   renderLegend();
 
   if (!targets.length) {
-    clearTable(keys.length ? "This node has produced nothing yet." : "Select a node.");
+    // A node that failed or sits below a failure shows why, never an older result.
+    const state = keys.map((key) => nodeStates.get(splitKey(key).nodeId)).find((s) => s && s.status !== "ok");
+    clearTable(state ? state.message : keys.length ? "This node has produced nothing yet." : "Select a node.");
     await showSheets([]);
     clearMap("");
     return;

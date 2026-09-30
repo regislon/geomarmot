@@ -3,6 +3,7 @@
  * hexagons (optionally rolled up to a coarser resolution), with a display cap.
  */
 
+import { guardedRead } from "../read-guard.js";
 import { LONLAT, geometryExpression, isLonLatCode, wkbExpression } from "../../core/schema.js";
 import { hasSpatial, qid, qlit, query } from "../../core/duck.js";
 import { decodeWKB } from "../../core/wkb.js";
@@ -74,9 +75,11 @@ async function fetchH3Coarse(viewName, columns, parentRes) {
  * the whole tile, which for a res-6 dense tile would be 823,543 hexagons.
  */
 export async function h3Features(viewName, columns) {
-  const detected = await query(
-    `SELECT ${resolutionExpr(H3_INDEX_COLUMN)} AS res FROM ${viewName}
+  const detected = await guardedRead(() =>
+    query(
+      `SELECT ${resolutionExpr(H3_INDEX_COLUMN)} AS res FROM ${viewName}
      WHERE ${qid(H3_INDEX_COLUMN)} IS NOT NULL LIMIT 1`,
+    ),
   );
   const dataResolution = detected.length ? Number(detected[0].res) : null;
 
@@ -123,8 +126,8 @@ export async function geometryFeatures(viewName, columns, geometry, crs = LONLAT
     ? wkbExpression(geometry)
     : `ST_AsWKB(ST_Transform(${geometryExpression(geometry)}, ${qlit(crs)}, ${qlit(LONLAT)}, always_xy := true))`;
   const selection = [`${drawable} AS _wkb`, ...attributeColumns].join(", ");
-  const rows = await query(
-    `SELECT ${selection} FROM ${viewName} WHERE ${qid(geometry.name)} IS NOT NULL${limitClause()}`,
+  const rows = await guardedRead(() =>
+    query(`SELECT ${selection} FROM ${viewName} WHERE ${qid(geometry.name)} IS NOT NULL${limitClause()}`),
   );
 
   const features = [];
