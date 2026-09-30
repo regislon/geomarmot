@@ -29,11 +29,15 @@ dev = [
     "ruff>=0.6",
     "anthropic>=0.129",
     "openai>=2",
+    "hatchling>=1.25",
 ]
 
 [build-system]
 requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["geomarmot"]
