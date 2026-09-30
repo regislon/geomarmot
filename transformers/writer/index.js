@@ -39,7 +39,7 @@ export default defineTransformer({
     }),
     param.string("filename", "File name", {
       default: "output",
-      description: "The name of the downloaded file, without its extension.",
+      description: "The name of the downloaded file, without its extension; unsafe characters become underscores.",
     }),
   ],
   action: { id: "export", label: "Write this file" },

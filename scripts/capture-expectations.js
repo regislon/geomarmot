@@ -56,6 +56,13 @@ for (const path of suiteFiles()) {
       const result = await runCase(harness.page, suite.transformer, testCase);
       if (result.error) {
         testCase.expect = { error: result.error.message };
+      } else if (result.file) {
+        testCase.expect = {
+          file: {
+            name: result.file.name,
+            ...(result.file.text !== null ? { text: result.file.text } : { table: result.file.table }),
+          },
+        };
       } else {
         const expect = {};
         for (const [port, table] of Object.entries(result.ports))

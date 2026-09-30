@@ -49,6 +49,29 @@ export async function runCase(page, type, testCase) {
           edges.push({ from: `in_${port}`, fromPort: "output", to: "subject", toPort: port });
         }
       }
+      if (testCase.sink) {
+        // A sink: compile its input, run the writer, and read what it wrote.
+        const feeder = nodes.find((n) => n.key.startsWith("in_"));
+        const ids = h.buildGraph([feeder], []);
+        const compiled = await h.compile();
+        const view = compiled.views[ids[feeder.key]].output;
+        const p = { format: "Parquet", filename: "output", ...(testCase.params || {}) };
+        const written = await h.runWriter(view, p.format, p.filename, feeder.params.crs || "EPSG:4326");
+        const file = written.files[0];
+        const out = { error: null, ports: {}, file: null, note: written.note };
+        if (file) {
+          const text = new TextDecoder().decode(new Uint8Array(file.bytes));
+          out.file = { name: file.name, text: /\.(csv|geojson|json)$/.test(file.name) ? text : null };
+          if (!out.file.text) {
+            const made = await h.loadSourceFile(file.name, file.bytes);
+            const back = h.buildGraph([{ key: "r", type: "Reader", params: { sourceId: made[0].id } }], []);
+            const reread = await h.compile();
+            out.file.table = await h.readPort(reread.views[back.r].output);
+          }
+        }
+        await h.teardown();
+        return out;
+      }
       const ids = h.buildGraph(nodes, edges);
       const compiled = await h.compile();
       const subject = ids.subject;
@@ -114,6 +137,22 @@ export function checkCase(result, testCase) {
   }
   if (result.error) return [`unexpected error: ${result.error.message}`];
   if (testCase.assert) return checkAssertions(result, testCase);
+  if (testCase.sink) {
+    const want = testCase.expect.file;
+    if (!result.file) return ["the writer produced no file"];
+    if (want.name && result.file.name !== want.name) problems.push(`file ${result.file.name}, expected ${want.name}`);
+    if (want.text !== undefined && result.file.text !== want.text)
+      problems.push(`text ${JSON.stringify(result.file.text)} ≠ ${JSON.stringify(want.text)}`);
+    if (want.json !== undefined && JSON.stringify(JSON.parse(result.file.text)) !== JSON.stringify(want.json)) {
+      problems.push(`json ${result.file.text} ≠ ${JSON.stringify(want.json)}`);
+    }
+    if (want.table)
+      for (const p of compareTable(result.file.table, want.table, { geometry: testCase.geometry || {} }))
+        problems.push(`file: ${p}`);
+    if (want.note !== undefined && !(result.note || "").includes(want.note))
+      problems.push(`note "${result.note}" does not contain "${want.note}"`);
+    return problems;
+  }
   for (const [port, expected] of Object.entries(testCase.expect || {})) {
     if (port === "crs") continue;
     const actual = result.ports[port];

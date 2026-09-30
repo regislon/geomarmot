@@ -1,0 +1,175 @@
+{
+  "transformer": "Writer",
+  "cases": [
+    {
+      "name": "CSV: quoted where needed, geometry as text",
+      "sink": true,
+      "params": { "format": "CSV", "filename": "people" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POINT (1 2)"],
+            [2, "b, c", null]
+          ]
+        }
+      },
+      "expect": {
+        "file": { "name": "people.csv", "text": "id,name,geometry\n1,a,POINT (1 2)\n2,\"b, c\",\n" }
+      }
+    },
+    {
+      "name": "GeoJSON in lon/lat has no CRS member",
+      "sink": true,
+      "params": { "format": "GeoJSON", "filename": "pts" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POINT (1 2)"],
+            [2, "b, c", null]
+          ]
+        }
+      },
+      "expect": {
+        "file": {
+          "name": "pts.geojson",
+          "text": "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[1.0,2.0]},\"properties\":{\"id\":1,\"name\":\"a\"}},{\"type\":\"Feature\",\"geometry\":null,\"properties\":{\"id\":2,\"name\":\"b, c\"}}]}"
+        }
+      }
+    },
+    {
+      "name": "GeoJSON of a projected stream names its CRS",
+      "sink": true,
+      "params": { "format": "GeoJSON", "filename": "lv95" },
+      "inputs": {
+        "input": {
+          "crs": "EPSG:2056",
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (2600000 1200000)"]
+          ]
+        }
+      },
+      "expect": {
+        "file": {
+          "name": "lv95.geojson",
+          "text": "{\"type\":\"FeatureCollection\",\"crs\":{\"type\":\"name\",\"properties\":{\"name\":\"urn:ogc:def:crs:EPSG::2056\"}},\"features\":[{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[2600000.0,1200000.0]},\"properties\":{\"id\":1}}]}"
+        }
+      }
+    },
+    {
+      "name": "Parquet round-trips through the Reader",
+      "sink": true,
+      "params": { "format": "Parquet", "filename": "out" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POINT (1 2)"],
+            [2, "b, c", null]
+          ]
+        }
+      },
+      "expect": {
+        "file": {
+          "name": "out.parquet",
+          "table": {
+            "columns": [
+              { "name": "id", "type": "INTEGER" },
+              { "name": "name", "type": "VARCHAR" },
+              { "name": "geometry", "type": "GEOMETRY" }
+            ],
+            "rows": [
+              [1, "a", "POINT (1 2)"],
+              [2, "b, c", null]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "GeoParquet round-trips with its geometry",
+      "sink": true,
+      "params": { "format": "GeoParquet", "filename": "geo" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POINT (1 2)"],
+            [2, "b, c", null]
+          ]
+        }
+      },
+      "expect": {
+        "file": {
+          "name": "geo.parquet",
+          "table": {
+            "columns": [
+              { "name": "id", "type": "INTEGER" },
+              { "name": "name", "type": "VARCHAR" },
+              { "name": "geometry", "type": "GEOMETRY" }
+            ],
+            "rows": [
+              [1, "a", "POINT (1 2)"],
+              [2, "b, c", null]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "Excel: geometry becomes WKT text",
+      "sink": true,
+      "params": { "format": "Excel", "filename": "book" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POINT (1 2)"],
+            [2, "b, c", null]
+          ]
+        }
+      },
+      "expect": {
+        "file": {
+          "name": "book.xlsx",
+          "table": {
+            "columns": [
+              { "name": "id", "type": "BIGINT" },
+              { "name": "name", "type": "VARCHAR" },
+              { "name": "geometry", "type": "VARCHAR" }
+            ],
+            "rows": [
+              ["1", "a", "POINT (1 2)"],
+              ["2", "b, c", null]
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
