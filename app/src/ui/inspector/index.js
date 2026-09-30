@@ -145,6 +145,16 @@ export function renderInspector(container, node, context) {
     ask.addEventListener("click", () => context.onHelp(transformer.help));
     heading.appendChild(ask);
   }
+  // Display only: which params the assistant wrote. Plays no part in what the SQL guard checks.
+  if (node.aiFields?.length) {
+    heading.appendChild(
+      h("span", {
+        class: "badge ai",
+        text: "assistant",
+        title: `Written by the assistant: ${node.aiFields.join(", ")}`,
+      }),
+    );
+  }
   container.appendChild(heading);
   if (transformer.hint) container.appendChild(h("p", { class: "muted", text: transformer.hint }));
   /*

@@ -1,0 +1,154 @@
+/*
+ * The assistant, end to end against a scripted Messages API: tools, the
+ * draft, Apply, and what leaves the browser.
+ */
+
+import { test, expect } from "@playwright/test";
+import { openApp } from "./app-target.js";
+import { everythingSent, fakeClaude, reply, text, toolUse } from "./support/fake-claude.js";
+
+const SWISS = "city,E,N\nBernCANARY,2600000,1200000\nZugCANARY,2681000,1224000\n";
+const KEY = "sk-ant-test-key-for-fake-api";
+
+let app;
+test.beforeEach(async ({ browser }) => {
+  app = await openApp(browser);
+});
+test.afterEach(async () => {
+  await app.context.close();
+  app.server.close();
+});
+
+async function setUp(page, level = 1) {
+  await page.setInputFiles("#file-input", { name: "swiss.csv", mimeType: "text/csv", buffer: Buffer.from(SWISS) });
+  await expect(page.locator("#status")).toContainText("rows");
+  await page.setInputFiles("#graph-input", {
+    name: "g.flow.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        format: "geomarmot-graph",
+        version: 1,
+        nodes: [{ id: "n1", type: "Reader", x: 40, y: 60, params: { sourceId: "s1__swiss.csv" } }],
+        edges: [],
+      }),
+    ),
+  });
+  await expect(page.locator("#status")).toContainText(/nodes ready|Opened/);
+  await page.click("#btn-assistant");
+  await page.click("#assistant-settings");
+  await page.fill("#ai-key", KEY);
+  await page.check(`input[name="ai-level"][value="${level}"]`);
+  await page.click("#ai-settings-save");
+}
+
+async function ask(page, message) {
+  await page.fill("#assistant-input", message);
+  await page.click("#assistant-send");
+}
+
+const POINTS = {
+  nodes: [
+    {
+      ref: "pts",
+      type: "VertexCreator",
+      params_json: JSON.stringify({
+        mode: "Replace with Point",
+        x: { kind: "Attribute", column: "E" },
+        y: { kind: "Attribute", column: "N" },
+      }),
+    },
+    { ref: "crs", type: "CoordinateSystemSetter", params_json: JSON.stringify({ crs: "EPSG:2056" }) },
+  ],
+  edges: [
+    { from: "n1", fromPort: "output", to: "pts", toPort: "input" },
+    { from: "pts", fromPort: "output", to: "crs", toPort: "input" },
+  ],
+  replace_draft: true,
+};
+
+test("points from an Excel-style table: get_graph, propose, Apply", async () => {
+  const { page } = app;
+  await setUp(page);
+  const requests = await fakeClaude(page, [
+    reply([text("Let me look."), toolUse("get_graph", {})]),
+    reply([toolUse("propose_nodes", POINTS)]),
+    reply([text("A draft makes points from E/N in Swiss coordinates.")]),
+  ]);
+  await ask(page, "create points from this file");
+  await expect(page.locator("#draft-bar")).toContainText("VertexCreator");
+  await expect(page.locator("#assistant-log")).toContainText("A draft makes points");
+
+  // Nothing in the graph until Apply.
+  await expect(page.locator("#canvas .node-title")).toHaveCount(1);
+  await page.click("#draft-apply");
+  await expect(page.locator("#canvas .node-title")).toHaveText(["Reader", "VertexCreator", "CoordinateSystemSetter"]);
+  await expect(page.locator("#draft-bar")).toHaveCount(0);
+
+  // The request: Claude Opus 5.5, strict tools, the user's key in the browser.
+  const first = requests[0];
+  expect(first.body.model).toBe("claude-opus-5-5");
+  expect(first.body.tools.every((t) => t.strict === true)).toBe(true);
+  expect(first.body.tool_choice).toEqual({ type: "auto" });
+  expect(first.headers["x-api-key"]).toBe(KEY);
+  // The summary of the graph went out; the city values did not.
+  expect(JSON.stringify(first.body)).toContain('\\"name\\":\\"E\\"');
+  expect(everythingSent(requests)).not.toContain("CANARY");
+
+  // One undo removes the whole draft.
+  await page.click("#btn-undo");
+  await expect(page.locator("#canvas .node-title")).toHaveCount(1);
+});
+
+test("a proposal with a Reader, bad params or forbidden SQL is refused whole", async () => {
+  const { page } = app;
+  await setUp(page);
+  const bad = {
+    nodes: [
+      { ref: "r", type: "Reader", params_json: "{}" },
+      { ref: "t", type: "Tester", params_json: JSON.stringify({ logic: "XOR" }) },
+      {
+        ref: "q",
+        type: "SQLTransformer",
+        params_json: JSON.stringify({ sql: "SELECT * FROM read_csv('/etc/passwd')" }),
+      },
+      { ref: "m", type: "Tester", params_json: JSON.stringify({ sqlMode: "unrestricted" }) },
+    ],
+    edges: [],
+    replace_draft: true,
+  };
+  const requests = await fakeClaude(page, [reply([toolUse("propose_nodes", bad)]), reply([text("Sorry.")])]);
+  await ask(page, "do something");
+  await expect(page.locator("#assistant-log")).toContainText("Sorry.");
+  await expect(page.locator("#draft-bar")).toHaveCount(0);
+  const result = JSON.parse(requests[1].body.messages.at(-1).content[0].content);
+  expect(result.ok).toBe(false);
+  const codes = result.problems.map((p) => `${p.node}:${p.error.code}`);
+  expect(codes).toEqual(["r:NOT_AI_USABLE", "t:INVALID_PARAMS", "q:SQL_FORBIDDEN_CONSTRUCT", "m:INVALID_PARAMS"]);
+  expect(requests[1].body.messages.at(-1).content[0].is_error).toBe(true);
+});
+
+test("a refusal is shown, and the conversation stays usable", async () => {
+  const { page } = app;
+  await setUp(page);
+  const requests = await fakeClaude(page, [
+    reply([], { stop_reason: "refusal", stop_details: { type: "refusal", category: "cyber", explanation: "" } }),
+    reply([text("Hello again.")]),
+  ]);
+  await ask(page, "first");
+  await expect(page.locator("#assistant-log")).toContainText("declined this request (cyber)");
+  await ask(page, "second");
+  await expect(page.locator("#assistant-log")).toContainText("Hello again.");
+  expect(requests[1].body.fallbacks).toBe("default");
+});
+
+test("an API error is reported without losing the message box", async () => {
+  const { page } = app;
+  await setUp(page);
+  await fakeClaude(page, [
+    { status: 401, body: { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } } },
+  ]);
+  await ask(page, "hi");
+  await expect(page.locator("#assistant-log .chat-msg.error")).toContainText("API key was refused");
+  await expect(page.locator("#assistant-send")).toBeEnabled();
+});

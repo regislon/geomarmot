@@ -36,6 +36,8 @@ export let recompileTimer = null;
 let compileInFlight = null;
 
 export let currentIssues = [];
+/** Rows leaving each output port of the shown generation, keyed "nodeId:portId" (for the assistant). */
+export let portCounts = new Map();
 // Counting is its own race: a big graph's counts can land after the edit that
 // invalidated them, so only the newest run is allowed to reach the canvas.
 let countSeq = 0;
@@ -60,19 +62,22 @@ async function updatePortCounts(lease) {
     // Inside the try, so the lease is released on this path too — a leaked
     // lease would keep its generation alive and block every later compile.
     if (!ports.length) {
-      setPortCounts(new Map());
+      portCounts = new Map();
+      setPortCounts(portCounts);
       return;
     }
     const rows = await readQuery(`SELECT ${selection.join(", ")}`);
     if (seq !== countSeq) return;
     const counts = new Map();
     ports.forEach((port, index) => counts.set(`${port.nodeId}:${port.portId}`, Number(rows[0][`c${index}`])));
+    portCounts = counts;
     setPortCounts(counts);
   } catch (err) {
     if (seq !== countSeq) return;
     // A count is a nicety; losing it should not look like a broken graph.
     console.warn("Could not count port outputs", err);
-    setPortCounts(new Map());
+    portCounts = new Map();
+    setPortCounts(portCounts);
   } finally {
     lease.release();
   }

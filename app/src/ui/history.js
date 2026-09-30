@@ -57,19 +57,27 @@ function applySnapshot(json) {
   scheduleRecompile();
 }
 
+/**
+ * Record the graph as it stands now, without waiting for the debounce — for a
+ * change that must be its own undo step whatever came just before it (applying
+ * the assistant's draft).
+ */
+export function commitHistoryNow() {
+  clearTimeout(historyTimer);
+  historyTimer = null;
+  const current = snapshot();
+  if (current === committed) return;
+  if (committed !== null) past.push(committed);
+  if (past.length > HISTORY_LIMIT) past.shift();
+  committed = current;
+  future = [];
+  updateHistoryButtons();
+}
+
 function undo() {
   // Land anything still in the debounce first, or the step about to be undone
   // is not yet the one on the stack.
-  if (historyTimer) {
-    clearTimeout(historyTimer);
-    historyTimer = null;
-    const current = snapshot();
-    if (current !== committed) {
-      if (committed !== null) past.push(committed);
-      committed = current;
-      future = [];
-    }
-  }
+  if (historyTimer) commitHistoryNow();
   if (!past.length) return;
   future.push(committed);
   applySnapshot(past.pop());

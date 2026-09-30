@@ -31,7 +31,7 @@ export class Conversation {
     this.summarize = summarize;
     /** @type {Message[]} */
     this.messages = [];
-    /** @type {Array<{ kind: string, text: string, sent: boolean, detail?: any }>} */
+    /** @type {Array<{ kind: string, text: string, sent: boolean, retired?: boolean, detail?: any }>} */
     this.log = [];
     /** @type {string[]} */
     this.userTexts = [];
@@ -72,7 +72,11 @@ export class Conversation {
     this.messages = [];
     this.levelReached = level;
     this.restarted = true;
-    for (const entry of this.log) entry.sent = false;
+    for (const entry of this.log) {
+      if (!entry.sent) continue;
+      entry.sent = false;
+      entry.retired = true; // shown to the user as "not sent to the model after the level was lowered"
+    }
     this.log.push({
       kind: "notice",
       text: `Data level lowered to ${level}: a new conversation starts. Nothing above is sent to the model again.`,
