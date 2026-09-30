@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GeoMarmot</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Crect%20width%3D%2732%27%20height%3D%2732%27%20rx%3D%277%27%20fill%3D%27%232a241d%27%2F%3E%3Ctext%20x%3D%2716%27%20y%3D%2722.5%27%20font-family%3D%27Helvetica%2CArial%2Csans-serif%27%20font-size%3D%2714%27%20font-weight%3D%27700%27%20fill%3D%27%23d9913a%27%20text-anchor%3D%27middle%27%3EGM%3C%2Ftext%3E%3C%2Fsvg%3E"
+    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <div id="shell">
+      <header id="toolbar">
+        <h1>GeoMarmot</h1>
+        <button id="btn-export" class="primary" disabled>Export</button>
+        <button id="btn-undo" title="Undo (⌘Z)" disabled>↶</button>
+        <button id="btn-redo" title="Redo (⇧⌘Z)" disabled>↷</button>
+        <button id="btn-arrange">Arrange</button>
+        <button id="btn-export-graph">Save graph</button>
+        <button id="btn-import-graph">Open graph</button>
+        <button id="btn-clear">Clear</button>
+        <span class="spacer"></span>
+        <span id="status">Starting the engine…</span>
+      </header>
+      <div id="progress" class="progress" role="progressbar" aria-live="polite" hidden>
+        <div id="progress-label" class="progress-label"></div>
+        <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+      </div>
+
+      <main id="middle">
+        <aside id="layers">
+          <h2>Layers</h2>
+          <div id="dropzone">Drop .parquet, .gpkg, .geojson, .json, .fgb, .csv or .xlsx here</div>
+          <div class="url-row">
+            <input id="url-input" type="text" placeholder="gs://bucket/file.gpkg, …/store.zarr or https://…" />
+            <button id="btn-load-url">Load</button>
+          </div>
+          <button id="btn-browse" class="wide-btn">Browse a bucket…</button>
+          <div id="source-list"></div>
+
+          <h2 class="rail-section">Transformers</h2>
+          <div id="palette"></div>
+        </aside>
+
+        <section id="canvas-wrap">
+          <svg id="canvas"></svg>
+          <div id="quick-add" hidden>
+            <input
+              id="quick-add-input"
+              type="text"
+              placeholder="Add a transformer…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <ul id="quick-add-list"></ul>
+          </div>
+        </section>
+
+        <aside id="inspector"></aside>
+      </main>
+
+      <div id="dock-resizer"></div>
+
+      <section id="dock">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Attributes</h2>
+            <span id="inspect-pin" class="badge pin" hidden></span>
+            <span class="meta" id="table-meta"></span>
+            <button id="table-prev" title="Previous page">‹</button>
+            <button id="table-next" title="Next page">›</button>
+          </div>
+          <div class="sheet-area">
+            <div id="sheet-tabs" hidden></div>
+            <div class="table-scroll">
+              <table>
+                <thead id="table-head"></thead>
+                <tbody id="table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="dock-splitter" title="Drag to resize; double-click for an even split"></div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Geometry</h2>
+            <span class="meta" id="map-status"></span>
+            <select id="coarsen-select" title="Roll H3 cells up to a coarser resolution"></select>
+            <select id="limit-select" title="How many features to draw">
+              <option value="8000">8k</option>
+              <option value="25000">25k</option>
+              <option value="50000">50k</option>
+              <option value="100000">100k</option>
+              <option value="250000">250k</option>
+              <option value="">No limit</option>
+            </select>
+            <select id="basemap-select" title="Basemap"></select>
+          </div>
+          <div class="map-wrap">
+            <div id="map"></div>
+            <div id="map-legend" class="map-legend" hidden></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="help-modal" class="modal" hidden>
+      <div class="modal-panel help-panel">
+        <div class="modal-head">
+          <h2 id="help-title"></h2>
+          <button id="help-close" class="icon-btn" title="Close">×</button>
+        </div>
+        <div id="help-body" class="help-body"></div>
+      </div>
+    </div>
+
+    <div id="geometry-modal" class="modal" hidden>
+      <div class="modal-panel">
+        <div class="modal-head">
+          <h2>Feature geometry</h2>
+          <button id="geometry-close" class="icon-btn" title="Close">×</button>
+        </div>
+        <div id="geometry-body" class="geometry-body"></div>
+      </div>
+    </div>
+
+    <div id="browse-modal" class="modal" hidden>
+      <div class="modal-panel">
+        <div class="modal-head">
+          <h2>Browse a bucket</h2>
+          <button id="browse-close" class="icon-btn" title="Close">×</button>
+        </div>
+        <div class="url-row">
+          <input id="browse-bucket" type="text" autocomplete="off" spellcheck="false" placeholder="bucket name" />
+          <button id="browse-go">Open</button>
+        </div>
+        <div id="browse-path" class="browse-path"></div>
+        <div id="browse-list" class="browse-list"></div>
+        <p id="browse-note" class="muted"></p>
+      </div>
+    </div>
+
+    <div id="zarr-modal" class="modal" hidden>
+      <div class="modal-panel zarr-panel">
+        <div class="modal-head">
+          <h2 id="zarr-title"></h2>
+          <button id="zarr-close" class="icon-btn" title="Close">×</button>
+        </div>
+        <div class="zarr-body">
+          <div id="zarr-variables" class="zarr-variables"></div>
+          <div id="zarr-plan" class="zarr-plan"></div>
+        </div>
+        <p id="zarr-note" class="muted"></p>
+        <button id="zarr-add" class="primary wide-btn" disabled>Add layer</button>
+      </div>
+    </div>
+
+    <div id="sheet-modal" class="modal" hidden>
+      <div class="modal-panel sheet-panel">
+        <div class="modal-head">
+          <h2 id="sheet-title"></h2>
+          <button id="sheet-close" class="icon-btn" title="Close">×</button>
+        </div>
+        <p id="sheet-hint" class="muted"></p>
+        <div id="sheet-body" class="sheet-body"></div>
+        <div class="sheet-footer">
+          <button id="sheet-back" hidden>Back</button>
+          <button id="sheet-add" class="primary">Open</button>
+        </div>
+      </div>
+    </div>
+
+    <input id="file-input" type="file" accept=".parquet,.pq,.gpkg,.geojson,.json,.fgb,.csv,.tsv,.csv.gz,.tsv.gz,.xlsx,.xlsm" multiple hidden />
+    <input id="graph-input" type="file" accept=".json" hidden />
+
+    <script type="module" src="static/app.js"></script>
+  </body>
+</html>
