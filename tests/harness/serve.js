@@ -27,8 +27,9 @@ const TYPES = {
 };
 
 function safeJoin(base, path) {
-  const full = normalize(join(base, decodeURIComponent(path)));
-  return full.startsWith(resolve(base)) ? full : null;
+  const root = resolve(base);
+  const full = normalize(join(root, decodeURIComponent(path)));
+  return full === root || full.startsWith(root + "/") ? full : null;
 }
 
 /**
