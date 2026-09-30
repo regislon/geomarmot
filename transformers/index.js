@@ -59,7 +59,19 @@ import SimplifyFeatures from "./simplify-features/index.js";
 import SmoothVectors from "./smooth-vectors/index.js";
 import VertexCreator from "./vertex-creator/index.js";
 
+// Analysis
+import AddGeometryAttributes from "./add-geometry-attributes/index.js";
+import AttributeCorrelation from "./attribute-correlation/index.js";
+import AttributeHistogram from "./attribute-histogram/index.js";
+import FilterVectorFeaturesByArea from "./filter-vector-features-by-area/index.js";
+import ListUniqueValues from "./list-unique-values/index.js";
+
 const NATIVE = [
+  AttributeHistogram,
+  AttributeCorrelation,
+  FilterVectorFeaturesByArea,
+  ListUniqueValues,
+  AddGeometryAttributes,
   SmoothVectors,
   DensifyFeatures,
   MinimumBoundingCircle,
