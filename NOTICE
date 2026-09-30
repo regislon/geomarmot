@@ -1,0 +1,21 @@
+GeoMarmot
+Copyright 2026 The GeoMarmot contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It bundles or depends on the following third-party software, each under its own licence:
+
+- DuckDB and DuckDB-Wasm (MIT) — https://duckdb.org
+- DuckDB spatial extension (MIT), which includes GDAL, GEOS and PROJ (MIT/X11-style licences)
+- MapLibre GL JS (BSD-3-Clause) — https://maplibre.org
+- h3-js (Apache-2.0) — https://github.com/uber/h3-js
+- JSTS (EDL-1.0 / EPL-1.0 dual licence) — https://github.com/bjornharrtell/jsts
+- zarrita (MIT) — https://github.com/manzt/zarrita.js, with numcodecs.js (MIT)
+- SheetJS Community Edition (Apache-2.0) — https://sheetjs.com
+
+Several geometry and attribute-analysis transformers are modelled on tools from
+WhiteboxTools (MIT, Copyright (c) John Lindsay). Each such transformer credits it
+in its own README.
+
+The code-economy guidance in docs/code-economy.md is adapted from ponytail
+(MIT, https://github.com/dietrichgebert/ponytail).

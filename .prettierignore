@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-test/
+.local/
+server/
+app/public/
+test-results/
+playwright-report/
+package-lock.json
+scripts/forbidden-terms.sha256
+*.md
+tests/fixtures/
+transformers/*/tests.json
