@@ -3,6 +3,16 @@
 const GCS_HOST = "storage.googleapis.com";
 
 /**
+ * Whether a local server with the bucket proxy is behind this page. Not on a
+ * static host (GitHub Pages): there gs:// paths cannot work, and storage URLs
+ * are fetched directly, which succeeds only for buckets that send CORS headers.
+ */
+let proxyAvailable = true;
+export function setProxyAvailable(available) {
+  proxyAvailable = Boolean(available);
+}
+
+/**
  * Turn whatever the user pasted into a URL the browser can actually read.
  *
  * Cloud-storage forms are rewritten onto the local server's /proxy/gs route:
@@ -21,11 +31,15 @@ export function resolveUrl(input) {
   // silently truncated at that character, and one holding a space produces a
   // URL the proxy cannot forward.
   if (text.startsWith("gs://")) {
+    if (!proxyAvailable) {
+      throw new Error("gs:// paths need the local server (the geomarmot command); this copy of the app has none.");
+    }
     const path = text.slice("gs://".length).split("/").map(encodeURIComponent).join("/");
     return proxy(`proxy/gs/${path}`);
   }
   try {
     const url = new URL(text);
+    if (!proxyAvailable) return url.href;
     if (url.hostname === GCS_HOST) {
       return proxy(`proxy/gs${url.pathname}`);
     }

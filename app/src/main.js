@@ -51,6 +51,7 @@ import { autosave, exportGraph, importGraph, restoreAutosave } from "./ui/persis
 import { initQuickAdd } from "./ui/quickadd.js";
 import { addZarrSource, loadUrl, renderPalette, renderSources } from "./ui/rail.js";
 import { initAssistant } from "./ui/assistant/index.js";
+import { setProxyAvailable } from "./io/remote.js";
 import { installStoredCustoms, onCustomInstalled } from "./ai/spec/install.js";
 
 /* ---------- boot ---------- */
@@ -79,8 +80,27 @@ async function openSession() {
   }
 }
 
+/**
+ * Is the local server behind this page? On a static host (GitHub Pages)
+ * ./healthz does not answer: the bucket browser is hidden and gs:// paths say
+ * why they cannot work.
+ */
+async function detectServer() {
+  let proxy = false;
+  try {
+    const response = await fetch(new URL("healthz", window.location.href));
+    const body = response.ok ? await response.json() : null;
+    proxy = body?.status === "ok" && body.proxy === true;
+  } catch {
+    /* no server */
+  }
+  setProxyAvailable(proxy);
+  el("btn-browse").hidden = !proxy;
+}
+
 async function main() {
   await openSession();
+  await detectServer();
   initTable({
     head: el("table-head"),
     body: el("table-body"),

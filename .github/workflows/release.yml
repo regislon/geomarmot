@@ -1,0 +1,95 @@
+name: release
+
+# On a v* tag: check that the tag and the versions agree, run every CI job and the package job
+# again, then publish the wheel and sdist to PyPI (trusted publishing), the image to GHCR, the
+# static app to GitHub Pages, and a GitHub release with notes.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-version.js "${{ github.ref_name }}"
+
+  ci:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    needs: version
+    uses: ./.github/workflows/package.yml
+
+  pypi:
+    needs: [ci, package]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/
+
+  image:
+    needs: [ci, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  pages:
+    needs: [ci, package]
+    uses: ./.github/workflows/pages.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+  notes:
+    needs: [pypi, image, pages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: packages/*
