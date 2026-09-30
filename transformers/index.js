@@ -16,7 +16,22 @@ import Reader from "./reader/index.js";
 // Output
 import Writer from "./writer/index.js";
 
-const NATIVE = [Reader, Writer];
+// Attributes
+import AttributeCreator from "./attribute-creator/index.js";
+import AttributeKeeper from "./attribute-keeper/index.js";
+import AttributeManager from "./attribute-manager/index.js";
+import AttributeRemover from "./attribute-remover/index.js";
+import AttributeRenamer from "./attribute-renamer/index.js";
+
+const NATIVE = [
+  AttributeManager,
+  AttributeCreator,
+  AttributeRenamer,
+  AttributeRemover,
+  AttributeKeeper,
+  Reader,
+  Writer,
+];
 
 /** id -> transformer definition. */
 export const REGISTRY = new Map();

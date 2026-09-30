@@ -12,7 +12,7 @@
  */
 
 import { exec, qid, qlit, query } from "../app/src/core/duck.js";
-import { checkSql, composeSql, SYNTAX_REFERENCE } from "../app/src/core/sqlnode.js";
+import { composeSql } from "../app/src/core/sqlnode.js";
 import { valueSql } from "../app/src/core/valuespec.js";
 import { findGeometryColumn, geometryExpression, LONLAT } from "../app/src/core/schema.js";
 import { MAX_OVERLAY_FEATURES, createFaceTable, createShapeTable } from "../app/src/engines/jsts.js";
@@ -139,72 +139,6 @@ const BUFFER_PROJECTIONS = {
 };
 
 /**
- * One AttributeManager edit, as a SELECT list plus the columns it leaves behind.
- *
- * Returns null for a row that is not filled in yet, so a half-typed edit is
- * skipped rather than compiled into broken SQL while it is being written.
- */
-/**
- * An edit's value, from the builder spec or from the older raw expression.
- *
- * Graphs saved before the builder existed hold `value` as a SQL string; reading
- * it here keeps them working without a migration pass over a field whose old
- * and new forms are trivially distinguishable.
- */
-function editValueSql(action) {
-  if (action.spec) return valueSql(action.spec);
-  return typeof action.value === "string" && action.value.trim() ? action.value.trim() : null;
-}
-
-function attributeEdit(action, columns) {
-  const has = (name) => columns.includes(name);
-  const star = "*";
-
-  switch (action.action) {
-    case "Set value": {
-      const value = editValueSql(action);
-      if (!action.column || !has(action.column) || !value) return null;
-      return {
-        selection: `${star} REPLACE ((${value}) AS ${qid(action.column)})`,
-        columns,
-      };
-    }
-    case "Rename": {
-      if (!action.column || !has(action.column) || !action.target) return null;
-      // `* RENAME` is a parser error on this DuckDB, so exclude and re-add.
-      return {
-        selection: `${star} EXCLUDE (${qid(action.column)}), ${qid(action.column)} AS ${qid(action.target)}`,
-        columns: columns.map((name) => (name === action.column ? action.target : name)),
-      };
-    }
-    case "Copy to": {
-      if (!action.column || !has(action.column) || !action.target) return null;
-      return {
-        selection: `${star}, ${qid(action.column)} AS ${qid(action.target)}`,
-        columns: [...columns, action.target],
-      };
-    }
-    case "Create": {
-      const value = editValueSql(action);
-      if (!action.target || !value) return null;
-      return {
-        selection: `${star}, (${value}) AS ${qid(action.target)}`,
-        columns: [...columns, action.target],
-      };
-    }
-    case "Remove": {
-      if (!action.column || !has(action.column)) return null;
-      return {
-        selection: `${star} EXCLUDE (${qid(action.column)})`,
-        columns: columns.filter((name) => name !== action.column),
-      };
-    }
-    default:
-      return null;
-  }
-}
-
-/**
  * Build the Tester's predicate.
  *
  * Values are always quoted as strings and left to DuckDB to coerce — `"n" >
@@ -233,10 +167,6 @@ function buildPredicate(conditions, logic) {
  */
 function truthy(predicate) {
   return `COALESCE(${predicate}, FALSE)`;
-}
-
-function columnList(columns) {
-  return (columns || []).filter(Boolean).map(qid).join(", ");
 }
 
 /* ---------- H3 helpers ---------- */
@@ -685,177 +615,6 @@ function vertexCreatorSql(node, upstream, columns) {
 }
 
 export const TRANSFORMERS = {
-  AttributeKeeper: {
-    label: "AttributeKeeper",
-    group: "Attributes",
-    hint: "Keeps only the listed attributes.",
-    inputs: SINGLE_IN,
-    outputs: () => SINGLE_OUT,
-    params: [{ id: "columns", label: "Attributes to keep", kind: "columns" }],
-    sql: (node, upstream) => {
-      const kept = columnList(node.params.columns);
-      return { output: `SELECT ${kept || "*"} FROM ${upstream.input}` };
-    },
-  },
-
-  AttributeRemover: {
-    label: "AttributeRemover",
-    group: "Attributes",
-    hint: "Drops the listed attributes, keeps the rest.",
-    inputs: SINGLE_IN,
-    outputs: () => SINGLE_OUT,
-    params: [{ id: "columns", label: "Attributes to remove", kind: "columns" }],
-    sql: (node, upstream) => {
-      const dropped = columnList(node.params.columns);
-      const selection = dropped ? `* EXCLUDE (${dropped})` : "*";
-      return { output: `SELECT ${selection} FROM ${upstream.input}` };
-    },
-  },
-
-  AttributeRenamer: {
-    label: "AttributeRenamer",
-    group: "Attributes",
-    hint: "Renames attributes, leaving values untouched.",
-    inputs: SINGLE_IN,
-    outputs: () => SINGLE_OUT,
-    params: [{ id: "renames", label: "Renames", kind: "renames" }],
-    // Needed to write the columns out one by one. DuckDB 1.1.1 — what
-    // duckdb-wasm ships — has `* EXCLUDE` and `* REPLACE` but not `* RENAME`,
-    // which only arrived later. Naming every column also keeps them in their
-    // original order, where `* EXCLUDE (old), old AS new` would shunt the
-    // renamed one to the end.
-    needsSchema: true,
-    sql: (node, upstream, ctx) => {
-      const renames = new Map(
-        (node.params.renames || [])
-          .filter((rename) => rename.from && rename.to)
-          .map((rename) => [rename.from, rename.to]),
-      );
-      const columns = ctx?.schemas?.input || [];
-      if (!renames.size || !columns.length) return { output: `SELECT * FROM ${upstream.input}` };
-      const selection = columns
-        .map((column) =>
-          renames.has(column.name) ? `${qid(column.name)} AS ${qid(renames.get(column.name))}` : qid(column.name),
-        )
-        .join(", ");
-      return { output: `SELECT ${selection} FROM ${upstream.input}` };
-    },
-  },
-
-  AttributeCreator: {
-    label: "AttributeCreator",
-    group: "Attributes",
-    hint: "Adds attributes with a DuckDB SELECT.",
-    // The long version lives behind the "?" so it is there when wanted and out
-    // of the way when not — the panel is narrow and the query needs the room.
-    help: {
-      title: "AttributeCreator",
-      intro: [
-        "Writes new attributes onto every row using a DuckDB SELECT. The incoming stream is " +
-          "the table `input`: keep `input.*` so the existing attributes survive, and add your " +
-          "new columns beside it.",
-        "The query is usually not written by hand. The schema panel lists the input's columns " +
-          "and types, and Copy for AI puts that schema together with the rules below on the " +
-          "clipboard — one paste is enough for an assistant to write a query that compiles " +
-          "against this data rather than guessing at column names.",
-        "Everything is checked as you type, and again when the graph is built: a query that " +
-          "does not compile, or that adds no attribute, stops at this node instead of quietly " +
-          "passing rows through unchanged.",
-        "A new GEOMETRY column needs no further wiring — the map, the attribute grid and the " +
-          "writers all look for geometry on whatever node they are showing.",
-      ],
-      code: SYNTAX_REFERENCE,
-    },
-    inputs: SINGLE_IN,
-    // The editor shows the input's columns and checks the query against them.
-    needsSchema: true,
-    outputs: () => SINGLE_OUT,
-    params: [
-      {
-        id: "mode",
-        label: "How",
-        kind: "select",
-        options: ["Builder", "SQL query"],
-        default: "Builder",
-      },
-      {
-        id: "creates",
-        label: "New attributes",
-        kind: "valuerows",
-        when: (node) => (node.params.mode ?? "Builder") === "Builder",
-      },
-      {
-        id: "sql",
-        label: "Query",
-        kind: "sqlcreate",
-        placeholder: "SELECT\n  input.*,\n  <expression> AS <new_column>\nFROM input",
-        when: (node) => node.params.mode === "SQL query",
-      },
-    ],
-    sql: (node, upstream) => {
-      if (node.params.mode === "SQL query") {
-        const statement = (node.params.sql || "").trim();
-        if (!statement) return { output: `SELECT * FROM ${upstream.input}` };
-        return { output: composeSql(statement, upstream.input) };
-      }
-      const additions = (node.params.creates || [])
-        .filter((create) => create.name)
-        .map((create) => ({ name: create.name, sql: valueSql(create.value) }))
-        .filter((create) => create.sql);
-      if (!additions.length) return { output: `SELECT * FROM ${upstream.input}` };
-      const selection = additions.map((create) => `${create.sql} AS ${qid(create.name)}`).join(", ");
-      return { output: `SELECT *, ${selection} FROM ${upstream.input}` };
-    },
-    // Enforced at compile time, not just in the editor: a graph can be imported
-    // or edited by hand, and a node that adds nothing should say so either way.
-    check: async (node, upstream, ctx) => {
-      // Only the query needs checking. A builder row cannot fail to add a
-      // column — it names one — and its expression is checked by the compile
-      // itself, which reports the same DuckDB message either way.
-      if (node.params.mode !== "SQL query") return;
-      const verdict = await checkSql(node.params.sql, upstream.input, ctx.schemas?.input || [], {
-        requireNewColumns: true,
-      });
-      if (!verdict.ok) throw new Error(verdict.message);
-    },
-  },
-
-  /*
-   * Several attribute edits — set, rename, copy, create, remove — in one node.
-   *
-   * The four single-purpose Attribute* nodes each stay, because a chain of them
-   * reads well on the canvas. This one exists for the case they read badly: a
-   * dozen small edits that are one step in the user's head and would otherwise
-   * be a dozen boxes on the canvas.
-   *
-   * Compiled as nested SELECTs, one per row, because the edits are ordered —
-   * renaming a column and then setting the new name's value is a different
-   * result from the reverse, and a single flat SELECT cannot express that.
-   */
-  AttributeManager: {
-    label: "AttributeManager",
-    group: "Attributes",
-    hint: "Set, rename, copy, create and remove attributes — in order, in one node.",
-    needsSchema: true,
-    inputs: SINGLE_IN,
-    outputs: () => SINGLE_OUT,
-    params: [{ id: "actions", label: "Edits", kind: "actions" }],
-    sql: (node, upstream, ctx) => {
-      // Tracked as the edits are applied so a later row can act on a column an
-      // earlier row renamed or created.
-      let columns = (ctx.schemas?.input || []).map((column) => column.name);
-      let relation = upstream.input;
-
-      for (const action of node.params.actions || []) {
-        const step = attributeEdit(action, columns);
-        if (!step) continue;
-        relation = `(SELECT ${step.selection} FROM ${relation})`;
-        columns = step.columns;
-      }
-      return { output: `SELECT * FROM ${relation}` };
-    },
-  },
-
   Tester: {
     label: "Tester",
     group: "Filters",

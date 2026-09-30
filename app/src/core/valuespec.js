@@ -11,6 +11,7 @@
  */
 
 import { qid, qlit } from "./duck.js";
+import { spliceExpression } from "./sqlguard/contexts.js";
 
 export const VALUE_KINDS = ["Value", "Attribute", "Formula", "SQL"];
 
@@ -79,7 +80,8 @@ export function valueSql(spec) {
       return left && right && build ? `(${build(left, right)})` : null;
     }
     case "SQL":
-      return spec.sql?.trim() ? `(${spec.sql.trim()})` : null;
+      // The one splice for an expression fragment, the same form the SQL guard validates.
+      return spec.sql?.trim() ? spliceExpression(spec.sql.trim()) : null;
     default:
       return literalSql(spec.value, spec.type || "Text");
   }
