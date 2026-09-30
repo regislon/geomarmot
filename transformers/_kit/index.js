@@ -20,3 +20,4 @@ export * from "./helpers.js";
 export { writeView } from "./io.js";
 export { checkSql, SYNTAX_REFERENCE } from "../../app/src/core/sqlnode.js";
 export { valueSql } from "../../app/src/core/valuespec.js";
+export * from "./engine.js";

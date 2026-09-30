@@ -41,11 +41,13 @@
           "columns": [
             { "name": "id", "type": "INTEGER" },
             { "name": "name", "type": "VARCHAR" },
-            { "name": "area", "type": "DOUBLE" }
+            { "name": "area", "type": "DOUBLE" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area_right", "type": "DOUBLE" }
           ],
           "rows": [
-            [1, "a", 1.5],
-            [3, "c", null]
+            [1, "a", 1.5, "x", 9],
+            [3, "c", null, "z", 8]
           ]
         },
         "unjoinedLeft": {
@@ -109,12 +111,14 @@
           "columns": [
             { "name": "id", "type": "INTEGER" },
             { "name": "name", "type": "VARCHAR" },
-            { "name": "area", "type": "DOUBLE" }
+            { "name": "area", "type": "DOUBLE" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area_right", "type": "DOUBLE" }
           ],
           "rows": [
-            [1, "a", 1.5],
-            [3, "c", null],
-            [2, "b", 2]
+            [1, "a", 1.5, "x", 9],
+            [3, "c", null, "z", 8],
+            [2, "b", 2, null, null]
           ]
         },
         "unjoinedLeft": {
@@ -179,13 +183,15 @@
           "columns": [
             { "name": "id", "type": "INTEGER" },
             { "name": "name", "type": "VARCHAR" },
-            { "name": "area", "type": "DOUBLE" }
+            { "name": "area", "type": "DOUBLE" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area_r", "type": "DOUBLE" }
           ],
           "rows": [
-            [1, "a", 1.5],
-            [3, "c", null],
-            [2, "b", 2],
-            [null, null, null]
+            [1, "a", 1.5, "x", 9],
+            [3, "c", null, "z", 8],
+            [2, "b", 2, null, null],
+            [null, null, null, "w", 7]
           ]
         },
         "unjoinedLeft": {
@@ -241,7 +247,7 @@
           ]
         }
       },
-      "expect": { "error": "at least one pair" }
+      "expect": { "error": "FeatureJoiner needs at least one pair of join attributes." }
     }
   ]
 }

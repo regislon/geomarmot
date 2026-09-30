@@ -29,7 +29,15 @@ import DuplicateFilter from "./duplicate-filter/index.js";
 import TestFilter from "./test-filter/index.js";
 import Tester from "./tester/index.js";
 
+// Combine
+import AreaOnAreaOverlayer from "./area-on-area-overlayer/index.js";
+import FeatureJoiner from "./feature-joiner/index.js";
+import Unioner from "./unioner/index.js";
+
 const NATIVE = [
+  AreaOnAreaOverlayer,
+  Unioner,
+  FeatureJoiner,
   DuplicateFilter,
   TestFilter,
   AttributeFilter,

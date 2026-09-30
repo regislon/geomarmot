@@ -15,7 +15,7 @@ import { exec, qid, qlit, query } from "../app/src/core/duck.js";
 import { composeSql } from "../app/src/core/sqlnode.js";
 import { valueSql } from "../app/src/core/valuespec.js";
 import { findGeometryColumn, geometryExpression, LONLAT } from "../app/src/core/schema.js";
-import { MAX_OVERLAY_FEATURES, createFaceTable, createShapeTable } from "../app/src/engines/jsts.js";
+import { createShapeTable } from "../app/src/engines/jsts.js";
 import {
   FILL_MODES,
   H3_INDEX_COLUMN,
@@ -30,9 +30,6 @@ import {
 
 /** Internal join key for PolygonToH3 and the overlayer; never leaves a node. */
 const FEATURE_ID_COLUMN = "_pv_fid";
-
-/** The overlap depth written onto each face. */
-const OVERLAP_COUNT_COLUMN = "_overlaps";
 
 /** The Reprojector's destination, trimmed; blank means "not chosen yet". */
 function destinationCrs(node) {
@@ -701,78 +698,6 @@ export const TRANSFORMERS = {
     },
   },
 
-  FeatureJoiner: {
-    label: "FeatureJoiner",
-    group: "Combine",
-    hint: "Joins two streams on matching attributes.",
-    // One join with a choice of type covers attribute-based merging too,
-    // rather than a second node that does almost the same thing.
-    inputs: [
-      { id: "left", label: "Left" },
-      { id: "right", label: "Right" },
-    ],
-    outputs: () => [
-      { id: "joined", label: "Joined" },
-      { id: "unjoinedLeft", label: "Unjoined L" },
-      { id: "unjoinedRight", label: "Unjoined R" },
-    ],
-    params: [
-      { id: "joinType", label: "Join", kind: "select", options: ["Inner", "Left", "Full"], default: "Inner" },
-      { id: "keys", label: "Join on", kind: "joinkeys" },
-      { id: "suffix", label: "Suffix for clashing right attributes", kind: "string", default: "_right" },
-    ],
-    needsSchema: true,
-    sql: (node, upstream, schemas) => {
-      const pairs = (node.params.keys || []).filter((pair) => pair.left && pair.right);
-      if (!pairs.length) throw new Error("FeatureJoiner needs at least one pair of join attributes.");
-
-      const condition = pairs.map((pair) => `l.${qid(pair.left)} = r.${qid(pair.right)}`).join(" AND ");
-      const rightKeys = new Set(pairs.map((pair) => pair.right));
-      const leftNames = new Set((schemas?.left || []).map((column) => column.name));
-      const suffix = node.params.suffix || "_right";
-
-      // The right side keeps only what it adds: its join keys are already on
-      // the left, and any other name the left also has would otherwise produce
-      // two columns of the same name that nothing downstream can address.
-      const rightSelection = (schemas?.right || [])
-        .filter((column) => !rightKeys.has(column.name))
-        .map((column) =>
-          leftNames.has(column.name)
-            ? `r.${qid(column.name)} AS ${qid(column.name + suffix)}`
-            : `r.${qid(column.name)}`,
-        );
-      const selection = ["l.*", ...rightSelection].join(", ");
-      const joinWord = { Inner: "INNER JOIN", Left: "LEFT JOIN", Full: "FULL JOIN" }[node.params.joinType || "Inner"];
-
-      return {
-        joined: `SELECT ${selection} FROM ${upstream.left} l ${joinWord} ${upstream.right} r ON ${condition}`,
-        unjoinedLeft:
-          `SELECT l.* FROM ${upstream.left} l LEFT JOIN ${upstream.right} r ON ${condition} ` +
-          `WHERE r.${qid(pairs[0].right)} IS NULL`,
-        unjoinedRight:
-          `SELECT r.* FROM ${upstream.right} r LEFT JOIN ${upstream.left} l ON ${condition} ` +
-          `WHERE l.${qid(pairs[0].left)} IS NULL`,
-      };
-    },
-  },
-
-  Unioner: {
-    label: "Unioner",
-    group: "Combine",
-    hint: "Stacks two streams. Columns are matched by name; missing ones become null.",
-    inputs: [
-      { id: "top", label: "Top" },
-      { id: "bottom", label: "Bottom" },
-    ],
-    outputs: () => SINGLE_OUT,
-    params: [],
-    sql: (node, upstream) => ({
-      // BY NAME, not positional: two files that hold the same attributes in a
-      // different column order should still stack correctly.
-      output: `SELECT * FROM ${upstream.top} UNION ALL BY NAME SELECT * FROM ${upstream.bottom}`,
-    }),
-  },
-
   /*
    * The H3 group.
    *
@@ -1194,89 +1119,6 @@ export const TRANSFORMERS = {
         : "";
       return {
         output: `SELECT * EXCLUDE (${column}), ${box} AS ${column}${bounds} FROM ${upstream.input}`,
-      };
-    },
-  },
-
-  /*
-   * Area-on-area overlay.
-   *
-   * One input, all features merged, one row out per atomic face, with a count
-   * of how many features cover it and their attributes accumulated. The
-   * partition is computed by noding every boundary and polygonizing the result
-   * — the classic GEOS/JTS algorithm — which is why it needs a
-   * geometry library: DuckDB-WASM has neither ST_Node nor ST_Polygonize.
-   *
-   * Faces come back from JS; everything after that is SQL, because the "which
-   * features cover this face" join is what DuckDB's spatial index is for, and
-   * the accumulation is a GROUP BY.
-   */
-  AreaOnAreaOverlayer: {
-    label: "AreaOnAreaOverlayer",
-    needsLonLat: true,
-    group: "Combine",
-    hint: "Splits overlapping polygons into non-overlapping faces, counting and merging what covers each.",
-    inputs: SINGLE_IN,
-    outputs: () => SINGLE_OUT,
-    needsSchema: true,
-    params: [
-      { id: "countAttribute", label: "Overlap count", kind: "string", default: OVERLAP_COUNT_COLUMN },
-      { id: "accumulate", label: "Accumulate attributes", kind: "columns" },
-      { id: "separator", label: "List separator", kind: "string", default: ";" },
-    ],
-    prepare: async (node, upstream, ctx) => {
-      const geometry = findGeometryColumn(ctx.schemas?.input || []);
-      if (!geometry) throw new Error("This input has no geometry to overlay.");
-      const source = `${cellTableName(node)}_src`;
-      const faces = `${cellTableName(node)}_faces`;
-
-      // A table, so the ids the faces are matched against cannot be recomputed
-      // differently on the next scan.
-      await exec(
-        `CREATE OR REPLACE TABLE ${source} AS ` +
-          `SELECT row_number() OVER () AS ${qid(FEATURE_ID_COLUMN)}, * FROM ${upstream.input}`,
-      );
-      const counted = await query(`SELECT count(*) AS n FROM ${source}`);
-      const rows = Number(counted[0]?.n ?? 0);
-      if (rows > MAX_OVERLAY_FEATURES) {
-        throw new Error(
-          `${rows.toLocaleString()} features is past the ${MAX_OVERLAY_FEATURES.toLocaleString()} ceiling ` +
-            "for an overlay. Filter or dissolve upstream first.",
-        );
-      }
-      const wkts = await query(
-        `SELECT ST_AsText(${geometryExpression(geometry)}) AS wkt FROM ${source} ` +
-          `WHERE ${qid(geometry.name)} IS NOT NULL`,
-      );
-      await createFaceTable(wkts.map((row) => row.wkt).filter(Boolean), faces);
-      return { tables: [source, faces] };
-    },
-    sql: (node, upstream, ctx) => {
-      const geometry = findGeometryColumn(ctx.schemas?.input || []);
-      const source = `${cellTableName(node)}_src`;
-      const faces = `${cellTableName(node)}_faces`;
-      const separator = node.params.separator ?? ";";
-      const count = qid(node.params.countAttribute || OVERLAP_COUNT_COLUMN);
-
-      // Distinct and ordered, so a face covered by two features carrying the
-      // same value reads "farm" rather than "farm;farm", and two runs of the
-      // same graph produce the same string.
-      const accumulated = (node.params.accumulate || [])
-        .filter(Boolean)
-        .filter((name) => name !== geometry?.name)
-        .map(
-          (name) => `string_agg(DISTINCT s.${qid(name)}, ${qlit(separator)} ORDER BY s.${qid(name)}) AS ${qid(name)}`,
-        );
-
-      // ST_Contains on the face's interior point: a point inside exactly the
-      // features that cover the face, so the count is the overlap depth and
-      // never picks up a neighbour that merely shares an edge.
-      return {
-        output:
-          `SELECT f.geometry AS ${qid(geometry?.name || "geometry")}, ` +
-          `count(*) AS ${count}${accumulated.length ? ", " + accumulated.join(", ") : ""} ` +
-          `FROM ${faces} f JOIN ${source} s ON ST_Contains(s.${qid(geometry?.name || "geometry")}, f.point) ` +
-          `GROUP BY f.face_id, f.geometry`,
       };
     },
   },
