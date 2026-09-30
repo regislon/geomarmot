@@ -1,0 +1,70 @@
+{
+  "transformer": "EliminateCoincidentPoints",
+  "cases": [
+    {
+      "name": "drops exact duplicates of a location",
+      "params": { "tolerance": "0.00001" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "k", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["x", "POINT (1 1)"],
+            ["x", "POINT (1 1)"],
+            ["y", "POINT (2 2)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "k", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["x", "POINT (1 1)"],
+            ["y", "POINT (2 2)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "nearly coincident points within the tolerance count as one",
+      "params": { "tolerance": "0.01" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (1 1)"],
+            [2, "POINT (1.001 1.001)"],
+            [3, "POINT (5 5)"]
+          ]
+        }
+      },
+      "assert": {
+        "rowCount": { "min": 2, "max": 2 },
+        "subsetOf": "input"
+      }
+    },
+    {
+      "name": "a zero tolerance is an error",
+      "params": { "tolerance": "0" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POINT (0 0)"]
+          ]
+        }
+      },
+      "expect": { "error": "Tolerance must be above zero" }
+    }
+  ]
+}

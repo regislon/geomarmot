@@ -1,0 +1,135 @@
+{
+  "transformer": "BoundingBoxReplacer",
+  "cases": [
+    {
+      "name": "per feature, with bounds attributes",
+      "params": { "mode": "Per feature", "bounds": "Add minx/miny/maxx/maxy" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "LINESTRING (0 0, 2 1)"],
+            [2, "POLYGON ((5 5, 6 5, 5.5 7, 5 5))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "minx", "type": "DOUBLE" },
+            { "name": "miny", "type": "DOUBLE" },
+            { "name": "maxx", "type": "DOUBLE" },
+            { "name": "maxy", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "POLYGON ((0 0, 2 0, 2 1, 0 1, 0 0))", 0, 0, 2, 1],
+            [2, "POLYGON ((5 5, 6 5, 6 7, 5 7, 5 5))", 5, 5, 6, 7]
+          ]
+        }
+      }
+    },
+    {
+      "name": "per feature, without bounds",
+      "params": { "mode": "Per feature", "bounds": "None" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "LINESTRING (0 0, 2 1)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POLYGON ((0 0, 2 0, 2 1, 0 1, 0 0))"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "one box for everything",
+      "params": { "mode": "One box for everything" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (0 0)"],
+            [2, "POINT (3 4)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "minx", "type": "DOUBLE" },
+            { "name": "miny", "type": "DOUBLE" },
+            { "name": "maxx", "type": "DOUBLE" },
+            { "name": "maxy", "type": "DOUBLE" }
+          ],
+          "rows": [
+            ["POLYGON ((0 0, 0 4, 3 4, 3 0, 0 0))", 0, 0, 3, 4]
+          ]
+        }
+      }
+    },
+    {
+      "name": "one box, no bounds",
+      "params": { "mode": "One box for everything", "bounds": "None" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (0 0)"],
+            [2, "POINT (3 4)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POLYGON ((0 0, 0 4, 3 4, 3 0, 0 0))"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no geometry is an error",
+      "params": {},
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": { "error": "no geometry to replace" }
+    }
+  ]
+}

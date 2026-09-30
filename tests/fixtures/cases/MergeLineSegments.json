@@ -1,0 +1,30 @@
+{
+  "transformer": "MergeLineSegments",
+  "cases": [
+    {
+      "name": "joins segments that share endpoints",
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "MULTILINESTRING ((0 0, 1 0), (1 0, 2 1), (5 5, 6 6))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "MULTILINESTRING ((0 0, 1 0, 2 1), (5 5, 6 6))"]
+          ]
+        }
+      }
+    }
+  ]
+}

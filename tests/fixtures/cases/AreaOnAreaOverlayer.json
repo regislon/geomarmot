@@ -1,0 +1,136 @@
+{
+  "transformer": "AreaOnAreaOverlayer",
+  "cases": [
+    {
+      "name": "splits two overlapping squares into three faces, counting and accumulating",
+      "params": {
+        "accumulate": ["cat"],
+        "separator": ";"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "A", "POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))"],
+            [2, "B", "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))"],
+            [3, "C", "POLYGON ((10 10, 11 10, 11 11, 10 11, 10 10))"]
+          ]
+        }
+      },
+      "geometry": { "mode": "topology", "tolerance": 1e-9, "areaTolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "_overlaps", "type": "BIGINT" },
+            { "name": "cat", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["POLYGON ((2 1, 2 0, 0 0, 0 2, 1 2, 1 1, 2 1))", "1", "A"],
+            ["POLYGON ((1 2, 2 2, 2 1, 1 1, 1 2))", "2", "A;B"],
+            ["POLYGON ((2 1, 2 2, 1 2, 1 3, 3 3, 3 1, 2 1))", "1", "B"],
+            ["POLYGON ((10 10, 10 11, 11 11, 11 10, 10 10))", "1", "C"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "custom overlap count name and separator",
+      "params": {
+        "countAttribute": "depth",
+        "accumulate": ["cat", "id"],
+        "separator": "|"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "A", "POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))"],
+            [2, "B", "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))"],
+            [3, "C", "POLYGON ((10 10, 11 10, 11 11, 10 11, 10 10))"]
+          ]
+        }
+      },
+      "geometry": { "mode": "topology", "tolerance": 1e-9, "areaTolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "depth", "type": "BIGINT" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "id", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["POLYGON ((2 1, 2 0, 0 0, 0 2, 1 2, 1 1, 2 1))", "1", "A", "1"],
+            ["POLYGON ((1 2, 2 2, 2 1, 1 1, 1 2))", "2", "A|B", "1|2"],
+            ["POLYGON ((2 1, 2 2, 1 2, 1 3, 3 3, 3 1, 2 1))", "1", "B", "2"],
+            ["POLYGON ((10 10, 10 11, 11 11, 11 10, 10 10))", "1", "C", "3"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "three-way overlap reaches depth 3",
+      "params": {
+        "accumulate": ["cat"]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["A", "POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))"],
+            ["B", "POLYGON ((1 0, 3 0, 3 2, 1 2, 1 0))"],
+            ["C", "POLYGON ((0.5 1, 2.5 1, 2.5 3, 0.5 3, 0.5 1))"]
+          ]
+        }
+      },
+      "geometry": { "mode": "topology", "tolerance": 1e-9, "areaTolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "_overlaps", "type": "BIGINT" },
+            { "name": "cat", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["POLYGON ((1 0, 0 0, 0 2, 0.5 2, 0.5 1, 1 1, 1 0))", "1", "A"],
+            ["POLYGON ((0.5 2, 1 2, 1 1, 0.5 1, 0.5 2))", "2", "A;C"],
+            ["POLYGON ((2 0, 1 0, 1 1, 2 1, 2 0))", "2", "A;B"],
+            ["POLYGON ((2 2, 2 1, 1 1, 1 2, 2 2))", "3", "A;B;C"],
+            ["POLYGON ((2 0, 2 1, 2.5 1, 2.5 2, 3 2, 3 0, 2 0))", "1", "B"],
+            ["POLYGON ((2 1, 2 2, 2.5 2, 2.5 1, 2 1))", "2", "B;C"],
+            ["POLYGON ((2 2, 1 2, 0.5 2, 0.5 3, 2.5 3, 2.5 2, 2 2))", "1", "C"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "refuses a projected stream",
+      "params": {},
+      "inputs": {
+        "input": {
+          "crs": "EPSG:2056",
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POLYGON ((2600000 1200000, 2600010 1200000, 2600010 1200010, 2600000 1200010, 2600000 1200000))"]
+          ]
+        }
+      },
+      "expect": { "error": "longitude/latitude" }
+    }
+  ]
+}

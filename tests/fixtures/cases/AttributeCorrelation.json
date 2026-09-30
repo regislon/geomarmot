@@ -1,0 +1,59 @@
+{
+  "transformer": "AttributeCorrelation",
+  "cases": [
+    {
+      "name": "one row per pair, strongest first",
+      "params": {
+        "columns": ["a", "b", "c"]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "a", "type": "DOUBLE" },
+            { "name": "b", "type": "DOUBLE" },
+            { "name": "c", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2, 5],
+            [2, 4, 3],
+            [3, 6, 4],
+            [4, 8, 1]
+          ]
+        }
+      },
+      "ordered": true,
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "attribute_a", "type": "VARCHAR" },
+            { "name": "attribute_b", "type": "VARCHAR" },
+            { "name": "r", "type": "DOUBLE" },
+            { "name": "n", "type": "BIGINT" }
+          ],
+          "rows": [
+            ["a", "b", 0.9999999999999998, "4"],
+            ["b", "c", -0.8315218406202998, "4"],
+            ["a", "c", -0.8315218406202998, "4"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "fewer than two attributes is an error",
+      "params": {
+        "columns": ["a"]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "a", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1]
+          ]
+        }
+      },
+      "expect": { "error": "at least two numeric attributes" }
+    }
+  ]
+}

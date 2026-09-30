@@ -1,0 +1,109 @@
+{
+  "transformer": "Reader",
+  "cases": [
+    {
+      "name": "reads a Parquet file",
+      "source": {
+        "fileName": "people.parquet",
+        "columns": [
+          { "name": "id", "type": "INTEGER" },
+          { "name": "name", "type": "VARCHAR" }
+        ],
+        "rows": [
+          [1, "a"],
+          [2, "b"]
+        ]
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [1, "a"],
+            [2, "b"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "row number Yes exposes the physical row order",
+      "params": { "rowNumber": "Yes" },
+      "source": {
+        "fileName": "rows.parquet",
+        "columns": [
+          { "name": "s", "type": "VARCHAR" }
+        ],
+        "rows": [
+          ["x"],
+          ["y"],
+          ["z"]
+        ]
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "s", "type": "VARCHAR" },
+            { "name": "file_row_number", "type": "BIGINT" }
+          ],
+          "rows": [
+            ["x", "0"],
+            ["y", "1"],
+            ["z", "2"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "reads GeoParquet geometry as lon/lat",
+      "source": {
+        "fileName": "pts.parquet",
+        "columns": [
+          { "name": "id", "type": "INTEGER" },
+          { "name": "geometry", "type": "GEOMETRY" }
+        ],
+        "rows": [
+          [1, "POINT (7 46)"]
+        ]
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (7 46)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "a CRS override reprojects to lon/lat on read",
+      "params": { "crs": "EPSG:2056" },
+      "source": {
+        "fileName": "lv95.parquet",
+        "columns": [
+          { "name": "id", "type": "INTEGER" },
+          { "name": "geometry", "type": "GEOMETRY" }
+        ],
+        "rows": [
+          [1, "POINT (2600000 1200000)"]
+        ]
+      },
+      "geometry": { "tolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (7.43863242087181 46.95108277187109)"]
+          ]
+        }
+      }
+    }
+  ]
+}

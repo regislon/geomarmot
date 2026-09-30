@@ -1,0 +1,62 @@
+{
+  "transformer": "CoordinateSystemSetter",
+  "cases": [
+    {
+      "name": "labels the stream without touching coordinates",
+      "params": { "crs": "EPSG:2056" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (2600000 1200000)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (2600000 1200000)"]
+          ]
+        },
+        "crs": "EPSG:2056"
+      }
+    },
+    {
+      "name": "an unknown CRS is an error",
+      "params": { "crs": "EPSG:99999999" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POINT (0 0)"]
+          ]
+        }
+      },
+      "expect": { "error": "PROJ does not know" }
+    },
+    {
+      "name": "a blank CRS is an error",
+      "params": { "crs": "  " },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POINT (0 0)"]
+          ]
+        }
+      },
+      "expect": { "error": "Set the coordinate system" }
+    }
+  ]
+}

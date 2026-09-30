@@ -1,0 +1,50 @@
+{
+  "transformer": "DensifyFeatures",
+  "cases": [
+    {
+      "name": "adds vertices so no segment is longer than the tolerance",
+      "params": { "tolerance": "0.5" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "LINESTRING (0 0, 2 0)"],
+            [2, "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))"],
+            [3, null]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "LINESTRING (0 0, 0.4 0, 0.8 0, 1.2 0, 1.6 0, 2 0)"],
+            [2, "POLYGON ((0 0, 0 0.333333333333333, 0 0.666666666666667, 0 1, 0.333333333333333 1, 0.666666666666667 1, 1 1, 1 0.666666666666667, 1 0.333333333333333, 1 0, 0.666666666666667 0, 0.333333333333333 0, 0 0))"],
+            [3, null]
+          ]
+        }
+      }
+    },
+    {
+      "name": "a zero tolerance is an error",
+      "params": { "tolerance": "0" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 1 1)"]
+          ]
+        }
+      },
+      "expect": { "error": "Tolerance must be above zero" }
+    }
+  ]
+}

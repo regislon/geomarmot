@@ -1,0 +1,452 @@
+{
+  "transformer": "AttributeCreator",
+  "cases": [
+    {
+      "name": "builder: constants of each type, an attribute copy and a formula",
+      "params": {
+        "mode": "Builder",
+        "creates": [
+          {
+            "name": "label",
+            "value": { "kind": "Value", "type": "Text", "value": "site" }
+          },
+          {
+            "name": "zip",
+            "value": { "kind": "Value", "type": "Text", "value": "01234" }
+          },
+          {
+            "name": "ten",
+            "value": { "kind": "Value", "type": "Number", "value": "10" }
+          },
+          {
+            "name": "flag",
+            "value": { "kind": "Value", "type": "Boolean", "value": "yes" }
+          },
+          {
+            "name": "nothing",
+            "value": { "kind": "Value", "type": "Null", "value": "" }
+          },
+          {
+            "name": "copy",
+            "value": { "kind": "Attribute", "column": "name" }
+          },
+          {
+            "name": "double_v",
+            "value": {
+              "kind": "Formula",
+              "left": { "kind": "Attribute", "column": "v" },
+              "operator": "×",
+              "right": { "kind": "Value", "type": "Number", "value": "2" }
+            }
+          }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "label", "type": "VARCHAR" },
+            { "name": "zip", "type": "VARCHAR" },
+            { "name": "ten", "type": "INTEGER" },
+            { "name": "flag", "type": "BOOLEAN" },
+            { "name": "nothing", "type": "\"NULL\"" },
+            { "name": "copy", "type": "VARCHAR" },
+            { "name": "double_v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)", "site", "01234", 10, true, null, "Ada", 21],
+            [2, "Bo", "b", 3, "POINT (1 1)", "site", "01234", 10, true, null, "Bo", 6],
+            [3, "Cy", "a", null, "POINT (2 2)", "site", "01234", 10, true, null, "Cy", null],
+            [4, "Di", null, 7, null, "site", "01234", 10, true, null, "Di", 14],
+            [5, "Eve", "c", -2, "POINT (3 3)", "site", "01234", 10, true, null, "Eve", -4]
+          ]
+        }
+      }
+    },
+    {
+      "name": "builder: division by zero gives NULL, join text concatenates",
+      "params": {
+        "mode": "Builder",
+        "creates": [
+          {
+            "name": "ratio",
+            "value": {
+              "kind": "Formula",
+              "left": { "kind": "Attribute", "column": "v" },
+              "operator": "÷",
+              "right": { "kind": "Value", "type": "Number", "value": "0" }
+            }
+          },
+          {
+            "name": "tag",
+            "value": {
+              "kind": "Formula",
+              "left": { "kind": "Attribute", "column": "name" },
+              "operator": "join text",
+              "right": { "kind": "Attribute", "column": "cat" }
+            }
+          },
+          {
+            "name": "diff",
+            "value": {
+              "kind": "Formula",
+              "left": { "kind": "Attribute", "column": "v" },
+              "operator": "-",
+              "right": { "kind": "Value", "type": "Number", "value": "1" }
+            }
+          },
+          {
+            "name": "sum",
+            "value": {
+              "kind": "Formula",
+              "left": { "kind": "Attribute", "column": "v" },
+              "operator": "+",
+              "right": { "kind": "Attribute", "column": "id" }
+            }
+          }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "ratio", "type": "DOUBLE" },
+            { "name": "tag", "type": "VARCHAR" },
+            { "name": "diff", "type": "DOUBLE" },
+            { "name": "sum", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)", null, "Adaa", 9.5, 11.5],
+            [2, "Bo", "b", 3, "POINT (1 1)", null, "Bob", 2, 5],
+            [3, "Cy", "a", null, "POINT (2 2)", null, "Cya", null, null],
+            [4, "Di", null, 7, null, null, null, 6, 11],
+            [5, "Eve", "c", -2, "POINT (3 3)", null, "Evec", -3, 3]
+          ]
+        }
+      }
+    },
+    {
+      "name": "builder: a SQL value can build geometry",
+      "params": {
+        "mode": "Builder",
+        "creates": [
+          {
+            "name": "pt",
+            "value": { "kind": "SQL", "sql": "ST_Point(id, id)" }
+          }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "pt", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, 2, "POINT (1 1)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "builder: unnamed rows are skipped",
+      "params": {
+        "mode": "Builder",
+        "creates": [
+          {
+            "name": "",
+            "value": { "kind": "Value", "type": "Text", "value": "x" }
+          }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      }
+    },
+    {
+      "name": "SQL query: adds a column",
+      "params": { "mode": "SQL query", "sql": "SELECT input.*, v * 2 AS v2 FROM input" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "v2", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)", 21],
+            [2, "Bo", "b", 3, "POINT (1 1)", 6],
+            [3, "Cy", "a", null, "POINT (2 2)", null],
+            [4, "Di", null, 7, null, 14],
+            [5, "Eve", "c", -2, "POINT (3 3)", -4]
+          ]
+        }
+      }
+    },
+    {
+      "name": "SQL query: a query with its own CTE is spliced, not nested",
+      "params": {
+        "mode": "SQL query",
+        "sql": "WITH t AS (SELECT id, v + 1 AS w FROM input) SELECT input.*, t.w FROM input JOIN t USING (id)"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "w", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)", 11.5],
+            [2, "Bo", "b", 3, "POINT (1 1)", 4],
+            [3, "Cy", "a", null, "POINT (2 2)", null],
+            [4, "Di", null, 7, null, 8],
+            [5, "Eve", "c", -2, "POINT (3 3)", -1]
+          ]
+        }
+      }
+    },
+    {
+      "name": "SQL query: WITH RECURSIVE keeps RECURSIVE in front",
+      "params": {
+        "mode": "SQL query",
+        "sql": "WITH RECURSIVE r(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 3) SELECT input.*, (SELECT max(n) FROM r) AS top FROM input"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "top", "type": "INTEGER" }
+          ],
+          "rows": [
+            [1, 2, 3]
+          ]
+        }
+      }
+    },
+    {
+      "name": "SQL query: a query that adds no attribute is refused",
+      "params": { "mode": "SQL query", "sql": "SELECT * FROM input" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": { "error": "adds no attribute" }
+    },
+    {
+      "name": "SQL query: two statements are refused",
+      "params": { "mode": "SQL query", "sql": "SELECT input.*, 1 AS a FROM input; SELECT 2" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": { "error": "One statement only" }
+    },
+    {
+      "name": "SQL query: a non-query is refused",
+      "params": { "mode": "SQL query", "sql": "DROP TABLE input" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": { "error": "is not a query" }
+    },
+    {
+      "name": "SQL query: an empty query passes rows through",
+      "params": { "mode": "SQL query", "sql": "" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      }
+    }
+  ]
+}

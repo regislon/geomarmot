@@ -1,0 +1,164 @@
+{
+  "transformer": "AddGeometryAttributes",
+  "cases": [
+    {
+      "name": "every measure on lon/lat polygons",
+      "params": {
+        "measures": ["Area (ha)", "Perimeter (km)", "Vertices", "Geometry type", "Parts", "Centroid lon/lat"]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "area_ha", "type": "DOUBLE" },
+            { "name": "perimeter_km", "type": "DOUBLE" },
+            { "name": "vertices", "type": "UINTEGER" },
+            { "name": "geometry_type", "type": "GEOMETRY_TYPE" },
+            { "name": "parts", "type": "INTEGER" },
+            { "name": "centroid_lon", "type": "DOUBLE" },
+            { "name": "centroid_lat", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))", 121.26783210541234, 4.443405929102795, 5, "POLYGON", 1, 10.004999999999999, 10.004999999999999],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))", 485.06405097690384, 8.886736433547224, 5, "POLYGON", 1, 10.029999999999998, 10.010000000000002],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))", 62.158724344728235, 3.218172505097464, 5, "POLYGON", 1, 60.004999999999995, 60.004999999999995]
+          ]
+        }
+      }
+    },
+    {
+      "name": "the default measures",
+      "params": {},
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "area_ha", "type": "DOUBLE" },
+            { "name": "perimeter_km", "type": "DOUBLE" },
+            { "name": "geometry_type", "type": "GEOMETRY_TYPE" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))", 121.26783210541234, 4.443405929102795, "POLYGON"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))", 485.06405097690384, 8.886736433547224, "POLYGON"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))", 62.158724344728235, 3.218172505097464, "POLYGON"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "measures a projected stream from its own CRS",
+      "params": {
+        "measures": ["Area (ha)", "Centroid lon/lat"]
+      },
+      "inputs": {
+        "input": {
+          "crs": "EPSG:2056",
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POLYGON ((2600000 1200000, 2600100 1200000, 2600100 1200100, 2600000 1200100, 2600000 1200000))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "area_ha", "type": "DOUBLE" },
+            { "name": "centroid_lon", "type": "DOUBLE" },
+            { "name": "centroid_lat", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "POLYGON ((2600000 1200000, 2600100 1200000, 2600100 1200100, 2600000 1200100, 2600000 1200000))", 0.9999844437537199, 7.4392892244262585, 46.95153253335708]
+          ]
+        },
+        "crs": "EPSG:2056"
+      }
+    },
+    {
+      "name": "no measures chosen: rows pass through",
+      "params": {
+        "measures": []
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no geometry is an error",
+      "params": {},
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": { "error": "needs a geometry column" }
+    }
+  ]
+}

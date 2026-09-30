@@ -1,0 +1,33 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.44,
+          46.95
+        ]
+      },
+      "properties": {
+        "city": "Bern",
+        "pop": 134000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.95,
+          46
+        ]
+      },
+      "properties": {
+        "city": "Lugano",
+        "pop": 63000
+      }
+    }
+  ]
+}

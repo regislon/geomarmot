@@ -1,0 +1,247 @@
+{
+  "transformer": "FeatureJoiner",
+  "cases": [
+    {
+      "name": "inner join; clashing right attribute gets the suffix",
+      "params": {
+        "joinType": "Inner",
+        "keys": [
+          { "left": "id", "right": "key" }
+        ],
+        "suffix": "_right"
+      },
+      "inputs": {
+        "left": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", 1.5],
+            [2, "b", 2],
+            [3, "c", null]
+          ]
+        },
+        "right": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "x", 9],
+            [3, "z", 8],
+            [4, "w", 7]
+          ]
+        }
+      },
+      "expect": {
+        "joined": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", 1.5],
+            [3, "c", null]
+          ]
+        },
+        "unjoinedLeft": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [2, "b", 2]
+          ]
+        },
+        "unjoinedRight": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [4, "w", 7]
+          ]
+        }
+      }
+    },
+    {
+      "name": "left join keeps unmatched left rows",
+      "params": {
+        "joinType": "Left",
+        "keys": [
+          { "left": "id", "right": "key" }
+        ]
+      },
+      "inputs": {
+        "left": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", 1.5],
+            [2, "b", 2],
+            [3, "c", null]
+          ]
+        },
+        "right": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "x", 9],
+            [3, "z", 8],
+            [4, "w", 7]
+          ]
+        }
+      },
+      "expect": {
+        "joined": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", 1.5],
+            [3, "c", null],
+            [2, "b", 2]
+          ]
+        },
+        "unjoinedLeft": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [2, "b", 2]
+          ]
+        },
+        "unjoinedRight": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [4, "w", 7]
+          ]
+        }
+      }
+    },
+    {
+      "name": "full join keeps both sides",
+      "params": {
+        "joinType": "Full",
+        "keys": [
+          { "left": "id", "right": "key" }
+        ],
+        "suffix": "_r"
+      },
+      "inputs": {
+        "left": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", 1.5],
+            [2, "b", 2],
+            [3, "c", null]
+          ]
+        },
+        "right": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "x", 9],
+            [3, "z", 8],
+            [4, "w", 7]
+          ]
+        }
+      },
+      "expect": {
+        "joined": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", 1.5],
+            [3, "c", null],
+            [2, "b", 2],
+            [null, null, null]
+          ]
+        },
+        "unjoinedLeft": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [2, "b", 2]
+          ]
+        },
+        "unjoinedRight": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [4, "w", 7]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no join keys is an error",
+      "params": {
+        "keys": []
+      },
+      "inputs": {
+        "left": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", 1.5],
+            [2, "b", 2],
+            [3, "c", null]
+          ]
+        },
+        "right": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "owner", "type": "VARCHAR" },
+            { "name": "area", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "x", 9],
+            [3, "z", 8],
+            [4, "w", 7]
+          ]
+        }
+      },
+      "expect": { "error": "at least one pair" }
+    }
+  ]
+}

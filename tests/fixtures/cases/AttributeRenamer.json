@@ -1,0 +1,169 @@
+{
+  "transformer": "AttributeRenamer",
+  "cases": [
+    {
+      "name": "renames in place, keeping column order and values",
+      "params": {
+        "renames": [
+          { "from": "name", "to": "full_name" }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "full_name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "renames several at once",
+      "params": {
+        "renames": [
+          { "from": "id", "to": "key" },
+          { "from": "cat", "to": "category" }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "key", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "category", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "half-filled rename rows are ignored",
+      "params": {
+        "renames": [
+          { "from": "name", "to": "" },
+          { "from": "", "to": "x" }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "a column name with spaces and quotes survives",
+      "params": {
+        "renames": [
+          { "from": "odd \"name\"", "to": "clean" }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "odd \"name\"", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [1, "x"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "clean", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [1, "x"]
+          ]
+        }
+      }
+    }
+  ]
+}

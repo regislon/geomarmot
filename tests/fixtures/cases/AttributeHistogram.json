@@ -1,0 +1,86 @@
+{
+  "transformer": "AttributeHistogram",
+  "cases": [
+    {
+      "name": "bins values; the maximum lands in the top bin",
+      "params": { "column": "v", "bins": "4" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [0],
+            [1],
+            [2],
+            [3],
+            [4],
+            [8],
+            [null]
+          ]
+        }
+      },
+      "ordered": true,
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "bin", "type": "INTEGER" },
+            { "name": "bin_start", "type": "DOUBLE" },
+            { "name": "bin_end", "type": "DOUBLE" },
+            { "name": "n", "type": "BIGINT" }
+          ],
+          "rows": [
+            [0, 0, 2, "2"],
+            [1, 2, 4, "2"],
+            [2, 4, 6, "1"],
+            [3, 6, 8, "1"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "a single distinct value makes one bin",
+      "params": { "column": "v", "bins": "3" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [5],
+            [5]
+          ]
+        }
+      },
+      "ordered": true,
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "bin", "type": "INTEGER" },
+            { "name": "bin_start", "type": "DOUBLE" },
+            { "name": "bin_end", "type": "DOUBLE" },
+            { "name": "n", "type": "BIGINT" }
+          ],
+          "rows": [
+            [0, 5, 5, "2"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no attribute is an error",
+      "params": { "column": "" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1]
+          ]
+        }
+      },
+      "expect": { "error": "Choose an attribute to bin" }
+    }
+  ]
+}

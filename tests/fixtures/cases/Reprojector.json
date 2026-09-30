@@ -1,0 +1,131 @@
+{
+  "transformer": "Reprojector",
+  "cases": [
+    {
+      "name": "lon/lat to Swiss LV95",
+      "params": { "to": "EPSG:2056" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["Bern", "POINT (7.43863242087181 46.95108277187109)"]
+          ]
+        }
+      },
+      "geometry": { "tolerance": 0.001 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["Bern", "POINT (2600000.0005621826 1200000.0011456262)"]
+          ]
+        },
+        "crs": "EPSG:2056"
+      }
+    },
+    {
+      "name": "from a labelled projected stream back to lon/lat",
+      "params": { "to": "EPSG:4326" },
+      "inputs": {
+        "input": {
+          "crs": "EPSG:2056",
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["Bern", "POINT (2600000 1200000)"]
+          ]
+        }
+      },
+      "geometry": { "tolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["Bern", "POINT (7.43863242087181 46.95108277187109)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "to the stream's own CRS changes nothing",
+      "params": { "to": "EPSG:4326" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POINT (1 2)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POINT (1 2)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "an unknown CRS is an error",
+      "params": { "to": "EPSG:99999999" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POINT (0 0)"]
+          ]
+        }
+      },
+      "expect": { "error": "PROJ does not know" }
+    },
+    {
+      "name": "a blank destination is an error",
+      "params": { "to": "" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["POINT (0 0)"]
+          ]
+        }
+      },
+      "expect": { "error": "Set a destination" }
+    },
+    {
+      "name": "no geometry is an error",
+      "params": { "to": "EPSG:2056" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": { "error": "no geometry to reproject" }
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "transformer": "ListUniqueValues",
+  "cases": [
+    {
+      "name": "one row per value with count and percent, most frequent first",
+      "params": { "column": "cat" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "ordered": true,
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "value", "type": "VARCHAR" },
+            { "name": "n", "type": "BIGINT" },
+            { "name": "percent", "type": "DOUBLE" }
+          ],
+          "rows": [
+            ["a", "2", 40],
+            ["b", "1", 20],
+            ["c", "1", 20],
+            [null, "1", 20]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no attribute is an error",
+      "params": { "column": "" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": { "error": "Choose an attribute to list" }
+    }
+  ]
+}

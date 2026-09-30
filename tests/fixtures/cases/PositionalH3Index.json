@@ -1,0 +1,117 @@
+{
+  "transformer": "PositionalH3Index",
+  "cases": [
+    {
+      "name": "index from row order, parent from the file name, resolution from the row count",
+      "source": {
+        "fileName": "891f8d7a49bffff.parquet",
+        "columns": [
+          { "name": "value", "type": "DOUBLE" }
+        ],
+        "rows": [
+          [0.1],
+          [0.2],
+          [0.3],
+          [0.4],
+          [0.5],
+          [0.6],
+          [0.7]
+        ],
+        "readerParams": { "rowNumber": "Auto" }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "value", "type": "DOUBLE" },
+            { "name": "h3_index", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [0.1, "8a1f8d7a4987fff"],
+            [0.2, "8a1f8d7a498ffff"],
+            [0.3, "8a1f8d7a4997fff"],
+            [0.4, "8a1f8d7a499ffff"],
+            [0.5, "8a1f8d7a49a7fff"],
+            [0.6, "8a1f8d7a49affff"],
+            [0.7, "8a1f8d7a49b7fff"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "explicit parent and resolution",
+      "params": { "parent": "891f8d7a49bffff", "resolution": "10" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "file_row_number", "type": "BIGINT" },
+            { "name": "value", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [0, 1],
+            [6, 2]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "value", "type": "DOUBLE" },
+            { "name": "h3_index", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [1, "8a1f8d7a4987fff"],
+            [2, "8a1f8d7a49b7fff"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "without a row number column it says how to get one",
+      "params": { "parent": "891f8d7a49bffff", "resolution": "10" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "value", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1]
+          ]
+        }
+      },
+      "expect": { "error": "file_row_number" }
+    },
+    {
+      "name": "a row count that is not a whole number of children is refused",
+      "source": {
+        "fileName": "891f8d7a49bffff.parquet",
+        "columns": [
+          { "name": "value", "type": "DOUBLE" }
+        ],
+        "rows": [
+          [0.1],
+          [0.2],
+          [0.3],
+          [0.4],
+          [0.5]
+        ],
+        "readerParams": { "rowNumber": "Yes" }
+      },
+      "expect": { "error": "not a whole number of children" }
+    },
+    {
+      "name": "an invalid parent cell is refused",
+      "params": { "parent": "nope", "resolution": "10" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "file_row_number", "type": "BIGINT" }
+          ],
+          "rows": [
+            [0]
+          ]
+        }
+      },
+      "expect": { "error": "not a valid H3 cell" }
+    }
+  ]
+}

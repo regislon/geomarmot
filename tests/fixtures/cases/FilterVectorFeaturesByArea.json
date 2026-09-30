@@ -1,0 +1,106 @@
+{
+  "transformer": "FilterVectorFeaturesByArea",
+  "cases": [
+    {
+      "name": "keeps features above a minimum area",
+      "params": { "min": "100", "max": "" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      },
+      "expect": {
+        "kept": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"]
+          ]
+        },
+        "removed": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "keeps features between two bounds",
+      "params": { "min": "100", "max": "300" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      },
+      "expect": {
+        "kept": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"]
+          ]
+        },
+        "removed": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "bounds that are not numbers are an error",
+      "params": { "min": "big" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", "POLYGON ((10 10, 10.01 10, 10.01 10.01, 10 10.01, 10 10))"],
+            [2, "b", "POLYGON ((10.02 10, 10.04 10, 10.04 10.02, 10.02 10.02, 10.02 10))"],
+            [3, "a", "POLYGON ((60 60, 60.01 60, 60.01 60.01, 60 60.01, 60 60))"]
+          ]
+        }
+      },
+      "expect": { "error": "Area bounds must be numbers" }
+    }
+  ]
+}

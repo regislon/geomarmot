@@ -1,0 +1,179 @@
+{
+  "transformer": "TestFilter",
+  "cases": [
+    {
+      "name": "first matching rule wins; the rest go to unfiltered",
+      "params": {
+        "rules": [
+          { "label": "big", "column": "v", "operator": ">", "value": "5" },
+          { "label": "a", "column": "cat", "operator": "=", "value": "a" },
+          { "label": "never", "column": "id", "operator": ">", "value": "100" }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "r0": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [4, "Di", null, 7, null]
+          ]
+        },
+        "r1": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [3, "Cy", "a", null, "POINT (2 2)"]
+          ]
+        },
+        "r2": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": []
+        },
+        "unfiltered": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "an incomplete rule matches nothing",
+      "params": {
+        "rules": [
+          { "label": "x", "column": "", "operator": "=", "value": "a" }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "r0": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": []
+        },
+        "unfiltered": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no rules: everything is unfiltered",
+      "params": {
+        "rules": []
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      },
+      "expect": {
+        "unfiltered": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "Ada", "a", 10.5, "POINT (0 0)"],
+            [2, "Bo", "b", 3, "POINT (1 1)"],
+            [3, "Cy", "a", null, "POINT (2 2)"],
+            [4, "Di", null, 7, null],
+            [5, "Eve", "c", -2, "POINT (3 3)"]
+          ]
+        }
+      }
+    }
+  ]
+}

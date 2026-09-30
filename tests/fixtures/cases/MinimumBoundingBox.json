@@ -1,0 +1,35 @@
+{
+  "transformer": "MinimumBoundingBox",
+  "cases": [
+    {
+      "name": "the rotated rectangle around a tilted square is the square",
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POLYGON ((2 0, 4 2, 2 4, 0 2, 2 0))"],
+            [2, "LINESTRING (0 0, 3 4)"],
+            [3, null]
+          ]
+        }
+      },
+      "geometry": { "mode": "topology", "tolerance": 1e-9, "areaTolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POLYGON ((2 0, 4 2, 2 4, 0 2, 2 0))"],
+            [2, "LINESTRING (0 0, 3 4)"],
+            [3, null]
+          ]
+        }
+      }
+    }
+  ]
+}

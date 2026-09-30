@@ -1,0 +1,77 @@
+{
+  "transformer": "Unioner",
+  "cases": [
+    {
+      "name": "stacks by name; missing columns become NULL",
+      "inputs": {
+        "top": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [1, "a"]
+          ]
+        },
+        "bottom": {
+          "columns": [
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "id", "type": "INTEGER" },
+            { "name": "extra", "type": "DOUBLE" }
+          ],
+          "rows": [
+            ["b", 2, 0.5]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "extra", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "a", null],
+            [2, "b", 0.5]
+          ]
+        }
+      }
+    },
+    {
+      "name": "stacks geometry",
+      "inputs": {
+        "top": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (0 0)"]
+          ]
+        },
+        "bottom": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [2, "POINT (1 1)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (0 0)"],
+            [2, "POINT (1 1)"]
+          ]
+        }
+      }
+    }
+  ]
+}

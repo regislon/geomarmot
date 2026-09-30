@@ -1,0 +1,87 @@
+{
+  "transformer": "Dissolver",
+  "cases": [
+    {
+      "name": "one shape per group, with the number of parts",
+      "params": {
+        "groupBy": ["cat"]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "farm", "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))"],
+            [2, "farm", "POLYGON ((1 0, 2 0, 2 1, 1 1, 1 0))"],
+            [3, "forest", "POLYGON ((0 1, 1 1, 1 2, 0 2, 0 1))"]
+          ]
+        }
+      },
+      "geometry": { "mode": "topology", "tolerance": 1e-9, "areaTolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "parts", "type": "BIGINT" }
+          ],
+          "rows": [
+            ["farm", "POLYGON ((0 0, 0 1, 1 1, 2 1, 2 0, 1 0, 0 0))", "2"],
+            ["forest", "POLYGON ((0 1, 1 1, 1 2, 0 2, 0 1))", "1"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no grouping: one shape for everything",
+      "params": {
+        "groupBy": []
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "farm", "POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))"],
+            [2, "farm", "POLYGON ((1 0, 2 0, 2 1, 1 1, 1 0))"],
+            [3, "forest", "POLYGON ((0 1, 1 1, 1 2, 0 2, 0 1))"]
+          ]
+        }
+      },
+      "geometry": { "mode": "topology", "tolerance": 1e-9, "areaTolerance": 1e-9 },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "parts", "type": "BIGINT" }
+          ],
+          "rows": [
+            ["POLYGON ((0 1, 0 2, 1 2, 1 1, 2 1, 2 0, 1 0, 0 0, 0 1))", "3"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "no geometry is an error",
+      "params": {},
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": { "error": "no geometry to dissolve" }
+    }
+  ]
+}

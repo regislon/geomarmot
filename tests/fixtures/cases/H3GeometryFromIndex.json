@@ -1,0 +1,68 @@
+{
+  "transformer": "H3GeometryFromIndex",
+  "cases": [
+    {
+      "name": "hexagons from an index column",
+      "params": { "indexColumn": "h3_index", "sample": "All" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "h3_index", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            ["8a1f8d7a49a7fff", 1],
+            ["8a1f8d7a49b7fff", 2],
+            [null, 3]
+          ]
+        }
+      },
+      "geometry": {
+        "ignore": ["ringStart"],
+        "why": "h3-js chooses where each hexagon's ring starts"
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "h3_index", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["8a1f8d7a49a7fff", 1, "POLYGON ((11.572820115676455 48.1388658441053, 11.57254030293573 48.13822169316727, 11.573258384194206 48.137778736480215, 11.574256282772167 48.13797992748678, 11.574536111428637 48.13862407846324, 11.573818025591516 48.13906703839477, 11.572820115676455 48.1388658441053))"],
+            ["8a1f8d7a49b7fff", 2, "POLYGON ((11.571542413267826 48.138020488136306, 11.571262616194767 48.137376329701496, 11.571980692873828 48.1369333762588, 11.572978571205478 48.137134578006616, 11.573258384194206 48.137778736480215, 11.57254030293573 48.13822169316727, 11.571542413267826 48.138020488136306))"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "custom geometry attribute name",
+      "params": { "indexColumn": "h3_index", "sample": "All", "geometryColumn": "hex" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "h3_index", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["8a1f8d7a49a7fff"]
+          ]
+        }
+      },
+      "geometry": {
+        "ignore": ["ringStart"],
+        "why": "h3-js chooses where each hexagon's ring starts"
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "h3_index", "type": "VARCHAR" },
+            { "name": "hex", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["8a1f8d7a49a7fff", "POLYGON ((11.572820115676455 48.1388658441053, 11.57254030293573 48.13822169316727, 11.573258384194206 48.137778736480215, 11.574256282772167 48.13797992748678, 11.574536111428637 48.13862407846324, 11.573818025591516 48.13906703839477, 11.572820115676455 48.1388658441053))"]
+          ]
+        }
+      }
+    }
+  ]
+}

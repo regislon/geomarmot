@@ -1,0 +1,812 @@
+{
+  "transformer": "VertexCreator",
+  "cases": [
+    {
+      "name": "Add Point across geometry types",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", null],
+            ["point", "POINT (1 1)"],
+            ["line", "LINESTRING (0 0, 2 0)"],
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))"],
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))"],
+            ["multi", "MULTIPOINT ((0 0), (1 1))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", "POINT (9 9)"],
+            ["point", "LINESTRING (1 1, 9 9)"],
+            ["line", "LINESTRING (0 0, 2 0, 9 9)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))", "UNSUPPORTED_GEOMETRY_TYPE"],
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))", "UNSUPPORTED_GEOMETRY_TYPE"],
+            ["multi", "MULTIPOINT (0 0, 1 1)", "UNSUPPORTED_GEOMETRY_TYPE"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Add Point closing a line makes a polygon",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "0" },
+        "y": { "kind": "Value", "type": "Number", "value": "0" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["open", "LINESTRING (0 0, 1 0, 1 1)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["open", "POLYGON ((0 0, 1 0, 1 1, 0 0))"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Add Point closing a line, Create Line keeps a line",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "0" },
+        "y": { "kind": "Value", "type": "Number", "value": "0" },
+        "closedLines": "Create Line"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["open", "LINESTRING (0 0, 1 0, 1 1)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["open", "LINESTRING (0 0, 1 0, 1 1, 0 0)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Add Point ignores a duplicate of the last vertex by default",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "2" },
+        "y": { "kind": "Value", "type": "Number", "value": "0" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 2 0)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 2 0)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Add Point keeps a duplicate when told not to ignore it",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "2" },
+        "y": { "kind": "Value", "type": "Number", "value": "0" },
+        "ignoreDuplicates": "No"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 2 0)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 2 0, 2 0)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Add Point from attributes; a missing coordinate is rejected",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Attribute", "column": "x" },
+        "y": { "kind": "Attribute", "column": "y" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "x", "type": "DOUBLE" },
+            { "name": "y", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, 5, 6, "POINT (1 1)"],
+            [2, null, 6, "POINT (1 1)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "x", "type": "DOUBLE" },
+            { "name": "y", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, 5, 6, "LINESTRING (1 1, 5 6)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "x", "type": "DOUBLE" },
+            { "name": "y", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [2, null, 6, "POINT (1 1)", "MISSING_COORDINATE"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Replace with Point turns lon/lat columns into points and folds them away",
+      "params": {
+        "mode": "Replace with Point",
+        "x": { "kind": "Attribute", "column": "lon" },
+        "y": { "kind": "Attribute", "column": "lat" },
+        "removeAttributes": "Yes"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "lon", "type": "DOUBLE" },
+            { "name": "lat", "type": "DOUBLE" }
+          ],
+          "rows": [
+            ["Bern", 7.44, 46.95],
+            ["Zug", 8.52, 47.17]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["Bern", "POINT (7.44 46.95)"],
+            ["Zug", "POINT (8.52 47.17)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "lon", "type": "DOUBLE" },
+            { "name": "lat", "type": "DOUBLE" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Replace with Point with a coordinate system labels the stream",
+      "params": {
+        "mode": "Replace with Point",
+        "x": { "kind": "Attribute", "column": "E" },
+        "y": { "kind": "Attribute", "column": "N" },
+        "crs": "EPSG:2056"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "E", "type": "DOUBLE" },
+            { "name": "N", "type": "DOUBLE" }
+          ],
+          "rows": [
+            ["Bern", 2600000, 1200000]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "E", "type": "DOUBLE" },
+            { "name": "N", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["Bern", 2600000, 1200000, "POINT (2600000 1200000)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "city", "type": "VARCHAR" },
+            { "name": "E", "type": "DOUBLE" },
+            { "name": "N", "type": "DOUBLE" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        },
+        "crs": "EPSG:2056"
+      }
+    },
+    {
+      "name": "Replace with Point discards any geometry",
+      "params": {
+        "mode": "Replace with Point",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", null],
+            ["point", "POINT (1 1)"],
+            ["line", "LINESTRING (0 0, 2 0)"],
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))"],
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))"],
+            ["multi", "MULTIPOINT ((0 0), (1 1))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", "POINT (9 9)"],
+            ["point", "POINT (9 9)"],
+            ["line", "POINT (9 9)"],
+            ["polygon", "POINT (9 9)"],
+            ["holed", "POINT (9 9)"],
+            ["multi", "POINT (9 9)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Replace with Point with a Z value makes 3D points",
+      "params": {
+        "mode": "Replace with Point",
+        "x": { "kind": "Value", "type": "Number", "value": "1" },
+        "y": { "kind": "Value", "type": "Number", "value": "2" },
+        "z": { "kind": "Value", "type": "Number", "value": "3" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, 2]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, 2, "POINT Z (1 2 3)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "v", "type": "DOUBLE" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Insert Point at Index 0, -1 and out of range",
+      "params": {
+        "mode": "Insert Point at Index",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "index": { "kind": "Attribute", "column": "i" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "i", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [0, "LINESTRING (0 0, 1 0, 2 0)"],
+            [-1, "LINESTRING (0 0, 1 0, 2 0)"],
+            [99, "LINESTRING (0 0, 1 0, 2 0)"],
+            [-99, "LINESTRING (0 0, 1 0, 2 0)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "i", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [0, "LINESTRING (9 9, 0 0, 1 0, 2 0)"],
+            [-1, "LINESTRING (0 0, 1 0, 2 0, 9 9)"],
+            [99, "LINESTRING (0 0, 1 0, 2 0, 9 9)"],
+            [-99, "LINESTRING (9 9, 0 0, 1 0, 2 0)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "i", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Insert Point at Index into a polygon re-closes the ring; holes are rejected",
+      "params": {
+        "mode": "Insert Point at Index",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "index": { "kind": "Value", "type": "Number", "value": "1" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", null],
+            ["point", "POINT (1 1)"],
+            ["line", "LINESTRING (0 0, 2 0)"],
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))"],
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))"],
+            ["multi", "MULTIPOINT ((0 0), (1 1))"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", "POINT (9 9)"],
+            ["point", "LINESTRING (1 1, 9 9)"],
+            ["line", "LINESTRING (0 0, 9 9, 2 0)"],
+            ["polygon", "POLYGON ((0 0, 9 9, 4 0, 4 4, 0 4, 0 0))"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": [
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))", "POLYGON_WITH_HOLES"],
+            ["multi", "MULTIPOINT (0 0, 1 1)", "UNSUPPORTED_GEOMETRY_TYPE"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Insert Point at Index without an index value is rejected",
+      "params": {
+        "mode": "Insert Point at Index",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "index": { "kind": "Attribute", "column": "i" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "i", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [null, "LINESTRING (0 0, 1 0)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "i", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": []
+        },
+        "rejected": {
+          "columns": [
+            { "name": "i", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": [
+            [null, "LINESTRING (0 0, 1 0)", "MISSING_INDEX"]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Replace Point at Index on a line and on a polygon corner",
+      "params": {
+        "mode": "Replace Point at Index",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "index": { "kind": "Value", "type": "Number", "value": "0" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["line", "LINESTRING (0 0, 1 0, 2 0)"],
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))"],
+            ["point", "POINT (5 5)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["line", "LINESTRING (9 9, 1 0, 2 0)"],
+            ["polygon", "POLYGON ((9 9, 4 0, 4 4, 0 4, 9 9))"],
+            ["point", "POINT (9 9)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Z Compute on 2D input gives every vertex the new Z",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "z": { "kind": "Value", "type": "Number", "value": "7" },
+        "zConflict": "Compute"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 1 0)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING Z (0 0 7, 1 0 7, 9 9 7)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Z Custom Value fills the old vertices",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "z": { "kind": "Value", "type": "Number", "value": "7" },
+        "zConflict": "Custom Value",
+        "zCustom": "-1"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 1 0)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING Z (0 0 -1, 1 0 -1, 9 9 7)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Z None drops Z from a 2D input",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "9" },
+        "y": { "kind": "Value", "type": "Number", "value": "9" },
+        "z": { "kind": "Value", "type": "Number", "value": "7" },
+        "zConflict": "None (Drop Values)"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 1 0)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING (0 0, 1 0, 9 9)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Z Compute on 3D input interpolates the inserted vertex",
+      "params": {
+        "mode": "Insert Point at Index",
+        "x": { "kind": "Value", "type": "Number", "value": "1" },
+        "y": { "kind": "Value", "type": "Number", "value": "0" },
+        "index": { "kind": "Value", "type": "Number", "value": "1" },
+        "zConflict": "Compute"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING Z (0 0 10, 2 0 20)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING Z (0 0 10, 1 0 15, 2 0 20)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "Add Point on a 3D feature at its endpoint takes that endpoint's Z",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Number", "value": "0" },
+        "y": { "kind": "Value", "type": "Number", "value": "0" },
+        "ignoreDuplicates": "No",
+        "closedLines": "Create Line"
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING Z (0 0 5, 1 0 6, 1 1 7)"]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["LINESTRING Z (0 0 5, 1 0 6, 1 1 7, 0 0 5)"]
+          ]
+        },
+        "rejected": {
+          "columns": [
+            { "name": "geometry", "type": "GEOMETRY" },
+            { "name": "rejection_code", "type": "VARCHAR" }
+          ],
+          "rows": []
+        }
+      }
+    },
+    {
+      "name": "no X or Y value is an error",
+      "params": {
+        "mode": "Add Point",
+        "x": { "kind": "Value", "type": "Text", "value": "" },
+        "y": { "kind": "Value", "type": "Number", "value": "1" }
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "kind", "type": "VARCHAR" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            ["null", null],
+            ["point", "POINT (1 1)"],
+            ["line", "LINESTRING (0 0, 2 0)"],
+            ["polygon", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))"],
+            ["holed", "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 3 2, 3 3, 2 2))"],
+            ["multi", "MULTIPOINT ((0 0), (1 1))"]
+          ]
+        }
+      },
+      "expect": { "error": "Set an X Value and a Y Value" }
+    }
+  ]
+}
