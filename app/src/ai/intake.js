@@ -22,6 +22,7 @@ import { PALETTE_GROUPS, REGISTRY, defaultParams } from "../../../transformers/i
 import { paramsSchemaFor } from "./catalogue.js";
 import { draft } from "./draft.js";
 import { classify, recordAiParams, structured } from "./gate/index.js";
+import { schemaProblem } from "./gate/errors.js";
 
 const REF = /^[a-z][a-z0-9_-]{0,30}$/;
 const COLUMN_GAP = 280;
@@ -55,7 +56,11 @@ export async function intakeProposal(input, { graph, levelReached }) {
     try {
       written = JSON.parse(proposed.params_json || "{}");
     } catch {
-      problem(proposed.ref, "params_json", structured("INVALID_INPUT", { param: "params_json" }));
+      problem(
+        proposed.ref,
+        "params_json",
+        structured("INVALID_INPUT", { param: "params_json", problem: "is not valid JSON" }),
+      );
       continue;
     }
     if (!written || typeof written !== "object" || Array.isArray(written)) {
@@ -68,7 +73,11 @@ export async function intakeProposal(input, { graph, levelReached }) {
       problem(
         proposed.ref,
         param,
-        structured("INVALID_PARAMS", { param: param ?? undefined, transformer: proposed.type }),
+        structured("INVALID_PARAMS", {
+          param: param ?? undefined,
+          transformer: proposed.type,
+          problem: schemaProblem(schemaErrors),
+        }),
       );
       continue;
     }

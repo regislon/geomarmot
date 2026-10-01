@@ -34,7 +34,7 @@ export function transformerSchema() {
   const param = {
     type: "object",
     additionalProperties: false,
-    required: ["id", "label", "kind", "sql", "description"],
+    required: ["id", "label", "kind", "sql", "description", "value"],
     properties: {
       id: { type: "string", pattern: "^[a-z][A-Za-z0-9_]*$" },
       label: text,
@@ -42,6 +42,8 @@ export function transformerSchema() {
       sql: { enum: ["none", "literal", "identifier", "expression", "query"] },
       description: text,
       default: {},
+      value: { description: "The JSON Schema of the param's value." },
+      example: {},
       options: { type: "array", items: option },
       optionsFrom: text,
       choices: strings(),

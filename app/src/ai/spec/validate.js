@@ -21,6 +21,7 @@ import { placeholderFor, renderTemplate, tokens } from "../../core/template.js";
 import { PALETTE_GROUPS, REGISTRY } from "../../../../transformers/index.js";
 import { paramsSchemaFor } from "../catalogue.js";
 import { classify, structured } from "../gate/index.js";
+import { schemaProblem } from "../gate/errors.js";
 import { callParams, parseFrom, specDefaults, stepOutputs } from "./runtime.js";
 import specSchema from "./schema.json" with { type: "json" };
 
@@ -40,7 +41,10 @@ export async function validateSpec(spec) {
 
   const schemaErrors = validateSchema(spec, specSchema);
   if (schemaErrors.length) {
-    fail(null, "INVALID_INPUT", { param: schemaErrors[0].path.replace(/^\$\.?/, "") || "spec" });
+    fail(null, "INVALID_INPUT", {
+      param: schemaErrors[0].path.replace(/^\$\.?/, "") || "spec",
+      problem: schemaProblem(schemaErrors),
+    });
     return { ok: false, problems };
   }
   const existing = REGISTRY.get(spec.id);

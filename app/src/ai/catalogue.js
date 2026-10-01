@@ -10,13 +10,38 @@
  */
 
 import { KINDS, optionValues } from "../../../transformers/_kit/index.js";
-import { DEFS, paramsSchema } from "../../../transformers/_kit/value-schemas.js";
+import { DEFS, paramsSchema, valueSchema } from "../../../transformers/_kit/value-schemas.js";
 import { PALETTE_GROUPS, REGISTRY, defaultParams } from "../../../transformers/index.js";
 
 /** A port as the catalogue shows it. */
 const port = ({ id, label, description }) => ({ id, label, description: description || "" });
 
-/** One param as the catalogue shows it: its kind, how it reaches SQL, and its fixed options. */
+/** A schema with its local $refs replaced by what they point at, so it reads on its own. */
+function inline(schema) {
+  if (Array.isArray(schema)) return schema.map(inline);
+  if (!schema || typeof schema !== "object") return schema;
+  if (schema.$ref) return inline(DEFS[schema.$ref.split("/").pop()]);
+  const { description: _description, ...rest } = schema;
+  return Object.fromEntries(Object.entries(rest).map(([key, value]) => [key, inline(value)]));
+}
+
+/** What a value of each composite kind looks like, so the assistant writes the shape right first time. */
+const EXAMPLES = {
+  valuespec: { kind: "Attribute", column: "lon" },
+  columns: ["name", "pop"],
+  conditions: [{ column: "pop", operator: ">", value: "50000" }],
+  renames: [{ from: "old_name", to: "new_name" }],
+  valuerows: [{ name: "density", value: { kind: "SQL", sql: "pop / area_km2" } }],
+  creates: [{ name: "density", expression: "pop / area_km2" }],
+  actions: [{ action: "Set value", column: "name", spec: { kind: "Value", type: "Text", value: "unknown" } }],
+  sorts: [{ column: "pop", direction: "DESC" }],
+  aggregates: [{ func: "sum", column: "pop", alias: "total_pop" }],
+  values: ["a", "b"],
+  rules: [{ label: "big", column: "pop", operator: ">", value: "100000" }],
+  joinkeys: [{ left: "id", right: "id" }],
+};
+
+/** One param as the catalogue shows it: its kind, how it reaches SQL, the shape of its value, and its fixed options. */
 function paramEntry(spec) {
   const entry = {
     id: spec.id,
@@ -24,7 +49,10 @@ function paramEntry(spec) {
     kind: spec.kind,
     sql: KINDS[spec.kind].sql,
     description: spec.description || "",
+    // The exact JSON the param takes (proposals are checked against it).
+    value: inline(valueSchema(spec)),
   };
+  if (EXAMPLES[spec.kind]) entry.example = structuredClone(EXAMPLES[spec.kind]);
   if (spec.default !== undefined) entry.default = structuredClone(spec.default);
   const options = optionValues(spec);
   if (options.length) {
@@ -63,7 +91,7 @@ export function catalogueEntry(transformer, { level = 3 } = {}) {
       inputs: entry.inputs.map((p) => ({ ...p, label: p.id, description: "" })),
       outputs: entry.outputs.map((p) => ({ ...p, label: p.id, description: "" })),
       // Labels, defaults and option values are the assistant's literals: only ids and kinds remain.
-      params: entry.params.map(({ id, kind, sql }) => ({ id, label: id, kind, sql, description: "" })),
+      params: entry.params.map(({ id, kind, sql }) => ({ id, label: id, kind, sql, description: "", value: {} })),
     };
   }
   return {

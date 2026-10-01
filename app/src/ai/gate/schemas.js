@@ -39,11 +39,12 @@ const column = closed({ name: IDENT, type: { type: "string", maxLength: 100 } })
 function errorSchema(level) {
   const params = {};
   for (const name of ERROR_PARAM_NAMES)
-    params[name] = name === "count" ? { type: "number" } : { type: "string", maxLength: 100 };
+    params[name] =
+      name === "count" ? { type: "number" } : { type: "string", maxLength: name === "problem" ? 300 : 100 };
   const properties = {
     code: { enum: ERROR_CODES },
     params: { type: "object", additionalProperties: false, properties: params },
-    message: { type: "string", maxLength: 300 },
+    message: { type: "string", maxLength: 500 },
   };
   if (level >= 3) properties.raw = { type: "string", maxLength: LIMITS.errorChars };
   return closed(properties, ["code", "params", "message"]);

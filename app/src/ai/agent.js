@@ -19,6 +19,7 @@
 import { validate } from "../core/jsonschema.js";
 import { send } from "./provider.js";
 import { GateError, errorPayload, gate, structured } from "./gate/index.js";
+import { schemaProblem } from "./gate/errors.js";
 import { TOOL_SPECS, toolNamed } from "./tools/index.js";
 
 export const MAX_TURNS = 12;
@@ -31,7 +32,7 @@ A graph is a set of nodes (transformers) joined output port to input port. Reade
 
 How to work:
 - Start from get_graph to see the sources, their columns and the nodes already there.
-- Find transformers with search_transformers, then read describe_transformer for each one you intend to use; use only params and ports it lists, and only column names you have seen.
+- Find transformers with search_transformers, then read describe_transformer for each one you intend to use; use only params and ports it lists, and only column names you have seen. Each param has a "value" (the JSON Schema its value must match) and often an "example": write params in exactly that shape — for instance a value spec is an object such as {"kind": "Attribute", "column": "lon"}, never a bare column name.
 - Build the whole chain in one propose_nodes call. It becomes a draft that the user reviews and applies. Check it with preview_draft, then say what it will do in a sentence or two.
 - If a proposal is refused, read the problems, fix them and propose again.
 - Use inspect_node to check a node's output columns, row counts or errors. What you can see of the data depends on the data level the user chose; do not ask for more than it shows.
@@ -141,7 +142,7 @@ async function runTool(call, { world, conversation, askUser }) {
   const problems = validate(call.input, tool.input_schema);
   if (problems.length) {
     const param = problems[0].path.replace(/^\$\.?/, "") || undefined;
-    return fail(structured("INVALID_INPUT", { param }), problems);
+    return fail(structured("INVALID_INPUT", { param, problem: schemaProblem(problems) }), problems);
   }
   try {
     // A tool reads the graph as it stands, never one still compiling after an edit.

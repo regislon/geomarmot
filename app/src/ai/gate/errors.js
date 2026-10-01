@@ -53,12 +53,14 @@ export const ERROR_CATALOGUE = {
   UNKNOWN_TRANSFORMER: { params: ["transformer"], message: (p) => `There is no transformer called ${p.transformer}.` },
   NOT_AI_USABLE: { params: ["transformer"], message: (p) => `${p.transformer} cannot be used by the assistant.` },
   INVALID_PARAMS: {
-    params: ["param", "transformer"],
-    message: (p) => `Param ${p.param ?? ""} of ${p.transformer ?? "this node"} is not valid.`,
+    params: ["param", "transformer", "problem"],
+    message: (p) =>
+      `Param ${p.param ?? ""} of ${p.transformer ?? "this node"} is not valid${p.problem ? `: ${p.problem}` : ""}.`,
   },
   INVALID_INPUT: {
-    params: ["param"],
-    message: (p) => `The tool input is not valid${p.param ? ` at ${p.param}` : ""}.`,
+    params: ["param", "problem"],
+    message: (p) =>
+      `The tool input is not valid${p.param ? ` at ${p.param}` : ""}${p.problem ? `: ${p.problem}` : ""}.`,
   },
   UNKNOWN_NODE: { params: ["node"], message: (p) => `There is no node ${p.node}.` },
   UNKNOWN_PORT: { params: ["node", "port"], message: (p) => `Node ${p.node} has no port ${p.port}.` },
@@ -70,6 +72,17 @@ export const ERROR_CODES = Object.keys(ERROR_CATALOGUE);
 export const ERROR_PARAM_NAMES = [...new Set(Object.values(ERROR_CATALOGUE).flatMap((entry) => entry.params))];
 
 const IDENT = /^[\p{L}\p{N}_ .:\-/()]{1,100}$/u;
+/** What a schema check said was wrong: paths and allowed values from our own schemas, never a value sent. */
+const PROBLEM = /^[\p{L}\p{N}\p{P}\p{S}\p{Zs}]{1,300}$/u;
+
+/** The `problem` param for a list of schema errors (core/jsonschema.js): the first few, as text. */
+export function schemaProblem(errors) {
+  return errors
+    .slice(0, 3)
+    .map((e) => `${e.path.replace(/^\$\.?/, "") || "value"} ${e.message}`)
+    .join("; ")
+    .slice(0, 300);
+}
 
 /**
  * A structured error: keeps only the params the code allows, each checked to
@@ -83,6 +96,7 @@ export function structured(code, params = {}) {
   for (const name of entry.params) {
     const value = params[name];
     if (name === "count" && Number.isFinite(value)) kept[name] = value;
+    else if (name === "problem" && typeof value === "string" && PROBLEM.test(value)) kept[name] = value;
     else if (typeof value === "string" && IDENT.test(value)) kept[name] = value;
   }
   const finalCode = ERROR_CATALOGUE[code] ? code : "UNKNOWN_ERROR";

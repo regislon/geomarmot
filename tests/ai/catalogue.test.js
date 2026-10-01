@@ -89,3 +89,26 @@ describe("searchCatalogue", () => {
     expect(searchCatalogue("read a file write output", { limit: 44 }).map((e) => e.id)).not.toContain("Reader");
   });
 });
+
+describe("what the assistant is told about params", () => {
+  test("each param carries the exact shape of its value, and composite kinds an example", () => {
+    const vertex = catalogue().find((e) => e.id === "VertexCreator");
+    const x = vertex.params.find((p) => p.id === "x");
+    expect(x.value.type).toBe("object");
+    expect(x.value.properties.kind.enum).toEqual(["Value", "Attribute", "Formula", "SQL"]);
+    expect(x.example).toEqual({ kind: "Attribute", column: "lon" });
+    expect(JSON.stringify(x.value)).not.toContain("$ref");
+    expect(
+      validate(x.example, paramsSchemaFor("VertexCreator").properties.x, paramsSchemaFor("VertexCreator")),
+    ).toEqual([]);
+  });
+
+  test("every example validates against its own param's schema", () => {
+    for (const entry of catalogue()) {
+      const schema = paramsSchemaFor(entry.id);
+      for (const p of entry.params.filter((p) => p.example !== undefined)) {
+        expect(validate({ [p.id]: p.example }, schema), `${entry.id}.${p.id}`).toEqual([]);
+      }
+    }
+  });
+});

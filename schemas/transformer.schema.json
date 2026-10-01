@@ -159,7 +159,8 @@
           "label",
           "kind",
           "sql",
-          "description"
+          "description",
+          "value"
         ],
         "properties": {
           "id": {
@@ -206,6 +207,10 @@
             "type": "string"
           },
           "default": {},
+          "value": {
+            "description": "The JSON Schema of the param's value."
+          },
+          "example": {},
           "options": {
             "type": "array",
             "items": {
