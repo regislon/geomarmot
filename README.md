@@ -25,27 +25,40 @@ large remote Parquet costs its footer, not its body.
 
 ## Run it
 
-**On your machine**, with the local server (needed for `gs://` buckets and the server-side AI key):
+GeoMarmot is not published as a package. There are two ways to use it.
+
+### 1. In your browser, at the hosted link
+
+Open **<https://regislon.github.io/geomarmot/>**. Nothing to install: the app runs entirely in your
+tab, and the files you open stay on your machine. The hosted copy has no server behind it, so
+`gs://` buckets and the bucket browser are not available there; the assistant works with an API key
+you type into its settings.
+
+### 2. From a clone of the repository
+
+You need Node 22 and, for the local server, [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv tool install geomarmot        # or: pipx install geomarmot
-geomarmot                        # opens http://127.0.0.1:8765 in your browser
+git clone https://github.com/regislon/geomarmot.git
+cd geomarmot
+npm ci
+npm run build
+cd server && uv run geomarmot    # opens http://127.0.0.1:8765 in your browser
 ```
 
-**With Docker:**
+The local server adds what a browser cannot do alone: reading `gs://` buckets with your own cloud
+credentials, browsing buckets, and letting the assistant use a key from your environment
+(`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) instead of one typed into the page. It only listens on
+127.0.0.1 and refuses any other Host: remote access is not supported.
+
+To build and run it as a container instead:
 
 ```bash
-docker run --rm -p 127.0.0.1:8080:8080 ghcr.io/regislon/geomarmot
+docker build -t geomarmot .
+docker run --rm -p 127.0.0.1:8080:8080 geomarmot
 ```
 
-Open the link the container prints. Pass `-e GEOMARMOT_AI=1 -e ANTHROPIC_API_KEY=…` to let the
-assistant use a key from the server rather than one typed into the page.
-
-**In the browser only:** the static build on GitHub Pages works without any server; the bucket
-browser is hidden there.
-
-The server only listens on 127.0.0.1 and refuses any other Host: remote access is not supported in
-v0.1.
+Open the link the container prints.
 
 ## Develop
 
