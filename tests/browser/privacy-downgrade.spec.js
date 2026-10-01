@@ -180,7 +180,7 @@ test("a value copied from data into a param is redacted below its level, everywh
   // After saving the graph to a file and opening it again.
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+    page.click("#btn-save").then(() => page.click("#menu-save-computer")),
   ]);
   const file = readFileSync(await download.path(), "utf8");
   await page.setInputFiles("#graph-input", {

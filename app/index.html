@@ -11,20 +11,83 @@
     <div id="shell">
       <header id="toolbar">
         <h1>GeoMarmot</h1>
-        <div class="menu">
-          <button id="btn-file" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-file">File</button>
-          <div id="menu-file" class="menu-list" role="menu" aria-labelledby="btn-file" hidden>
-            <button id="menu-open-graph" role="menuitem">Open graph…<kbd>⌘O</kbd></button>
-            <button id="menu-save-graph" role="menuitem">Save graph<kbd>⌘S</kbd></button>
+        <div class="tool-group">
+          <button id="btn-new" class="tool" title="Start an empty workspace">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3h8l4 4v14H6z" />
+              <path d="M14 3v4h4" />
+              <path d="M12 11v6M9 14h6" /></svg
+            ><span>New</span>
+          </button>
+          <div class="menu">
+            <button id="btn-open" class="tool" aria-haspopup="menu" aria-expanded="false" aria-controls="btn-open-menu">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5V10" />
+                <path d="M3 6.5V19h15.5l2.5-9H6.5L3 19" /></svg
+              ><span>Open <span class="caret">▾</span></span>
+            </button>
+            <div id="btn-open-menu" class="menu-list" role="menu" aria-labelledby="btn-open" hidden>
+              <button id="menu-open-computer" role="menuitem">From this computer…</button>
+              <button id="menu-open-browser" role="menuitem">From this browser…<kbd>⌘O</kbd></button>
+            </div>
+          </div>
+          <div class="menu">
+            <button id="btn-save" class="tool" aria-haspopup="menu" aria-expanded="false" aria-controls="btn-save-menu">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 3h11.5L20 6.5V21H5z" />
+                <path d="M8 3v5h7V3" />
+                <path d="M8 21v-7h9v7" /></svg
+              ><span>Save <span class="caret">▾</span></span>
+            </button>
+            <div id="btn-save-menu" class="menu-list" role="menu" aria-labelledby="btn-save" hidden>
+              <button id="menu-save-computer" role="menuitem">To this computer</button>
+              <button id="menu-save-browser" role="menuitem">To this browser<kbd>⌘S</kbd></button>
+              <button id="menu-save-browser-as" role="menuitem">To this browser as…<kbd>⇧⌘S</kbd></button>
+            </div>
           </div>
         </div>
-        <button id="btn-export" class="primary" disabled>Export</button>
-        <button id="btn-cancel" title="Stop the export" hidden>Cancel</button>
-        <button id="btn-undo" title="Undo (⌘Z)" disabled>↶</button>
-        <button id="btn-redo" title="Redo (⇧⌘Z)" disabled>↷</button>
-        <button id="btn-arrange">Arrange</button>
-        <button id="btn-clear">Clear</button>
-        <button id="btn-assistant" title="Build a graph by asking">Assistant</button>
+        <div class="tool-group">
+          <button id="btn-export" class="tool primary" disabled>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5l11 7-11 7z" fill="currentColor" /></svg
+            ><span>Run</span>
+          </button>
+          <button id="btn-cancel" class="tool" title="Stop writing" hidden>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" /></svg
+            ><span>Cancel</span>
+          </button>
+        </div>
+        <div class="tool-group">
+          <button id="btn-undo" class="tool" title="Undo (⌘Z)" disabled>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 14L4 9l5-5" />
+              <path d="M4 9h11a5 5 0 0 1 0 10h-4" /></svg
+            ><span>Undo</span>
+          </button>
+          <button id="btn-redo" class="tool" title="Redo (⇧⌘Z)" disabled>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 14l5-5-5-5" />
+              <path d="M20 9H9a5 5 0 0 0 0 10h4" /></svg
+            ><span>Redo</span>
+          </button>
+        </div>
+        <div class="tool-group">
+          <button id="btn-arrange" class="tool" title="Lay the nodes out by dependency">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="4" width="7" height="5" rx="1" />
+              <rect x="14" y="4" width="7" height="5" rx="1" />
+              <rect x="8.5" y="15" width="7" height="5" rx="1" />
+              <path d="M6.5 9v3h11V9M12 12v3" /></svg
+            ><span>Arrange</span>
+          </button>
+          <button id="btn-assistant" class="tool" title="Build a graph by asking">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z" />
+              <path d="M18.5 14.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" /></svg
+            ><span>Assistant</span>
+          </button>
+        </div>
         <span class="spacer"></span>
         <span id="status">Starting the engine…</span>
       </header>
@@ -131,6 +194,16 @@
           </div>
         </div>
       </section>
+    </div>
+
+    <div id="workspace-modal" class="modal" hidden>
+      <div class="modal-panel workspace-panel">
+        <div class="modal-head">
+          <h2 id="workspace-title">Workspaces in this browser</h2>
+          <button id="workspace-close" title="Close">×</button>
+        </div>
+        <div id="workspace-body"></div>
+      </div>
     </div>
 
     <div id="ai-settings-modal" class="modal" hidden>

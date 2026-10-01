@@ -121,7 +121,7 @@ test("save graph downloads the geomarmot format; autosave restores the canvas af
   await openGraph(page, [{ id: "n1", type: "Reader", x: 40, y: 60, params: { sourceId: "s1__cities.csv" } }], []);
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+    page.click("#btn-save").then(() => page.click("#menu-save-computer")),
   ]);
   const saved = JSON.parse(readFileSync(await download.path(), "utf8"));
   expect(saved.format).toBe("geomarmot-graph");
@@ -234,46 +234,95 @@ test("an H3 index column draws as hexagons, with a coarsen control", async () =>
   await expect(page.locator("#coarsen-select option")).not.toHaveCount(0);
 });
 
-test("the File menu opens and saves graphs, from the mouse, the keyboard and the shortcuts", async () => {
+test("the toolbar: Open and Save menus by mouse and keyboard, Run, and New", async () => {
   const { page } = app;
   await load(page, "cities.csv", CITIES);
   await openGraph(page, [{ id: "n1", type: "Reader", x: 40, y: 60, params: { sourceId: "s1__cities.csv" } }], []);
-  const menu = page.locator("#menu-file");
+  await expect(page.locator("#btn-export")).toHaveText("Run");
+  const menu = page.locator("#btn-save-menu");
   await expect(menu).toBeHidden();
 
   // Mouse: open, then a click outside closes it.
-  await page.click("#btn-file");
+  await page.click("#btn-save");
   await expect(menu).toBeVisible();
-  await expect(page.locator("#btn-file")).toHaveAttribute("aria-expanded", "true");
-  await page.mouse.click(10, 400);
+  await expect(page.locator("#btn-save")).toHaveAttribute("aria-expanded", "true");
+  await page.mouse.click(10, 500);
   await expect(menu).toBeHidden();
 
-  // Keyboard: arrow down opens on the first item, Escape closes.
-  await page.focus("#btn-file");
+  // Keyboard: arrow down opens on the first item, Escape closes; one menu at a time.
+  await page.focus("#btn-save");
   await page.keyboard.press("ArrowDown");
-  await expect(page.locator("#menu-open-graph")).toBeFocused();
+  await expect(page.locator("#menu-save-computer")).toBeFocused();
   await page.keyboard.press("ArrowDown");
-  await expect(page.locator("#menu-save-graph")).toBeFocused();
+  await expect(page.locator("#menu-save-browser")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
+  await page.click("#btn-open");
+  await page.click("#btn-save");
+  await expect(page.locator("#btn-open-menu")).toBeHidden();
+  await page.mouse.click(10, 500);
 
-  // Save from the menu, and with the shortcut.
-  const [fromMenu] = await Promise.all([
+  // Save to this computer downloads the graph; Open from this computer asks for a file.
+  const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+    page.click("#btn-save").then(() => page.click("#menu-save-computer")),
   ]);
-  expect(fromMenu.suggestedFilename()).toBe("graph.flow.json");
-  await expect(menu).toBeHidden();
-  await page.mouse.click(10, 400);
-  const [fromShortcut] = await Promise.all([page.waitForEvent("download"), page.keyboard.press("ControlOrMeta+s")]);
-  expect(fromShortcut.suggestedFilename()).toBe("graph.flow.json");
-
-  // Open from the menu asks for a file.
+  expect(download.suggestedFilename()).toBe("graph.flow.json");
   const [chooser] = await Promise.all([
     page.waitForEvent("filechooser"),
-    page.click("#btn-file").then(() => page.click("#menu-open-graph")),
+    page.click("#btn-open").then(() => page.click("#menu-open-computer")),
   ]);
   expect(chooser.isMultiple()).toBe(false);
-  // The old buttons are gone.
-  await expect(page.locator("#toolbar > button", { hasText: /graph/i })).toHaveCount(0);
+
+  // New asks first, and starts empty.
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.click("#btn-new");
+  await expect(page.locator("#canvas .node-title")).toHaveCount(0);
+});
+
+test("workspaces saved in this browser: save, save as, open, replace and delete", async () => {
+  const { page } = app;
+  await load(page, "cities.csv", CITIES);
+  const reader = { id: "n1", type: "Reader", x: 40, y: 60, params: { sourceId: "s1__cities.csv" } };
+  await openGraph(page, [reader], []);
+
+  // ⌘S / Ctrl+S the first time asks for a name.
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(page.locator("#workspace-modal")).toBeVisible();
+  await page.fill("#workspace-name", "Cities");
+  await page.click("#workspace-save");
+  await expect(page.locator("#status")).toContainText("Saved “Cities” in this browser");
+
+  // Then it saves under that name without asking.
+  await openGraph(page, [reader, { id: "n2", type: "Tester", x: 300, y: 60, params: {} }], []);
+  await page.click("#btn-save").then(() => page.click("#menu-save-browser-as"));
+  await page.fill("#workspace-name", "Cities with a test");
+  await page.click("#workspace-save");
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(page.locator("#workspace-modal")).toBeHidden();
+  await expect(page.locator("#status")).toContainText("Saved “Cities with a test”");
+
+  // Saving as an existing name says it will replace it.
+  await page.keyboard.press("ControlOrMeta+Shift+s");
+  await page.fill("#workspace-name", "Cities");
+  await expect(page.locator("#workspace-save")).toHaveText("Replace");
+  await page.click("#workspace-close");
+
+  // They survive a reload, and open from the list.
+  await page.reload();
+  await expect(page.locator("#status")).toContainText(/Restored|Drop a file|nodes ready/, { timeout: 90_000 });
+  await page.keyboard.press("ControlOrMeta+o");
+  await expect(page.locator("#workspace-body .workspace-row .name")).toContainText(["Cities with a test", "Cities"]);
+  await page.click('[data-workspace="Cities"]');
+  await expect(page.locator("#canvas .node-title")).toHaveText(["Reader"]);
+  await expect(page.locator("#status")).toContainText("Opened “Cities”");
+
+  // Delete asks first.
+  await page.click("#btn-open").then(() => page.click("#menu-open-browser"));
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .locator(".workspace-row", { hasText: "Cities with a test" })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await expect(page.locator("#workspace-body .workspace-row")).toHaveCount(1);
 });

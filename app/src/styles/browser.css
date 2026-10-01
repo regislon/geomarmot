@@ -107,3 +107,53 @@
 #browse-note.error {
   color: #a4331f;
 }
+
+/* ---------- workspaces kept in this browser ---------- */
+
+.workspace-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(560px, 100%);
+}
+
+#workspace-body {
+  overflow-y: auto;
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.workspace-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--sp-1);
+  align-items: center;
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.workspace-row .name {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.workspace-row .meta {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.workspace-form {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.workspace-form .warn {
+  font-size: 13px;
+  color: var(--err);
+}
+
+.workspace-form .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+}

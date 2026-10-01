@@ -109,7 +109,7 @@ select {
 
 #shell {
   display: grid;
-  grid-template-rows: 44px minmax(0, 1fr) 6px minmax(0, var(--dock-height, 300px));
+  grid-template-rows: 58px minmax(0, 1fr) 6px minmax(0, var(--dock-height, 300px));
   height: 100%;
 }
 
@@ -184,6 +184,72 @@ select {
 .menu-list kbd {
   font-family: var(--font-body);
   color: var(--muted);
+}
+
+/* ---------- toolbar tools: an icon over its label, in groups ---------- */
+
+.tool-group {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 var(--sp-2);
+  border-left: 1px solid #ffffff22;
+}
+
+#toolbar button.tool {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  min-width: 52px;
+  height: 50px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-2);
+  background: none;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#toolbar button.tool[hidden] {
+  display: none;
+}
+
+#toolbar button.tool:hover:not(:disabled),
+#toolbar button.tool[aria-expanded="true"] {
+  background: #ffffff1a;
+  border-color: #ffffff26;
+}
+
+#toolbar button.tool:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: -2px;
+}
+
+#toolbar button.tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#toolbar button.tool.primary:not(:disabled) .icon {
+  color: var(--accent-soft);
+}
+
+.tool .icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tool .caret {
+  font-size: 9px;
+  opacity: 0.8;
 }
 
 #toolbar .spacer {

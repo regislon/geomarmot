@@ -1,4 +1,4 @@
-/* Autosave, and saving and opening graph files. */
+/* Autosave, and saving and opening graph files; browser workspaces are in ./workspaces.js. */
 
 import { load as loadGraph, serialize } from "../core/graph/index.js";
 import { render as renderCanvas, select as selectNode } from "./canvas/index.js";
@@ -40,20 +40,30 @@ export function exportGraph() {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Replace the workspace with a saved graph: install the generated transformers
+ * it carries (validated like any other), load it, redraw.
+ * @param {any} saved
+ * @param {{ trusted?: boolean }} [options]  true only for what this app saved in this browser
+ * @returns {Promise<number>} how many nodes asked for unrestricted SQL and were restricted
+ */
+export async function openSaved(saved, { trusted = false } = {}) {
+  const refused = await installGraphCustoms(saved);
+  if (refused.length)
+    throw new Error(
+      `its generated transformer${refused.length === 1 ? "" : "s"} ${refused.join(", ")} did not pass the checks`,
+    );
+  const { unrestrictedRequested } = loadGraph(saved, { trusted });
+  renderCanvas();
+  selectNode(null);
+  onGraphChange();
+  return unrestrictedRequested;
+}
+
 export async function importGraph(file) {
   try {
     // A graph from a file is never trusted with unrestricted SQL (docs/security.md).
-    const saved = JSON.parse(await file.text());
-    // Generated transformers the file carries are validated like any other before they are installed.
-    const refused = await installGraphCustoms(saved);
-    if (refused.length)
-      throw new Error(
-        `its generated transformer${refused.length === 1 ? "" : "s"} ${refused.join(", ")} did not pass the checks`,
-      );
-    const { unrestrictedRequested } = loadGraph(saved);
-    renderCanvas();
-    selectNode(null);
-    onGraphChange();
+    const unrestrictedRequested = await openSaved(JSON.parse(await file.text()));
     const restricted = unrestrictedRequested
       ? ` ${unrestrictedRequested} node${unrestrictedRequested === 1 ? "" : "s"} asked for unrestricted SQL; ` +
         "it is off until you review each one and allow it again in the inspector."

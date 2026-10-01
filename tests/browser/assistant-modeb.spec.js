@@ -132,7 +132,7 @@ test("the assistant writes a transformer, uses it, and the user applies and expo
   // And a saved graph carries it to a browser that has never seen it.
   const [saved] = await Promise.all([
     page.waitForEvent("download"),
-    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+    page.click("#btn-save").then(() => page.click("#menu-save-computer")),
   ]);
   const file = JSON.parse(readFileSync(await saved.path(), "utf8"));
   expect(file.custom.map((c) => c.spec.id)).toEqual(["CustomAdults"]);

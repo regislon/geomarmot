@@ -91,7 +91,7 @@ test("the key never reaches the autosave or a saved graph", async () => {
   expect(autosave).not.toContain(KEY);
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+    page.click("#btn-save").then(() => page.click("#menu-save-computer")),
   ]);
   expect(readFileSync(await download.path(), "utf8")).not.toContain(KEY);
 });

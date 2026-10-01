@@ -78,7 +78,7 @@ test("the key reaches the provider and nothing else", async ({ browser }) => {
 
     const [saved] = await Promise.all([
       page.waitForEvent("download"),
-      page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+      page.click("#btn-save").then(() => page.click("#menu-save-computer")),
     ]);
     const file = readFileSync(await saved.path(), "utf8");
     expect(JSON.parse(file).custom).toHaveLength(1);

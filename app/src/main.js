@@ -52,6 +52,7 @@ import { initQuickAdd } from "./ui/quickadd.js";
 import { addZarrSource, loadUrl, renderPalette, renderSources } from "./ui/rail.js";
 import { initAssistant } from "./ui/assistant/index.js";
 import { initMenu } from "./ui/menu.js";
+import { detachWorkspace, initWorkspaces, openFromBrowser, saveToBrowser } from "./ui/workspaces.js";
 import { setProxyAvailable } from "./io/remote.js";
 import { installStoredCustoms, onCustomInstalled } from "./ai/spec/install.js";
 
@@ -164,28 +165,42 @@ async function main() {
 
   el("btn-export").addEventListener("click", () => exportWriters(connectedWriters()));
   el("btn-arrange").addEventListener("click", arrange);
-  const openGraph = () => el("graph-input").click();
-  initMenu("btn-file", "menu-file", { "menu-open-graph": openGraph, "menu-save-graph": exportGraph });
+  initWorkspaces();
+  const openFile = () => el("graph-input").click();
+  initMenu("btn-open", "btn-open-menu", { "menu-open-computer": openFile, "menu-open-browser": openFromBrowser });
+  initMenu("btn-save", "btn-save-menu", {
+    "menu-save-computer": exportGraph,
+    "menu-save-browser": () => saveToBrowser(),
+    "menu-save-browser-as": () => saveToBrowser({ ask: true }),
+  });
   if (!/Mac|iPhone|iPad/.test(navigator.platform)) {
-    for (const hint of document.querySelectorAll(".menu-list kbd"))
-      hint.textContent = hint.textContent.replace("⌘", "Ctrl+");
+    for (const hint of document.querySelectorAll(".menu-list kbd, #toolbar [title]")) {
+      const attr = hint.tagName === "KBD" ? "textContent" : "title";
+      hint[attr] = hint[attr].replace("⇧⌘", "Ctrl+Shift+").replace("⌘", "Ctrl+");
+    }
   }
-  // The usual shortcuts, in place of the browser's own save-page and open-file.
+  // The usual shortcuts, in place of the browser's own save-page and open-file: the quick ones save
+  // to and open from this browser; a file download is one menu away.
   window.addEventListener("keydown", (event) => {
-    if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
+    if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
     const key = event.key.toLowerCase();
     if (key === "s") {
       event.preventDefault();
-      exportGraph();
-    } else if (key === "o") {
+      saveToBrowser({ ask: event.shiftKey });
+    } else if (key === "o" && !event.shiftKey) {
       event.preventDefault();
-      openGraph();
+      openFromBrowser();
     }
   });
   el("graph-input").addEventListener("change", (event) => {
-    if (event.target.files[0]) importGraph(event.target.files[0]);
+    if (!event.target.files[0]) return;
+    detachWorkspace();
+    importGraph(event.target.files[0]);
+    event.target.value = "";
   });
-  el("btn-clear").addEventListener("click", () => {
+  el("btn-new").addEventListener("click", () => {
+    if (graph.nodes.length && !window.confirm("Start an empty workspace? The current graph stays in Undo.")) return;
+    detachWorkspace();
     clearGraph();
     setInspectedKeys([]);
     setInspected(new Map());

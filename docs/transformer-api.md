@@ -104,7 +104,7 @@ shows those states, never an older generation's rows for an edited node.
 
 - **Source** (the Reader): no inputs; `sql` builds its relation from `ctx.sources`.
 - **Sink** (the Writer): no outputs; never compiled. `write(ctx)` → `Promise<{ file, note }>` is
-  called by Export, with `ctx.inputs` the upstream relations and `ctx.incomingCrs` their CRS.
+  called by Run (the toolbar button that writes every connected Writer), with `ctx.inputs` the upstream relations and `ctx.incomingCrs` their CRS.
 
 ## Tests
 

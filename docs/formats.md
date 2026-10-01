@@ -32,7 +32,7 @@ fetched directly.
 
 ## Writing
 
-A **Writer** node chooses a format and a file name; **Export** writes every connected Writer.
+A **Writer** node chooses a format and a file name; **Run** writes every connected Writer.
 
 | Format | Geometry | Notes |
 |---|---|---|
@@ -44,7 +44,7 @@ A **Writer** node chooses a format and a file name; **Export** writes every conn
 
 ## Graph files
 
-**File → Save graph** (⌘S / Ctrl+S) downloads `graph.flow.json`: `{ "format": "geomarmot-graph", "version": 1, nodes,
+**Save ▸ To this computer** downloads `graph.flow.json`: `{ "format": "geomarmot-graph", "version": 1, nodes,
 edges, custom }`, described by [`schemas/graph.schema.json`](../schemas/graph.schema.json). A graph
 is a recipe: sources are referenced by name, never embedded, so opening one asks you to load the
 files its Readers need. `custom` carries the specs of the generated transformers the graph uses.
@@ -52,6 +52,11 @@ files its Readers need. `custom` carries the specs of the generated transformers
 A graph opened from a file comes back with every node's SQL restricted, whatever it asked for
 ([security.md](security.md)). Transformer renames are handled by `aliases`, param shape changes by
 `migrations` ([ADR 0007](decisions/0007-graph-format.md)).
+
+**Save ▸ To this browser** (⌘S / Ctrl+S) keeps the same content as a named workspace in this
+browser, on this computer; **Open ▸ From this browser** (⌘O / Ctrl+O) lists them to open or delete.
+They live in the browser's storage for this site, so clearing its site data removes them. As with a
+file, a workspace holds the graph, not the data: load the files its Readers need after opening it.
 
 ## Generated transformers
 
