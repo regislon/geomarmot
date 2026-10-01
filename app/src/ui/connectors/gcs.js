@@ -190,15 +190,17 @@ function renderGoogle() {
   const signed = signedIn();
   const g = elements.google;
   g.root.hidden = false;
-  g.clientRow.hidden = Boolean(builtInClientId()) || (Boolean(id) && !g.editing);
-  g.signIn.hidden = !id || signed;
+  // Signed in, the card shrinks to a line above the bucket; otherwise it is the whole pane.
+  g.root.classList.toggle("signed", signed);
+  g.signIn.hidden = signed;
   g.signOut.hidden = !signed;
-  g.change.hidden = Boolean(builtInClientId()) || !id || !g.clientRow.hidden;
-  g.text.textContent = !id
-    ? "This page has no GeoMarmot server behind it, so it reads buckets with your own Google account. Paste the OAuth client ID set up for this site (docs: Using GeoMarmot ▸ Google Cloud Storage)."
-    : signed
-      ? "Signed in with Google, read-only. The sign-in lasts about an hour and is forgotten when the tab closes."
-      : "Sign in with your Google account to browse the buckets it can read. GeoMarmot only asks to read.";
+  g.clientRow.hidden = !g.editing;
+  g.change.hidden = Boolean(builtInClientId()) || g.editing || signed;
+  g.text.textContent = signed
+    ? "Signed in with Google, read-only, until the tab closes or about an hour passes."
+    : g.editing
+      ? "This site is not registered with Google yet. Paste its OAuth client ID, set up once by whoever runs the site (Using GeoMarmot ▸ Google Cloud Storage explains how)."
+      : "Sign in with your Google account to see the buckets it can read. GeoMarmot only asks to read, and keeps the sign-in in this tab.";
   elements.list.hidden = !signed;
   elements.bucket.parentElement.hidden = !signed;
   elements.path.hidden = !signed;
@@ -242,12 +244,16 @@ export function initGcs(config) {
   g.clientInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") saveId();
   });
-  g.change.addEventListener("click", () => {
+  const setUp = () => {
     g.editing = true;
     g.clientInput.value = clientId();
     renderGoogle();
-  });
+    g.clientInput.focus();
+  };
+  g.change.addEventListener("click", setUp);
   g.signIn.addEventListener("click", () => {
+    // Not registered yet: the button leads to the one-time setup instead of a popup that would fail.
+    if (!clientId()) return setUp();
     signIn()
       .then(showGcs)
       .catch((err) => note(err.message, true));

@@ -219,6 +219,94 @@
   }
 }
 
+/* Without the server: Google's standard sign-in, centred, until signed in. */
+.gcs-google {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: center;
+  padding: var(--sp-4) 0;
+}
+
+.gcs-google[hidden] {
+  display: none;
+}
+
+.gcs-google.signed {
+  justify-items: stretch;
+  padding: 0;
+}
+
+.gcs-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  max-width: 380px;
+  text-align: center;
+}
+
+.gcs-google.signed .gcs-card {
+  display: flex;
+  max-width: none;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.gcs-google.signed .gcs-card-icon,
+.gcs-google.signed h3 {
+  display: none;
+}
+
+.gcs-card-icon {
+  font-size: 34px;
+}
+
+.gcs-card h3 {
+  font-size: 18px;
+}
+
+.gcs-google .url-row {
+  width: min(480px, 100%);
+}
+
+/* Google's branding for the button: white, grey outline, the four-colour G. */
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 12px;
+  background: #fff;
+  border: 1px solid #747775;
+  border-radius: 20px;
+  color: #1f1f1f;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.google-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #747775;
+}
+
+.google-btn[hidden] {
+  display: none;
+}
+
+.g-logo {
+  width: 18px;
+  height: 18px;
+}
+
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+}
+
 /* ---------- workspaces kept in this browser ---------- */
 
 .workspace-panel {
