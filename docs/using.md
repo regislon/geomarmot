@@ -5,6 +5,11 @@ and leaves through **Writers**. Nothing is computed until you look at it — sel
 rows appear in the table and its geometry on the map. The **ⓘ** at the start of a row opens that feature: all its
 attributes, and its geometry described (type, vertices, extents, area, validity, WKT).
 
+Anything that takes more than a moment — the engine starting, a file opening or downloading, the
+graph running its slower steps (hexagons, overlays, Zarr chunks), Run writing files — shows a
+progress card in the middle of the canvas, with a percentage when it is known. You can keep working
+while it shows.
+
 ## The toolbar
 
 | Tool | What it does |

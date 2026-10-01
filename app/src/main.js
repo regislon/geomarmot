@@ -24,7 +24,7 @@ import {
   setHiddenLayers,
   zoomToFeature,
 } from "./ui/map/index.js";
-import { initProgress } from "./ui/progress.js";
+import { initProgress, reportProgress, withProgress } from "./ui/progress.js";
 import { initSheetPicker } from "./ui/sheetpicker.js";
 import { initTable } from "./ui/table.js";
 import { initZarrPicker } from "./ui/zarrpicker.js";
@@ -157,11 +157,10 @@ async function main() {
   initQuickAdd();
   initHistory();
   initAssistant();
-  // Building a full tile's hexagons takes long enough to need saying so.
-  setProgressReporter((message) => setStatus(message));
-  setOverlayProgress((message) => setStatus(message));
-  // Reading a Zarr window is chunk-by-chunk over the network; it needs saying so.
-  setZarrProgress((message) => setStatus(message || ""));
+  // Building hexagons, noding polygons and reading Zarr chunks take long enough to need a bar.
+  setProgressReporter(reportProgress);
+  setOverlayProgress(reportProgress);
+  setZarrProgress(reportProgress);
 
   el("btn-export").addEventListener("click", () => exportWriters(connectedWriters()));
   el("btn-arrange").addEventListener("click", arrange);
@@ -230,7 +229,12 @@ async function main() {
     close: el("zarr-close"),
     onAdd: addZarrSource,
   });
-  initProgress({ root: el("progress"), label: el("progress-label"), fill: el("progress-fill") });
+  initProgress({
+    root: el("progress"),
+    label: el("progress-label"),
+    fill: el("progress-fill"),
+    percent: el("progress-percent"),
+  });
   initSheetPicker({
     modal: el("sheet-modal"),
     title: el("sheet-title"),
@@ -258,16 +262,23 @@ async function main() {
   // Deliberately not awaited: MapLibre withholds `load` in a hidden tab, and
   // the data engine must not wait on the scenery.
   initMap("map", el("map-status"), el("basemap-select"), { onResolution: renderCoarsenSelect });
-  await boot();
-  // Generated transformers first: the autosaved graph may use them.
-  await installStoredCustoms();
-  await restoreAutosave();
-  renderPalette();
-  // The restored graph is the baseline; undo should not walk back past it into
-  // an empty canvas the user never saw.
-  resetHistoryBaseline();
-  updateHistoryButtons();
-  await recompile();
+  await withProgress(
+    "Starting the engine…",
+    async (task) => {
+      await boot();
+      task.update("Restoring your last graph…", null);
+      // Generated transformers first: the autosaved graph may use them.
+      await installStoredCustoms();
+      await restoreAutosave();
+      renderPalette();
+      // The restored graph is the baseline; undo should not walk back past it into
+      // an empty canvas the user never saw.
+      resetHistoryBaseline();
+      updateHistoryButtons();
+      await recompile();
+    },
+    { delay: 0 },
+  );
   setStatus(graph.nodes.length ? "Restored your last graph." : "Drop a file to start.");
 }
 

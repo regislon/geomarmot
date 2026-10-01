@@ -15,6 +15,7 @@ import { LONLAT, describe, findGeometryColumn, geometryExpression } from "../../
 import { rowsOf } from "../../core/rows.js";
 import { columnType, createCore, createLayer, geometryBlob, ident, registerLayer, srsFor } from "./gpkg-format.js";
 import { download } from "./index.js";
+import { reportProgress } from "../../ui/progress.js";
 
 let sqlJs = null;
 async function loadSqlJs() {
@@ -105,6 +106,8 @@ export async function exportGeoPackage(viewName, baseName, crs = LONLAT) {
     let extent = null;
     let count = 0;
 
+    const [{ n: total }] = rowsOf(await conn().query(`SELECT count(*) AS n FROM ${viewName}`));
+    const rows = Number(total);
     db.run("BEGIN");
     // The main connection, streamed in batches: the Cancel button beside Run stops it.
     const reader = await conn().send(`SELECT ${select.join(", ") || "1 AS __one"} FROM ${viewName}`);
@@ -134,6 +137,8 @@ export async function exportGeoPackage(viewName, baseName, crs = LONLAT) {
         attributes.forEach((_, i) => values.push(bindable(row[`a${i}`])));
         insert.run(values);
         count += 1;
+        if (count % 5000 === 0)
+          reportProgress(`Writing ${baseName}.gpkg… ${count.toLocaleString()} of ${rows.toLocaleString()} rows`);
       }
     }
     insert.free();

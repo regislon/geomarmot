@@ -3,7 +3,7 @@
  * says when the graph has settled.
  */
 
-import { onEngineRestart, readQuery } from "../core/duck.js";
+import { onEngineRestart, onEngineRestarting, readQuery } from "../core/duck.js";
 import { graph, mainCompiler, validate } from "../core/graph/index.js";
 import { sources } from "../io/sources.js";
 import { setIssues, setPortCounts } from "./canvas/index.js";
@@ -13,6 +13,7 @@ import { recordHistory } from "./history.js";
 import { refreshInspection, refreshInspector } from "./inspect.js";
 import { autosave } from "./persistence.js";
 import { setReadGuard } from "./read-guard.js";
+import { beginTask } from "./progress.js";
 
 const RECOMPILE_DEBOUNCE_MS = 220;
 // The generation the UI is showing, held by a lease so its views stay valid
@@ -86,7 +87,14 @@ async function updatePortCounts(lease) {
 export async function recompile() {
   currentIssues = validate(sources);
   setIssues(currentIssues);
-  const result = await mainCompiler.compile();
+  // Shown only if it lasts (most compiles take milliseconds); slow steps report into it.
+  const task = beginTask("Running the graph…");
+  let result;
+  try {
+    result = await mainCompiler.compile();
+  } finally {
+    task.end();
+  }
   const next = mainCompiler.acquire();
   if (next.gen <= uiLease.gen) {
     // Another recompile already moved the UI to this generation or a newer one.
@@ -152,12 +160,22 @@ export async function graphSettled() {
 }
 
 // A restarted engine has none of the old generation's views: recompile, and say what happened.
+// Restarting reloads every source, which can take a while: say so until the graph is rebuilt.
+let restarting = null;
+onEngineRestarting(() => {
+  restarting ??= beginTask("Restarting the engine and reloading your files…", { delay: 0 });
+});
 onEngineRestart(async (reason) => {
   uiLease = mainCompiler.acquire();
   views = uiLease.views;
   crsByNode = uiLease.crsByNode;
   nodeStates = uiLease.states;
-  await recompile();
+  try {
+    await recompile();
+  } finally {
+    restarting?.end();
+    restarting = null;
+  }
   setStatus(`The engine was restarted because ${reason}. Sources were reloaded and the graph rebuilt.`, true);
 });
 

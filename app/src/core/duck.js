@@ -41,6 +41,7 @@ const _registrations = new Map();
 /** table name -> Parquet bytes, for tables built on open (Excel sheets, Zarr arrays). */
 const _snapshots = new Map();
 const _restartListeners = new Set();
+const _restartingListeners = new Set();
 
 /**
  * Where the bundled extensions are served: the site root. In a build this
@@ -130,7 +131,12 @@ export function engineRestarts() {
   return _restarts;
 }
 
-/** Be told when the engine restarts: every connection and database object from before is gone. */
+/** Be told when a restart begins, and (onEngineRestart) when it is done and everything from before is gone. */
+export function onEngineRestarting(listener) {
+  _restartingListeners.add(listener);
+  return () => _restartingListeners.delete(listener);
+}
+
 export function onEngineRestart(listener) {
   _restartListeners.add(listener);
   return () => _restartListeners.delete(listener);
@@ -143,6 +149,7 @@ export function onEngineRestart(listener) {
  */
 export async function restartEngine(reason = "a query did not stop when asked") {
   _restarts += 1;
+  for (const listener of _restartingListeners) listener(reason);
   try {
     await _db?.terminate();
   } catch {

@@ -1,27 +1,43 @@
 /*
- * The loading bar: a card floating under the toolbar, so it can come and go
- * without the layout below it jumping.
+ * The progress card: floating in the middle of the canvas, over the graph it
+ * is working on. It lets clicks through, so editing goes on while it shows.
  */
 .progress {
-  position: fixed;
-  top: 52px;
+  position: absolute;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  width: min(420px, calc(100% - 32px));
-  padding: 8px 12px 10px;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  width: min(380px, calc(100% - 32px));
+  padding: 12px 16px 14px;
   background: var(--panel);
+  border: 1px solid var(--border);
   border-radius: var(--radius-2);
   box-shadow: var(--shadow-6);
+  pointer-events: none;
 }
 
 .progress[hidden] {
   display: none;
 }
 
-.progress-label {
+.progress-head {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.progress-percent {
+  margin-left: auto;
   font-size: 12px;
-  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.progress-label {
+  min-width: 0;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

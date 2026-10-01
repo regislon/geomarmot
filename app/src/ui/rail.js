@@ -13,6 +13,7 @@ import { openZarrPicker } from "./zarrpicker.js";
 import { onGraphChange, scheduleRecompile } from "./compile-loop.js";
 import { el, setStatus } from "./dom.js";
 import { inspectedKeys, inspectionColours, refreshInspector, setInspectedKeys, splitKey } from "./inspect.js";
+import { withProgress } from "./progress.js";
 
 const NODES_PER_ROW = 4;
 
@@ -160,7 +161,7 @@ export async function loadFiles(files, dropAt = null) {
     try {
       setStatus(`Reading ${file.name}…`);
       // A container such as a GeoPackage yields one source per layer.
-      const added = await addLocalFile(file, { chooseSheets: pickSheets });
+      const added = await withProgress(`Opening ${file.name}…`, () => addLocalFile(file, { chooseSheets: pickSheets }));
       loaded.push(...added);
       setStatus(
         !added.length
@@ -192,7 +193,8 @@ export async function loadUrl(input, { clearInput = true } = {}) {
   }
   try {
     setStatus("Reading the remote file…");
-    const added = await addRemoteFile(input, { chooseSheets: pickSheets });
+    const name = decodeURIComponent(input.trim().split("/").pop() || "the remote file");
+    const added = await withProgress(`Opening ${name}…`, () => addRemoteFile(input, { chooseSheets: pickSheets }));
     setStatus(
       !added.length
         ? "No sheet opened."
@@ -220,7 +222,7 @@ export async function loadUrl(input, { clearInput = true } = {}) {
  */
 export async function addZarrSource(choice) {
   setStatus(`Reading ${choice.variable.name}…`);
-  const added = await addZarrLayer(choice);
+  const added = await withProgress(`Reading ${choice.variable.name}…`, () => addZarrLayer(choice));
   setStatus(`${added[0].name}: ${added[0].rows.toLocaleString()} rows.`);
   renderSources();
   refreshInspector();
