@@ -90,7 +90,7 @@ Coding agents start from [AGENTS.md](AGENTS.md).
 | [Engines](docs/engines.md) | DuckDB-Wasm, GDAL, JSTS, h3-js, zarrita, SheetJS — and their limits |
 | [Formats](docs/formats.md) | what reads and writes what, and how |
 | [Security and privacy](docs/security.md) | the local server, the SQL boundary, the assistant's data levels |
-| [Parity](docs/parity.md), [decisions](docs/decisions/), [debt](docs/debt.md) | what was kept, what was decided, what is left |
+| [Parity](docs/parity.md), [debt](docs/debt.md) | what was kept from the original app, and what is left to do |
 
 ## Licence
 

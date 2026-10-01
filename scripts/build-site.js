@@ -7,7 +7,7 @@
  *
  * The pages are staged into _site_src/ first, with their links fixed for the site: a link to
  * another page of the site becomes a link to its page, and a link to any other file of the
- * repository points at that file on GitHub. site/ holds the site's own assets (logo, styles).
+ * repository (docs/decisions/ included) points at that file on GitHub. site/ holds the site's own assets (logo, styles).
  */
 
 import { execFileSync } from "node:child_process";
@@ -30,15 +30,13 @@ const pages = new Map([
   ["CONTRIBUTING.md", "contributing.md"],
 ]);
 for (const name of readdirSync("docs")) if (name.endsWith(".md")) pages.set(`docs/${name}`, name);
-for (const name of readdirSync("docs/decisions"))
-  pages.set(`docs/decisions/${name}`, name === "README.md" ? "decisions/index.md" : `decisions/${name}`);
-const folders = new Map([["docs/decisions", "decisions/index.md"]]);
+// docs/decisions/ stays out of the site: it is the record for maintainers and coding agents.
 
 function siteLink(fromRepo, fromSite, href) {
   if (/^([a-z]+:|#|\/)/i.test(href)) return href;
   const [path, anchor] = href.split("#");
   const target = posix.normalize(posix.join(posix.dirname(fromRepo), path)).replace(/\/$/, "");
-  const staged = pages.get(target) || folders.get(target);
+  const staged = pages.get(target);
   const hash = anchor ? `#${anchor}` : "";
   if (staged) return posix.relative(posix.dirname(fromSite), staged) + hash;
   if (target.startsWith("docs/img/")) return posix.relative(posix.dirname(fromSite), target.slice("docs/".length));

@@ -19,3 +19,4 @@ tests/fixtures/generated/
 app/dist-test/
 _site/
 _site_src/
+.cache/

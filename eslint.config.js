@@ -9,6 +9,7 @@ export default [
       "dist-test/",
       "_site/",
       "_site_src/",
+      ".cache/",
       "server/",
       ".local/",
       "test-results/",

@@ -23,18 +23,6 @@ nav = [
   { "How it works" = [
     { "Architecture" = "architecture.md" },
     { "Engines" = "engines.md" },
-    { "Decisions" = [
-      "decisions/index.md",
-      "decisions/0001-test-engine.md",
-      "decisions/0002-offline-bundle.md",
-      "decisions/0003-sheetjs.md",
-      "decisions/0004-sql-inspection-and-cancellation.md",
-      "decisions/0005-proxy-auth.md",
-      "decisions/0006-terms-gate.md",
-      "decisions/0007-graph-format.md",
-      "decisions/0008-offline-promise.md",
-      "decisions/0009-ai-relay.md",
-    ] },
   ] },
   { "Contributing" = [
     { "Getting started" = "contributing.md" },
