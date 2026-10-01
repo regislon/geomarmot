@@ -21,6 +21,20 @@ on a vendor. GeoMarmot is built to be extended that way — every transformer is
 with its tests and documentation, and the rules are written down for people and coding agents
 alike ([CONTRIBUTING](CONTRIBUTING.md)).
 
+## Why a marmot?
+
+- **Small and light.** A marmot is not a big animal, and GeoMarmot is not a big install: it is a web
+  page, and the heavy lifting happens in your own browser tab.
+- **It digs tunnels.** Marmots dig burrows of connected tunnels; GeoMarmot digs the tunnels your
+  data flows through, from one transformer to the next.
+- **It doesn't try to do everything, and it doesn't bother anyone.** A marmot keeps to its own
+  burrow. GeoMarmot will not do every job a big desktop GIS does, but it does not get in your way
+  either: nothing to install, no account, and your files never leave your machine.
+- **It knows when to rest.** Marmots hibernate. GeoMarmot computes nothing until you look at a
+  result: each transformer is a view, woken up only when something reads it.
+- **It whistles.** A marmot whistles to warn the others. GeoMarmot says what went wrong in plain
+  words, and its assistant asks before it sees any of your data.
+
 ## What it does
 
 - **Transformers** for attributes, filters, joins and overlays, reshaping, geometry, analysis and
