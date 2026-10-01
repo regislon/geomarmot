@@ -17,6 +17,7 @@ while it shows.
 | **New** | Starts an empty workspace. It asks first; the previous graph stays in Undo. |
 | **Open ▾** | *From this computer…* opens a graph file (`.flow.json`). *From this browser…* (⌘O / Ctrl+O) lists the workspaces saved in this browser. |
 | **Save ▾** | *To this computer* downloads the graph as `graph.flow.json`. *To this browser* (⌘S / Ctrl+S) saves it as a named workspace in this browser; *To this browser as…* (⇧⌘S / Ctrl+Shift+S) saves it under a new name. |
+| **Connect** | Opens data from this computer, a bucket or a link ([below](#getting-data-in)). |
 | **Run** | Writes every connected **Writer** to its file. It is greyed out until a Writer has something connected. A **Cancel** button appears while it runs. |
 | **Undo**, **Redo** | Step back and forward through your edits (⌘Z / Ctrl+Z, ⇧⌘Z / Ctrl+Shift+Z). |
 | **Arrange** | Lays the nodes out in columns, each one right of what feeds it. |
@@ -24,10 +25,23 @@ while it shows.
 
 ## Getting data in
 
-Drop files on the **Layers** panel, or paste a URL. Each file becomes a source; **+ Reader** adds a
-Reader node for it. Files you drop are read in your browser and never uploaded; remote files are
-read in parts, as queries need them. Which formats are supported, and how, is in
-[Formats](formats.md).
+Drag files onto the page, or click **Connect** in the toolbar and pick where the data is:
+
+| Connector | What it opens |
+|---|---|
+| **This computer** (the default) | *Choose files…*, or, in Chrome and Edge, *Open a folder…* to walk a folder and pick files from it. The folder can be reopened after a reload; the browser asks first. |
+| **Google Cloud Storage** | Type a bucket name and walk its folders. It needs GeoMarmot running on your computer ([Run it](../README.md#run-it)), which reads the bucket with your own Google credentials. |
+| **Web address** | A link to a file, a `gs://` path, or a Zarr store. |
+| **Database** | Not available yet. |
+
+The window remembers the connector you used last, the bucket and folder you were in, and recent
+buckets and links (links with a query string, such as signed URLs, are not kept). It never keeps a
+password or a key.
+
+Each file becomes a line under **Layers**; hover it for its rows, columns and CRS, and click
+**+ Reader** to add a Reader node for it. Files from your computer are read in your browser and
+never uploaded; remote files are read in parts, as queries need them. Which formats are supported,
+and how, is in [Formats](formats.md).
 
 ## Building a graph
 

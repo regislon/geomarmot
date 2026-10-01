@@ -11,6 +11,7 @@ import { createServer } from "node:net";
 import { join } from "node:path";
 import { serve } from "../harness/serve.js";
 import { geopackage, hasOgr2ogr, points } from "../fixtures/build.js";
+import { openLink } from "./app-target.js";
 
 const hasUv = (() => {
   try {
@@ -102,10 +103,7 @@ async function openApp(browser, withToken) {
   return { context, page };
 }
 
-async function loadUrl(page, path) {
-  await page.fill("#url-input", path);
-  await page.click("#btn-load-url");
-}
+const loadUrl = openLink;
 
 test("with a session, gs:// files are read through the proxy with range requests", async ({ browser }) => {
   const { context, page } = await openApp(browser, true);
@@ -130,15 +128,25 @@ test("without the launch token, the proxy refuses", async ({ browser }) => {
   await context.close();
 });
 
-test("the bucket browser lists a bucket through the server and opens a file from it", async ({ browser }) => {
+test("the bucket connector lists a bucket through the server, opens a file and remembers the place", async ({
+  browser,
+}) => {
   const { context, page } = await openApp(browser, true);
-  await page.click("#btn-browse");
-  await expect(page.locator("#browse-modal")).toBeVisible();
+  await page.click("#btn-connect");
+  await page.click("[data-connector=gcs]");
+  await expect(page.locator("#connector-gcs")).toBeVisible();
   await page.fill("#browse-bucket", "bucket");
   await page.click("#browse-go");
   await expect(page.locator("#browse-list")).toContainText("table.csv");
   await expect(page.locator("#browse-list")).toContainText("tiles");
   await page.locator("#browse-list").getByText("table.csv").click();
+  await expect(page.locator("#connect-modal")).toBeHidden();
   await expect(page.locator("#status")).toContainText("20,000 rows");
+  // Reopened after a reload: the bucket connector, in the bucket it was left in.
+  await page.reload();
+  await expect(page.locator("#status")).toContainText(/Drop a file|nodes ready/, { timeout: 90_000 });
+  await page.click("#btn-connect");
+  await expect(page.locator("#connector-gcs")).toBeVisible();
+  await expect(page.locator("#browse-list")).toContainText("table.csv");
   await context.close();
 });

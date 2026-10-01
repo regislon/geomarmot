@@ -14,7 +14,7 @@ import { clear as clearGraph, graph } from "./core/graph/index.js";
 import { setProgressReporter } from "./engines/h3/index.js";
 import { setOverlayProgress } from "./engines/jsts.js";
 import { setProgressReporter as setZarrProgress } from "./io/zarr/index.js";
-import { initBrowser, openBrowser } from "./ui/browser.js";
+import { initConnectors, openConnect } from "./ui/connectors/index.js";
 import { arrange, initCanvas, render as renderCanvas, select as selectNode, setInspected } from "./ui/canvas/index.js";
 import {
   initMap,
@@ -49,7 +49,7 @@ import {
 import { initGeometryModal, initHelpModal, showGeometryInfo } from "./ui/modals.js";
 import { autosave, exportGraph, importGraph, restoreAutosave } from "./ui/persistence.js";
 import { initQuickAdd } from "./ui/quickadd.js";
-import { addZarrSource, loadUrl, renderPalette, renderSources } from "./ui/rail.js";
+import { addZarrSource, loadFiles, loadUrl, renderPalette, renderSources } from "./ui/rail.js";
 import { initAssistant } from "./ui/assistant/index.js";
 import { initMenu } from "./ui/menu.js";
 import { detachWorkspace, initWorkspaces, openFromBrowser, saveToBrowser } from "./ui/workspaces.js";
@@ -84,8 +84,8 @@ async function openSession() {
 
 /**
  * Is the local server behind this page? On a static host (GitHub Pages)
- * ./healthz does not answer: the bucket browser is hidden and gs:// paths say
- * why they cannot work.
+ * ./healthz does not answer: the bucket connector and gs:// paths say why they
+ * cannot work.
  */
 async function detectServer() {
   let proxy = false;
@@ -97,7 +97,6 @@ async function detectServer() {
     /* no server */
   }
   setProxyAvailable(proxy);
-  el("btn-browse").hidden = !proxy;
 }
 
 async function main() {
@@ -207,18 +206,40 @@ async function main() {
     selectNode(null);
     onGraphChange();
   });
-  el("btn-load-url").addEventListener("click", () => loadUrl(el("url-input").value));
-  initBrowser({
-    modal: el("browse-modal"),
-    bucket: el("browse-bucket"),
-    go: el("browse-go"),
-    close: el("browse-close"),
-    path: el("browse-path"),
-    list: el("browse-list"),
-    note: el("browse-note"),
-    onPick: (gsPath) => loadUrl(gsPath, { clearInput: false }),
+  initConnectors({
+    modal: el("connect-modal"),
+    list: el("connect-list"),
+    close: el("connect-close"),
+    panes: {
+      computer: el("connector-computer"),
+      gcs: el("connector-gcs"),
+      url: el("connector-url"),
+      database: el("connector-database"),
+    },
+    computer: {
+      files: el("computer-files"),
+      folder: el("computer-folder"),
+      reopen: el("computer-reopen"),
+      path: el("computer-path"),
+      list: el("computer-list"),
+      note: el("computer-note"),
+    },
+    gcs: {
+      bucket: el("browse-bucket"),
+      recent: el("browse-buckets"),
+      go: el("browse-go"),
+      path: el("browse-path"),
+      list: el("browse-list"),
+      note: el("browse-note"),
+    },
+    urlInput: el("url-input"),
+    urlGo: el("btn-load-url"),
+    urlRecent: el("url-recent"),
+    onFiles: (files) => loadFiles(files),
+    onUrl: loadUrl,
+    chooseFiles: () => el("file-input").click(),
   });
-  el("btn-browse").addEventListener("click", () => openBrowser());
+  el("btn-connect").addEventListener("click", () => openConnect());
   initZarrPicker({
     modal: el("zarr-modal"),
     title: el("zarr-title"),
@@ -243,9 +264,6 @@ async function main() {
     back: el("sheet-back"),
     add: el("sheet-add"),
     close: el("sheet-close"),
-  });
-  el("url-input").addEventListener("keydown", (event) => {
-    if (event.key === "Enter") loadUrl(el("url-input").value);
   });
   el("limit-select").addEventListener("change", (event) => {
     // Empty value is the "No limit" option.

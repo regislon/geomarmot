@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import { openApp } from "./app-target.js";
+import { openApp, openLink } from "./app-target.js";
 
 /** A 4×4 float32 array, uncompressed, with an affine transform and consolidated metadata. */
 function zarrStore() {
@@ -42,8 +42,7 @@ function zarrStore() {
 test("open a Zarr store: pick the array, see the cost, add the layer", async ({ browser }) => {
   const app = await openApp(browser, { files: zarrStore() });
   const { page } = app;
-  await page.fill("#url-input", `${app.server.url}/__files/store.zarr`);
-  await page.click("#btn-load-url");
+  await openLink(page, `${app.server.url}/__files/store.zarr`);
   await expect(page.locator("#zarr-modal")).toBeVisible();
   await expect(page.locator("#zarr-variables")).toContainText("band");
   await page.locator(".zarr-var", { hasText: "band" }).click();

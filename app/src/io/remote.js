@@ -11,6 +11,7 @@ let proxyAvailable = true;
 export function setProxyAvailable(available) {
   proxyAvailable = Boolean(available);
 }
+export const isProxyAvailable = () => proxyAvailable;
 
 /**
  * Turn whatever the user pasted into a URL the browser can actually read.

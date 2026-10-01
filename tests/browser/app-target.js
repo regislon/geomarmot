@@ -22,3 +22,11 @@ export async function openApp(browser, { files } = {}) {
   );
   return { page, server, context, errors };
 }
+
+/** Open a link through the Connect window's Web address connector. */
+export async function openLink(page, link) {
+  await page.click("#btn-connect");
+  await page.click("[data-connector=url]");
+  await page.fill("#url-input", link);
+  await page.click("#btn-load-url");
+}

@@ -47,6 +47,15 @@
           </div>
         </div>
         <div class="tool-group">
+          <button id="btn-connect" class="tool" title="Open data from your computer, a bucket or a web address">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 3v4M15 3v4" />
+              <path d="M6 7h12v4a6 6 0 0 1-12 0z" />
+              <path d="M12 17v4" /></svg
+            ><span>Connect</span>
+          </button>
+        </div>
+        <div class="tool-group">
           <button id="btn-export" class="tool primary" disabled>
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M8 5l11 7-11 7z" fill="currentColor" /></svg
@@ -95,12 +104,7 @@
       <main id="middle">
         <aside id="layers">
           <h2>Layers</h2>
-          <div id="dropzone">Drop .parquet, .gpkg, .geojson, .json, .fgb, .csv or .xlsx here</div>
-          <div class="url-row">
-            <input id="url-input" type="text" placeholder="gs://bucket/file.gpkg, …/store.zarr or https://…" />
-            <button id="btn-load-url">Load</button>
-          </div>
-          <button id="btn-browse" class="wide-btn">Browse a bucket…</button>
+          <div id="dropzone">Drop files here, or use <strong>Connect</strong></div>
           <div id="source-list"></div>
 
           <h2 class="rail-section">Transformers</h2>
@@ -250,19 +254,67 @@
       </div>
     </div>
 
-    <div id="browse-modal" class="modal" hidden>
-      <div class="modal-panel">
+    <div id="connect-modal" class="modal" hidden>
+      <div class="modal-panel connect-panel">
         <div class="modal-head">
-          <h2>Browse a bucket</h2>
-          <button id="browse-close" class="icon-btn" title="Close">×</button>
+          <h2>Connect to data</h2>
+          <button id="connect-close" class="icon-btn" title="Close">×</button>
         </div>
-        <div class="url-row">
-          <input id="browse-bucket" type="text" autocomplete="off" spellcheck="false" placeholder="bucket name" />
-          <button id="browse-go">Open</button>
+        <div class="connect-body">
+          <nav id="connect-list" class="connect-list" aria-label="Connectors"></nav>
+          <section class="connect-pane">
+            <div id="connector-computer" class="connector" hidden>
+              <p class="muted">Open files from this computer. They are read in your browser and never uploaded.</p>
+              <div class="connect-actions">
+                <button id="computer-files" class="primary">Choose files…</button>
+                <button id="computer-folder" hidden>Open a folder…</button>
+                <button id="computer-reopen" hidden></button>
+              </div>
+              <div id="computer-path" class="browse-path"></div>
+              <div id="computer-list" class="browse-list"></div>
+              <p id="computer-note" class="muted"></p>
+            </div>
+            <div id="connector-gcs" class="connector" hidden>
+              <div class="url-row">
+                <input
+                  id="browse-bucket"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="bucket name"
+                  list="browse-buckets"
+                />
+                <datalist id="browse-buckets"></datalist>
+                <button id="browse-go">Open</button>
+              </div>
+              <div id="browse-path" class="browse-path"></div>
+              <div id="browse-list" class="browse-list"></div>
+              <p id="browse-note" class="muted"></p>
+            </div>
+            <div id="connector-url" class="connector" hidden>
+              <p class="muted">
+                A link to a file: Parquet, CSV, GeoPackage, GeoJSON, FlatGeobuf, Excel, or a Zarr store. Large files are
+                read in parts, as queries need them.
+              </p>
+              <div class="url-row">
+                <input
+                  id="url-input"
+                  type="text"
+                  placeholder="https://…/data.parquet, gs://bucket/file.gpkg or …/store.zarr"
+                />
+                <button id="btn-load-url" class="primary">Open</button>
+              </div>
+              <div id="url-recent" class="browse-list"></div>
+            </div>
+            <div id="connector-database" class="connector" hidden>
+              <p>Reading from a database (PostgreSQL/PostGIS, and others) is not available yet.</p>
+              <p class="muted">
+                A web page cannot talk to a database server directly, so this connector will go through the local
+                GeoMarmot server, which can. In the meantime, export a table to Parquet or GeoPackage and open the file.
+              </p>
+            </div>
+          </section>
         </div>
-        <div id="browse-path" class="browse-path"></div>
-        <div id="browse-list" class="browse-list"></div>
-        <p id="browse-note" class="muted"></p>
       </div>
     </div>
 

@@ -65,7 +65,7 @@ GeoMarmot is not published as a package. There are two ways to use it.
 
 Open **<https://regislon.github.io/geomarmot/demo/>**. Nothing to install: the app runs entirely in your
 tab, and the files you open stay on your machine. The hosted copy has no server behind it, so
-`gs://` buckets and the bucket browser are not available there; the assistant works with an API key
+`gs://` paths and the Google Cloud Storage connector are not available there; the assistant works with an API key
 you type into its settings.
 
 ### 2. From a clone of the repository

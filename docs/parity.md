@@ -31,7 +31,7 @@ Every item of PLAN.md §1, with the test that holds it. `T` = fixture or I/O tes
 | ✅ | Excel in a worker: sheet and header-row steps, per-cell types, dates, empty unnamed columns dropped (T + E) | `io.spec.js` › Excel; `e2e.spec.js` › Excel |
 | ✅ | Zarr v2 through the picker, with a priced plan (E) | `zarr.spec.js` |
 | ✅ | CRS per source, CRS override, reprojection to lon/lat on read (T) | `transformers/reader/tests.json`; `io.spec.js` › projected GeoPackage |
-| ✅ | Bucket browser, type a bucket, through the local proxy (E) | `proxy.spec.js` › bucket browser |
+| ✅ | Bucket browser (now the Google Cloud Storage connector), type a bucket, through the local proxy (E) | `proxy.spec.js` › bucket connector |
 | ✅ | Loading bar with real progress (E) | `e2e.spec.js` › loading bar |
 
 ### Transformers

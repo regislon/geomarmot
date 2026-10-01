@@ -1,4 +1,4 @@
-/* ---------- bucket browser ---------- */
+/* ---------- modals, and the connectors window ---------- */
 
 .wide-btn {
   width: 100%;
@@ -104,8 +104,119 @@
   font-family: var(--font-mono);
 }
 
-#browse-note.error {
+#browse-note.error,
+#computer-note.error {
   color: #a4331f;
+}
+
+.connect-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(860px, 100%);
+  height: min(70vh, 600px);
+}
+
+.connect-body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--sp-3);
+  min-height: 0;
+}
+
+.connect-list {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  border-right: 1px solid var(--border);
+  padding-right: var(--sp-2);
+}
+
+.connect-item {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  text-align: left;
+  border-color: transparent;
+  background: none;
+  padding: 6px;
+}
+
+.connect-item[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: #fff;
+}
+
+.connect-item[aria-pressed="true"] .connect-detail {
+  color: inherit;
+}
+
+.connect-item.soon {
+  opacity: 0.7;
+}
+
+.connect-icon {
+  font-size: 18px;
+}
+
+.connect-name {
+  display: block;
+  font-weight: 600;
+}
+
+.connect-detail {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.connect-pane {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.connector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 0;
+  flex: 1;
+}
+
+.connector[hidden] {
+  display: none;
+}
+
+.connector .browse-list {
+  flex: 1;
+  min-height: 120px;
+}
+
+#url-recent {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+@media (max-width: 640px) {
+  .connect-panel {
+    height: 85vh;
+  }
+
+  .connect-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .connect-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-right: none;
+    padding-right: 0;
+  }
 }
 
 /* ---------- workspaces kept in this browser ---------- */

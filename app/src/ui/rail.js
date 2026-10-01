@@ -19,61 +19,58 @@ const NODES_PER_ROW = 4;
 
 /* ---------- sources ---------- */
 
-function h3Badge(h3) {
-  if (h3.mode === "none") {
-    return `<span class="badge warn" title="${h3.note}">H3 name, no index</span>`;
-  }
-  // In column mode the child resolution is whatever the column says, which we
-  // have not queried — so label it by where the index came from, not by a
-  // resolution we would be guessing at.
-  if (h3.mode === "column") {
-    return `<span class="badge geo" title="Parent ${h3.parent} — index from the &quot;${h3.column}&quot; column">H3 index</span>`;
-  }
-  return `<span class="badge geo" title="Parent ${h3.parent} — index from row order">H3 res ${h3.resolution}</span>`;
-}
-
-function sourceBadges(source) {
-  const badges = [];
-  if (source.geometry) {
-    badges.push(`<span class="badge geo">geometry</span>`);
-  } else if (source.h3) {
-    badges.push(h3Badge(source.h3));
-  }
+/**
+ * What a layer's line says on hover: its size, geometry or H3 index, CRS and
+ * where it came from — and the one thing worth a mark on the line itself, a
+ * CRS that was assumed rather than declared.
+ */
+function sourceFacts(source) {
+  const facts = [`${source.rows.toLocaleString()} rows · ${source.columns.length} columns`];
+  let warn = null;
+  if (source.geometry) facts.push("geometry");
+  else if (source.h3?.mode === "none") warn = source.h3.note;
+  else if (source.h3?.mode === "column")
+    facts.push(`H3 index from the "${source.h3.column}" column, parent ${source.h3.parent}`);
+  else if (source.h3) facts.push(`H3 res ${source.h3.resolution} from row order, parent ${source.h3.parent}`);
   const crs = source.crs;
-  if ((source.geometry || source.h3?.mode !== "none") && crs) {
-    if (crs.assumed) {
-      badges.push(
-        `<span class="badge warn" title="The file declares no CRS, so it is taken as lon/lat. Set a CRS override on the Reader if that is wrong.">${crs.code}?</span>`,
-      );
-    } else if (!isLonLat(crs)) {
-      // Any Reader on this source reprojects it, so say so here rather than
-      // leaving a bare projected CRS looking like a problem. `display` is set
-      // when the code itself is a whole WKT — too long for a badge.
-      badges.push(
-        `<span class="badge" title="Reprojected to lon/lat when read — ${crs.code}">${crs.display || crs.code} → 4326</span>`,
-      );
-    } else {
-      badges.push(`<span class="badge">${crs.display || crs.code}</span>`);
-    }
+  if ((source.geometry || (source.h3 && source.h3.mode !== "none")) && crs) {
+    const code = crs.display || crs.code;
+    if (crs.assumed)
+      warn = "The file declares no CRS, so it is taken as lon/lat. Set a CRS override on the Reader if that is wrong.";
+    // Any Reader on this source reprojects it; `display` is set when the code is a whole WKT.
+    else facts.push(isLonLat(crs) ? code : `${code}, reprojected to lon/lat when read`);
   }
-  badges.push(`<span class="badge">${source.origin}</span>`);
-  return badges.join("");
+  facts.push(source.origin);
+  return { title: [source.name, ...facts, ...(warn ? [warn] : [])].join("\n"), warn };
 }
 
+/** One line per layer: kind, name, rows, + Reader and remove. */
 export function renderSources() {
   const list = el("source-list");
   list.replaceChildren();
-  if (!sources.size) {
-    list.innerHTML = `<p class="muted">No files loaded yet.</p>`;
-    return;
-  }
+  if (!sources.size) return;
   for (const source of sources.values()) {
-    const card = document.createElement("div");
-    card.className = "source";
-    card.innerHTML =
-      `<div class="source-head"><div class="source-name">${source.name}</div></div>` +
-      `<div class="source-meta">${source.rows.toLocaleString()} rows · ${source.columns.length} columns</div>` +
-      `<div>${sourceBadges(source)}</div>`;
+    const { title, warn } = sourceFacts(source);
+    const line = document.createElement("div");
+    line.className = "source";
+    line.title = title;
+    const kind = source.geometry ? "◆" : source.h3 ? "⬡" : "▤";
+    line.innerHTML =
+      `<span class="source-kind">${kind}</span><span class="source-name"></span>` +
+      (warn ? `<span class="badge warn">?</span>` : "") +
+      `<span class="source-rows">${source.rows.toLocaleString()}</span>`;
+    line.querySelector(".source-name").textContent = source.name;
+
+    const button = document.createElement("button");
+    button.className = "source-add";
+    button.textContent = "+ Reader";
+    button.title = "Add a Reader for this layer";
+    button.addEventListener("click", () => {
+      const node = placeNode("Reader");
+      node.params.sourceId = source.id;
+      selectNode(node.id);
+      onGraphChange();
+    });
 
     const remove = document.createElement("button");
     remove.className = "icon-btn source-remove";
@@ -84,20 +81,8 @@ export function renderSources() {
     remove.addEventListener("click", () => {
       removeLayer(source).catch((err) => setStatus(err.message, true));
     });
-    card.querySelector(".source-head").appendChild(remove);
-
-    const button = document.createElement("button");
-    button.className = "add-btn";
-    button.textContent = "+ Reader";
-    button.style.marginTop = "6px";
-    button.addEventListener("click", () => {
-      const node = placeNode("Reader");
-      node.params.sourceId = source.id;
-      selectNode(node.id);
-      onGraphChange();
-    });
-    card.appendChild(button);
-    list.appendChild(card);
+    line.append(button, remove);
+    list.appendChild(line);
   }
 }
 
@@ -182,12 +167,11 @@ export async function loadFiles(files, dropAt = null) {
   scheduleRecompile();
 }
 
-export async function loadUrl(input, { clearInput = true } = {}) {
+export async function loadUrl(input) {
   if (!input.trim()) return;
   // A Zarr store has no single file to open and no one obvious table inside it,
   // so it goes to the picker instead of straight into the Layers rail.
   if (isZarrPath(input)) {
-    if (clearInput) el("url-input").value = "";
     openZarrPicker(input.trim()).catch((err) => setStatus(err.message, true));
     return;
   }
@@ -202,7 +186,6 @@ export async function loadUrl(input, { clearInput = true } = {}) {
           ? `${added[0].name}: ${added[0].rows.toLocaleString()} rows.`
           : `${added.length} layers loaded.`,
     );
-    if (clearInput) el("url-input").value = "";
   } catch (err) {
     setStatus(`Could not read that URL: ${err.message}`, true);
   }

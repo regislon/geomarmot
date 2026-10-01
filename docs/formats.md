@@ -2,8 +2,8 @@
 
 ## Reading
 
-Drop a file on the Layers rail, paste a URL or a `gs://` path, or browse a bucket (local server
-only). A dropped file is read into memory and never uploaded; a URL is read with HTTP range
+Drop a file on the page, or open one through **Connect**: from this computer, a link or a `gs://`
+path, or a bucket (local server only). A dropped file is read into memory and never uploaded; a URL is read with HTTP range
 requests, so a remote Parquet costs its footer and the row groups a query needs.
 
 | Format | Extensions | Read by | Notes |

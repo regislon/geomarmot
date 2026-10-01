@@ -11,12 +11,22 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 3px;
+  gap: 1px;
 }
 
+/* Lines, not tiles: the list is long, and the canvas is where nodes are big. */
 #palette button {
   text-align: left;
   width: 100%;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-color: transparent;
+  background: none;
+}
+
+#palette button:hover {
+  border-color: var(--border);
+  background: var(--paper-2);
 }
 
 #palette .group-label {
