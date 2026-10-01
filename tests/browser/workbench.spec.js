@@ -38,8 +38,20 @@ async function openGraph(page, nodes, edges) {
 
 /** Select a node. By position: selecting redraws the canvas, so an element handle would go stale mid-click. */
 async function selectNode(page, id) {
-  const box = await page.locator(`[data-node="${id}"] .node-title`).boundingBox();
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const title = page.locator(`[data-node="${id}"] .node-title`);
+  const type = await title.textContent();
+  // On a slow machine a click can land while the canvas redraws: confirm it took, and click again if not.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const box = await title.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    try {
+      await expect(page.locator("#inspector h3")).toHaveText(type, { timeout: 2000 });
+      return;
+    } catch {
+      /* try again */
+    }
+  }
+  throw new Error(`Could not select ${id}`);
 }
 
 async function drag(page, from, to) {
