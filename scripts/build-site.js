@@ -7,7 +7,7 @@
  *
  * The pages are staged into _site_src/ first, with their links fixed for the site: a link to
  * another page of the site becomes a link to its page, and a link to any other file of the
- * repository (docs/decisions/ included) points at that file on GitHub. site/ holds the site's own assets (logo, styles).
+ * repository (docs/decisions/ included) points at that file on GitHub. site/ holds the site's own styles.
  */
 
 import { execFileSync } from "node:child_process";

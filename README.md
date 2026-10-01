@@ -1,6 +1,6 @@
 # GeoMarmot
 
-![GeoMarmot: a marmot in the Alps, with spatial data flowing through a graph of transformers](docs/img/geomarmot_main_image.png)
+![GeoMarmot: a marmot in the Alps, with spatial data flowing through a graph of transformers](docs/img/geomarmot_main_image-1200.png)
 
 > A lightweight, web-based spatial ETL. Wire transformers on a canvas and watch your data flow,
 > all in your browser.
