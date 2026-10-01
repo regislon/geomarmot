@@ -1,19 +1,30 @@
 # GeoMarmot
 
-> Spatial ETL in your browser. Wire transformers on a canvas and let the marmot tunnel through your
-> Parquet, GeoPackage and Excel. Your data never leaves the burrow.
+> A lightweight, web-based spatial ETL. Wire transformers on a canvas and watch your data flow,
+> all in your browser.
 
 GeoMarmot is a browser-native spatial ETL workbench. DuckDB-Wasm does the work in your own tab:
-dropped files are never uploaded, and remote files are read with HTTP range requests, so opening a
-large remote Parquet costs its footer, not its body.
+files you open are never uploaded, and remote files are read with HTTP range requests, so only the
+parts a query needs are downloaded.
 
 ![The workbench: a graph on the canvas, its rows in the table, its points on the map](docs/img/workbench.png)
 
-- **44 transformers** — attributes, filters, joins and overlays, reshaping, geometry, analysis and
+## Why GeoMarmot
+
+GeoMarmot comes out of years of building spatial ETL pipelines with proprietary tools. Those tools
+are powerful, but closed, expensive, and slow to change. AI-assisted development has changed what a
+small open-source project can do: transformers, readers and fixes can now be written, tested and
+reviewed quickly, so an open spatial ETL can grow and improve with its community rather than wait
+on a vendor. GeoMarmot is built to be extended that way — every transformer is one small folder
+with its tests and documentation, and the rules are written down for people and coding agents
+alike ([CONTRIBUTING](CONTRIBUTING.md)).
+
+## What it does
+
+- **Transformers** for attributes, filters, joins and overlays, reshaping, geometry, analysis and
   H3 — each one a DuckDB view per output port, so nothing is computed until you look at it.
-- **Reads** Parquet and GeoParquet, CSV and TSV (also gzipped), GeoPackage, GeoJSON, FlatGeobuf,
-  Excel and Zarr; from your disk, a URL, or a `gs://` bucket through the local server.
-- **Writes** Parquet, GeoParquet, GeoJSON, CSV and Excel.
+- **Common spatial and tabular formats**, read from your disk, a URL or a cloud bucket, and written
+  back out ([formats](docs/formats.md)).
 - **Coordinate systems** are tracked through the graph; the map draws lon/lat and anything PROJ can
   bring back to it.
 - **Works offline** once installed: every dependency and DuckDB extension ships with the app.
