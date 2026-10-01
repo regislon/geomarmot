@@ -76,7 +76,10 @@ test("the key reaches the provider and nothing else", async ({ browser }) => {
     expect(autosave).toContain("CustomAll");
     expect(autosave).not.toContain(KEY);
 
-    const [saved] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-graph")]);
+    const [saved] = await Promise.all([
+      page.waitForEvent("download"),
+      page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+    ]);
     const file = readFileSync(await saved.path(), "utf8");
     expect(JSON.parse(file).custom).toHaveLength(1);
     expect(file).not.toContain(KEY);

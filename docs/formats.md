@@ -44,7 +44,7 @@ A **Writer** node chooses a format and a file name; **Export** writes every conn
 
 ## Graph files
 
-**Save graph** downloads `graph.flow.json`: `{ "format": "geomarmot-graph", "version": 1, nodes,
+**File → Save graph** (⌘S / Ctrl+S) downloads `graph.flow.json`: `{ "format": "geomarmot-graph", "version": 1, nodes,
 edges, custom }`, described by [`schemas/graph.schema.json`](../schemas/graph.schema.json). A graph
 is a recipe: sources are referenced by name, never embedded, so opening one asks you to load the
 files its Readers need. `custom` carries the specs of the generated transformers the graph uses.

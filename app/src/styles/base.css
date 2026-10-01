@@ -139,6 +139,53 @@ select {
   color: #fff;
 }
 
+/* ---------- toolbar menus ---------- */
+
+.menu {
+  position: relative;
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-3);
+}
+
+.menu-list[hidden] {
+  display: none;
+}
+
+#toolbar .menu-list button {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 4px;
+  color: var(--ink);
+}
+
+#toolbar .menu-list button:hover,
+#toolbar .menu-list button:focus-visible {
+  background: var(--paper-2);
+  outline: none;
+}
+
+.menu-list kbd {
+  font-family: var(--font-body);
+  color: var(--muted);
+}
+
 #toolbar .spacer {
   flex: 1;
 }

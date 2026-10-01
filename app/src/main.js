@@ -51,6 +51,7 @@ import { autosave, exportGraph, importGraph, restoreAutosave } from "./ui/persis
 import { initQuickAdd } from "./ui/quickadd.js";
 import { addZarrSource, loadUrl, renderPalette, renderSources } from "./ui/rail.js";
 import { initAssistant } from "./ui/assistant/index.js";
+import { initMenu } from "./ui/menu.js";
 import { setProxyAvailable } from "./io/remote.js";
 import { installStoredCustoms, onCustomInstalled } from "./ai/spec/install.js";
 
@@ -163,8 +164,24 @@ async function main() {
 
   el("btn-export").addEventListener("click", () => exportWriters(connectedWriters()));
   el("btn-arrange").addEventListener("click", arrange);
-  el("btn-export-graph").addEventListener("click", exportGraph);
-  el("btn-import-graph").addEventListener("click", () => el("graph-input").click());
+  const openGraph = () => el("graph-input").click();
+  initMenu("btn-file", "menu-file", { "menu-open-graph": openGraph, "menu-save-graph": exportGraph });
+  if (!/Mac|iPhone|iPad/.test(navigator.platform)) {
+    for (const hint of document.querySelectorAll(".menu-list kbd"))
+      hint.textContent = hint.textContent.replace("⌘", "Ctrl+");
+  }
+  // The usual shortcuts, in place of the browser's own save-page and open-file.
+  window.addEventListener("keydown", (event) => {
+    if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
+    const key = event.key.toLowerCase();
+    if (key === "s") {
+      event.preventDefault();
+      exportGraph();
+    } else if (key === "o") {
+      event.preventDefault();
+      openGraph();
+    }
+  });
   el("graph-input").addEventListener("change", (event) => {
     if (event.target.files[0]) importGraph(event.target.files[0]);
   });

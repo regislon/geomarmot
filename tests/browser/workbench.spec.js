@@ -119,7 +119,10 @@ test("save graph downloads the geomarmot format; autosave restores the canvas af
   const { page } = app;
   await load(page, "cities.csv", CITIES);
   await openGraph(page, [{ id: "n1", type: "Reader", x: 40, y: 60, params: { sourceId: "s1__cities.csv" } }], []);
-  const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-graph")]);
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+  ]);
   const saved = JSON.parse(readFileSync(await download.path(), "utf8"));
   expect(saved.format).toBe("geomarmot-graph");
   expect(saved.nodes.map((n) => n.type)).toEqual(["Reader"]);
@@ -229,4 +232,48 @@ test("an H3 index column draws as hexagons, with a coarsen control", async () =>
   await selectNode(page, "n1");
   await expect(page.locator("#map-status")).toContainText(/3/);
   await expect(page.locator("#coarsen-select option")).not.toHaveCount(0);
+});
+
+test("the File menu opens and saves graphs, from the mouse, the keyboard and the shortcuts", async () => {
+  const { page } = app;
+  await load(page, "cities.csv", CITIES);
+  await openGraph(page, [{ id: "n1", type: "Reader", x: 40, y: 60, params: { sourceId: "s1__cities.csv" } }], []);
+  const menu = page.locator("#menu-file");
+  await expect(menu).toBeHidden();
+
+  // Mouse: open, then a click outside closes it.
+  await page.click("#btn-file");
+  await expect(menu).toBeVisible();
+  await expect(page.locator("#btn-file")).toHaveAttribute("aria-expanded", "true");
+  await page.mouse.click(10, 400);
+  await expect(menu).toBeHidden();
+
+  // Keyboard: arrow down opens on the first item, Escape closes.
+  await page.focus("#btn-file");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("#menu-open-graph")).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("#menu-save-graph")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+
+  // Save from the menu, and with the shortcut.
+  const [fromMenu] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+  ]);
+  expect(fromMenu.suggestedFilename()).toBe("graph.flow.json");
+  await expect(menu).toBeHidden();
+  await page.mouse.click(10, 400);
+  const [fromShortcut] = await Promise.all([page.waitForEvent("download"), page.keyboard.press("ControlOrMeta+s")]);
+  expect(fromShortcut.suggestedFilename()).toBe("graph.flow.json");
+
+  // Open from the menu asks for a file.
+  const [chooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.click("#btn-file").then(() => page.click("#menu-open-graph")),
+  ]);
+  expect(chooser.isMultiple()).toBe(false);
+  // The old buttons are gone.
+  await expect(page.locator("#toolbar > button", { hasText: /graph/i })).toHaveCount(0);
 });

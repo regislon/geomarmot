@@ -89,7 +89,10 @@ test("the key never reaches the autosave or a saved graph", async () => {
   await expect(page.locator("#status")).toContainText("rows");
   const autosave = await page.evaluate(() => localStorage.getItem("geomarmot:graph.v1") || "");
   expect(autosave).not.toContain(KEY);
-  const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-graph")]);
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+  ]);
   expect(readFileSync(await download.path(), "utf8")).not.toContain(KEY);
 });
 

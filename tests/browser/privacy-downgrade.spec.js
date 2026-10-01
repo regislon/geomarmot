@@ -178,7 +178,10 @@ test("a value copied from data into a param is redacted below its level, everywh
   expectCleanAtLevel1(requests[4]);
 
   // After saving the graph to a file and opening it again.
-  const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-graph")]);
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#btn-file").then(() => page.click("#menu-save-graph")),
+  ]);
   const file = readFileSync(await download.path(), "utf8");
   await page.setInputFiles("#graph-input", {
     name: "saved.flow.json",

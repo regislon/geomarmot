@@ -11,13 +11,18 @@
     <div id="shell">
       <header id="toolbar">
         <h1>GeoMarmot</h1>
+        <div class="menu">
+          <button id="btn-file" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-file">File</button>
+          <div id="menu-file" class="menu-list" role="menu" aria-labelledby="btn-file" hidden>
+            <button id="menu-open-graph" role="menuitem">Open graph…<kbd>⌘O</kbd></button>
+            <button id="menu-save-graph" role="menuitem">Save graph<kbd>⌘S</kbd></button>
+          </div>
+        </div>
         <button id="btn-export" class="primary" disabled>Export</button>
         <button id="btn-cancel" title="Stop the export" hidden>Cancel</button>
         <button id="btn-undo" title="Undo (⌘Z)" disabled>↶</button>
         <button id="btn-redo" title="Redo (⇧⌘Z)" disabled>↷</button>
         <button id="btn-arrange">Arrange</button>
-        <button id="btn-export-graph">Save graph</button>
-        <button id="btn-import-graph">Open graph</button>
         <button id="btn-clear">Clear</button>
         <button id="btn-assistant" title="Build a graph by asking">Assistant</button>
         <span class="spacer"></span>
