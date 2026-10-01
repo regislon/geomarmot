@@ -40,10 +40,11 @@ async function openGraph(page, nodes, edges) {
 async function selectNode(page, id) {
   const title = page.locator(`[data-node="${id}"] .node-title`);
   const type = await title.textContent();
-  // On a slow machine a click can land while the canvas redraws: confirm it took, and click again if not.
+  // A click can land while the canvas redraws: confirm it took, and click again if not.
   for (let attempt = 0; attempt < 3; attempt++) {
     const box = await title.boundingBox();
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    // Near the left edge: a node far right can run under the inspector, which then takes the click.
+    await page.mouse.click(box.x + Math.min(12, box.width / 2), box.y + box.height / 2);
     try {
       await expect(page.locator("#inspector h3")).toHaveText(type, { timeout: 2000 });
       return;
