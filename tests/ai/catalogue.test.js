@@ -20,10 +20,10 @@ describe("catalogue", () => {
     for (const entry of entries) expect(problems(validate(entry, transformerSchema)), entry.id).toEqual([]);
   });
 
-  test("the Reader and the Writer are not offered to the assistant", () => {
+  test("the Reader is not offered to the assistant; the Writer is", () => {
     const usable = new Set(entries.filter((e) => e.aiUsable).map((e) => e.id));
     expect(usable.has("Reader")).toBe(false);
-    expect(usable.has("Writer")).toBe(false);
+    expect(usable.has("Writer")).toBe(true);
     expect(usable.has("SQLTransformer")).toBe(true);
   });
 

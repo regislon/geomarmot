@@ -142,6 +142,8 @@ whole before it is installed, and again when a graph file brings it in.
   ids — not their descriptions, labels or literals.
 - The assistant gets three refused proposals per message; then it stops.
 
-**What the assistant may not do.** It cannot add a Reader or a Writer (so it can neither open new
-files nor write output), cannot set a node's SQL mode, and every SQL fragment it writes goes
-through the guard above, at proposal and again at every compile.
+**What the assistant may not do.** It cannot add a Reader (so it cannot open new
+files), cannot set a node's SQL mode, and every SQL fragment it writes goes
+through the guard above, at proposal and again at every compile. It may propose a Writer, which
+writes nothing by itself: a file is only written when you click Run, and a generated transformer
+cannot contain one.

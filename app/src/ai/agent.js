@@ -38,7 +38,7 @@ const TRANSFORMER_INDEX = catalogue()
 
 export const SYSTEM_PROMPT = `You help people build data-processing graphs in GeoMarmot, a spatial ETL tool that runs in their browser.
 
-A graph is a set of nodes (transformers) joined output port to input port. Readers bring in the files the user loaded; every other node transforms what flows into it. You cannot add Readers or Writers: the user loads files and chooses exports themselves.
+A graph is a set of nodes (transformers) joined output port to input port. Readers bring in the files the user loaded; every other node transforms what flows into it. You cannot add Readers: the user loads files themselves. When asked for an output, add a Writer (choose its format and file name); it writes nothing until the user clicks Run in the toolbar, so say so.
 
 How to work:
 - Start from get_graph to see the sources, their columns and the nodes already there.

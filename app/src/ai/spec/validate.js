@@ -132,7 +132,8 @@ async function checkCall(step, { spec, inputIds, earlier, values, stepParams, fa
     fail(step.id, "UNKNOWN_TRANSFORMER", { transformer: step.transformer });
     return;
   }
-  if (!called.aiUsable) {
+  // A step is a view: a Writer, which writes files and has no output, cannot be one.
+  if (!called.aiUsable || called.role === "sink") {
     fail(step.id, "NOT_AI_USABLE", { transformer: step.transformer });
     return;
   }

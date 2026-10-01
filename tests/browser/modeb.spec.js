@@ -237,6 +237,7 @@ test("call steps: built-in and restricted only", async () => {
       ),
       generated: await window.__mb.validate(call("CustomInner", "{}")),
       reader: await window.__mb.validate(call("Reader", "{}", [])),
+      writer: await window.__mb.validate(call("Writer", "{}")),
       sqlRead: await window.__mb.validate(
         call("SQLTransformer", JSON.stringify({ sql: "SELECT * FROM read_csv('x')" })),
       ),
@@ -252,6 +253,7 @@ test("call steps: built-in and restricted only", async () => {
   expect(verdicts.ok.ok).toBe(true);
   expect(codes(verdicts.generated)).toContain("UNKNOWN_TRANSFORMER");
   expect(codes(verdicts.reader)).toContain("NOT_AI_USABLE");
+  expect(codes(verdicts.writer)).toContain("NOT_AI_USABLE");
   expect(codes(verdicts.sqlRead)).toContain("SQL_FORBIDDEN_CONSTRUCT");
   expect(codes(verdicts.unwired)).toContain("PORT_NOT_CONNECTED");
   expect(codes(verdicts.mode)).toContain("INVALID_PARAMS");

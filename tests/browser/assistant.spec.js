@@ -135,6 +135,25 @@ test("a proposal with a Reader, bad params or forbidden SQL is refused whole", a
   expect(requests[1].body.messages.at(-1).content[0].is_error).toBe(true);
 });
 
+test("the assistant can add a Writer; nothing is written until Run", async () => {
+  const { page } = app;
+  await setUp(page);
+  const downloads = [];
+  page.on("download", (download) => downloads.push(download.suggestedFilename()));
+  const writer = {
+    nodes: [{ ref: "out", type: "Writer", params_json: JSON.stringify({ format: "CSV", filename: "swiss" }) }],
+    edges: [{ from: "n1", fromPort: "output", to: "out", toPort: "input" }],
+    replace_draft: true,
+  };
+  await fakeClaude(page, [reply([toolUse("propose_nodes", writer)]), reply([text("Click Run to write it.")])]);
+  await ask(page, "add a csv writer");
+  await expect(page.locator("#assistant-log")).toContainText("Click Run");
+  await page.click("#draft-apply");
+  await expect(page.locator("#canvas .node-title")).toHaveText(["Reader", "Writer"]);
+  await expect(page.locator("#btn-export")).toBeEnabled();
+  expect(downloads).toEqual([]);
+});
+
 test("a refusal is shown, and the conversation stays usable", async () => {
   const { page } = app;
   await setUp(page);

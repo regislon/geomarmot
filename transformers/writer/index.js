@@ -48,7 +48,8 @@ export default defineTransformer({
     }),
   ],
   action: { id: "export", label: "Write this file" },
-  aiUsable: false,
+  // The assistant may propose one: it writes nothing until the user clicks Run.
+  aiUsable: true,
   write: (ctx) =>
     writeView(ctx.inputs.input, ctx.params.format || "Parquet", ctx.params.filename || "output", ctx.incomingCrs),
 });

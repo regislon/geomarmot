@@ -4,7 +4,7 @@
  *
  * A proposal is refused whole, with every problem listed, when any node or
  * edge is wrong:
- *   - the type must exist and be usable by the assistant (not a Reader or a Writer)
+ *   - the type must exist and be usable by the assistant (not a Reader)
  *   - params must validate against the transformer's params schema — which
  *     has no `sqlMode` or any other field, so the assistant cannot switch a
  *     node's SQL to unrestricted
