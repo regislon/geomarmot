@@ -27,7 +27,9 @@ read in parts, as queries need them. Which formats are supported, and how, is in
 
 Add transformers from the **Transformers** list, or, with the pointer over the canvas, start typing
 part of a name (Quick Add): the transformer lands where the pointer is. Drag from an output port to an input port to connect them. Select a node to edit
-its settings in the inspector on the right; the **?** button explains what it does. A node in error
+its settings in the inspector on the right; the **?** button explains what it does. Wherever a
+setting asks for an attribute, type part of its name to find it; a list of attributes has a filter
+box above it, and *Select all* then picks the ones it shows. A node in error
 says why, and the nodes after it wait.
 
 ## Saving and opening

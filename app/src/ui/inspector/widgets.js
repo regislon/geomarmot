@@ -144,17 +144,22 @@ export const NUMERIC_TYPE = /^(U?TINYINT|U?SMALLINT|U?INTEGER|U?BIGINT|HUGEINT|U
  * node instead. Indeterminate on a partial selection, with a tally beside it
  * so the count need not be read off the ticks.
  */
-export function selectAllToggle(names, chosen, boxes, apply) {
+export function selectAllToggle(names, chosen, boxes, apply, scope = () => names) {
   const master = h("input", { type: "checkbox" });
   const tally = h("span", { class: "check-tally" });
+  // With a filter, the switch speaks for the attributes shown; the tally always counts them all.
   const sync = () => {
-    master.checked = chosen.size === names.length;
-    master.indeterminate = chosen.size > 0 && chosen.size < names.length;
+    const shown = scope();
+    const on = shown.filter((name) => chosen.has(name)).length;
+    master.checked = shown.length > 0 && on === shown.length;
+    master.indeterminate = on > 0 && on < shown.length;
     tally.textContent = `${chosen.size} of ${names.length}`;
   };
   master.addEventListener("change", () => {
-    chosen.clear();
-    if (master.checked) for (const name of names) chosen.add(name);
+    for (const name of scope()) {
+      if (master.checked) chosen.add(name);
+      else chosen.delete(name);
+    }
     // A column tick does not re-render the panel — that would steal focus from
     // whatever else is being edited — so the boxes are updated in place.
     for (const [name, box] of boxes) box.checked = chosen.has(name);

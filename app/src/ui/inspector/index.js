@@ -30,6 +30,7 @@ import { renderValueSpec } from "./kinds-value.js";
 import { clearStaleSuggestionLists, columnNames, h, select, textInput } from "./widgets.js";
 import { exportAsFolder, exportBlocker } from "../assistant/export-folder.js";
 import { setStatus } from "../dom.js";
+import { columnSelect } from "./column-picker.js";
 
 const PARAM_RENDERERS = {
   // One value — a constant, an attribute, a formula or SQL — for parameters
@@ -41,7 +42,7 @@ const PARAM_RENDERERS = {
   },
   columns: (param, node, context, commit) => renderColumnsParam(param, node, context.columns, commit),
   column: (param, node, context, commit) =>
-    select(columnNames(context.columns), node.params[param.id], (value) => {
+    columnSelect(columnNames(context.columns), node.params[param.id], (value) => {
       node.params[param.id] = value;
       commit();
     }),

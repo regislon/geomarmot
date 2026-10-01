@@ -2,6 +2,7 @@
 
 import { FORMULA_OPERATORS, VALUE_KINDS, VALUE_TYPES } from "../../core/valuespec.js";
 import { columnNames, h, select, textInput } from "./widgets.js";
+import { columnSelect } from "./column-picker.js";
 
 /**
  * The "what should this hold?" editor, shared by both nodes that ask.
@@ -25,7 +26,7 @@ export function renderValueSpec(spec, columns, commit) {
       group.appendChild(textInput(spec.value, (value) => set("value", value), "value"));
     }
   } else if (spec.kind === "Attribute") {
-    group.appendChild(select(columnNames(columns), spec.column, (value) => set("column", value)));
+    group.appendChild(columnSelect(columnNames(columns), spec.column, (value) => set("column", value)));
   } else if (spec.kind === "Formula") {
     const operand = (side) => {
       const part = spec[side] || (spec[side] = { kind: "Attribute", type: "Number", value: "", column: "" });
@@ -38,7 +39,7 @@ export function renderValueSpec(spec, columns, commit) {
       );
       if ((part.kind || "Attribute") === "Attribute") {
         box.appendChild(
-          select(columnNames(columns), part.column, (value) => {
+          columnSelect(columnNames(columns), part.column, (value) => {
             part.column = value;
             commit({ rerender: false });
           }),

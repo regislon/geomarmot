@@ -16,6 +16,7 @@ import {
   suggestingInput,
   textInput,
 } from "./widgets.js";
+import { columnSelect, filterChecks } from "./column-picker.js";
 
 export function renderColumnsParam(param, node, columns, commit) {
   // `filter: "numeric"` keeps sum and mean away from a text column, where they
@@ -43,8 +44,10 @@ export function renderColumnsParam(param, node, columns, commit) {
     list.appendChild(h("label", { class: "check" }, [box, h("span", { text: name })]));
   }
 
+  // A wide table gets a filter; Select all then acts on the attributes it shows.
+  const filter = names.length > 6 ? filterChecks(boxes, () => toggle?.sync()) : null;
   // A single column needs no master switch — it would be the longer click.
-  const toggle = names.length > 1 ? selectAllToggle(names, chosen, boxes, apply) : null;
+  const toggle = names.length > 1 ? selectAllToggle(names, chosen, boxes, apply, filter?.visible) : null;
 
   for (const [name, box] of boxes) {
     box.addEventListener("change", () => {
@@ -56,7 +59,7 @@ export function renderColumnsParam(param, node, columns, commit) {
   }
 
   if (!toggle) return list;
-  return h("div", { class: "check-group" }, [toggle.row, list]);
+  return h("div", { class: "check-group" }, [...(filter ? [filter.input] : []), toggle.row, list]);
 }
 
 export function renderConditionsParam(param, node, context, commit) {
@@ -65,7 +68,7 @@ export function renderConditionsParam(param, node, context, commit) {
   return repeatable(
     rows,
     (row) => [
-      select(columnNames(columns), row.column, (value) => {
+      columnSelect(columnNames(columns), row.column, (value) => {
         row.column = value;
         // Re-render: the suggestions belong to the column just chosen.
         commit();
@@ -99,7 +102,7 @@ export function renderRenamesParam(param, node, columns, commit) {
   return repeatable(
     rows,
     (row) => [
-      select(columnNames(columns), row.from, (value) => {
+      columnSelect(columnNames(columns), row.from, (value) => {
         row.from = value;
         commit({ rerender: false });
       }),
@@ -191,7 +194,7 @@ export function renderActionsParam(param, node, columns, commit) {
       // "Create" invents a column, so it has no existing one to point at.
       if (row.action !== "Create") {
         fields.push(
-          select(columnNames(columns), row.column, (value) => {
+          columnSelect(columnNames(columns), row.column, (value) => {
             row.column = value;
             commit({ rerender: false });
           }),
@@ -255,7 +258,7 @@ export function renderSortsParam(param, node, columns, commit) {
   return repeatable(
     rows,
     (row) => [
-      select(columnNames(columns), row.column, (value) => {
+      columnSelect(columnNames(columns), row.column, (value) => {
         row.column = value;
         commit({ rerender: false });
       }),
@@ -278,7 +281,7 @@ export function renderAggregatesParam(param, node, columns, commit) {
         row.func = value;
         commit({ rerender: false });
       }),
-      select(columnNames(columns), row.column, (value) => {
+      columnSelect(columnNames(columns), row.column, (value) => {
         row.column = value;
         commit({ rerender: false });
       }),
@@ -310,7 +313,7 @@ export function renderRulesParam(param, node, context, commit) {
         },
         `Rule ${index + 1}`,
       ),
-      select(columnNames(columns), row.column, (value) => {
+      columnSelect(columnNames(columns), row.column, (value) => {
         row.column = value;
         // Re-render: the suggestions belong to the column just chosen.
         commit();
@@ -347,12 +350,12 @@ export function renderJoinKeysParam(param, node, context, commit) {
     repeatable(
       rows,
       (row) => [
-        select(left, row.left, (value) => {
+        columnSelect(left, row.left, (value) => {
           row.left = value;
           commit({ rerender: false });
         }),
         h("span", { class: "arrow", text: "=" }),
-        select(right, row.right, (value) => {
+        columnSelect(right, row.right, (value) => {
           row.right = value;
           commit({ rerender: false });
         }),

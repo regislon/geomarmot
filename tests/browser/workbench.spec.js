@@ -326,3 +326,58 @@ test("workspaces saved in this browser: save, save as, open, replace and delete"
     .click();
   await expect(page.locator("#workspace-body .workspace-row")).toHaveCount(1);
 });
+
+test("attributes are picked by typing: a single attribute and a list", async () => {
+  const { page } = app;
+  const wide = ["id", "city", "lon", "lat", "pop", "canton", "altitude", "area_km2"];
+  await load(page, "wide.csv", `${wide.join(",")}\n1,Bern,7.44,46.95,134000,BE,540,51.6\n`);
+  await openGraph(
+    page,
+    [
+      { id: "n1", type: "Reader", x: 40, y: 60, params: { sourceId: "s1__wide.csv" } },
+      {
+        id: "n2",
+        type: "Tester",
+        x: 300,
+        y: 60,
+        params: { logic: "AND", conditions: [{ column: "", operator: ">", value: "1" }] },
+      },
+      { id: "n3", type: "AttributeKeeper", x: 300, y: 260, params: {} },
+    ],
+    [
+      { id: "e1", from: "n1", fromPort: "output", to: "n2", toPort: "input" },
+      { id: "e2", from: "n1", fromPort: "output", to: "n3", toPort: "input" },
+    ],
+  );
+
+  // One attribute: typing filters, Enter chooses.
+  await selectNode(page, "n2");
+  const picker = page.locator("#inspector .repeat-row .column-input").first();
+  await picker.click();
+  await expect(page.locator("#inspector .column-options li")).toHaveCount(wide.length);
+  await picker.fill("al");
+  await expect(page.locator("#inspector .column-options li")).toHaveText(["altitude"]);
+  await page.keyboard.press("Enter");
+  await expect(picker).toHaveValue("altitude");
+  await expect(page.locator('[data-node="n2"] .port-count').first()).toHaveText(/\b1$/);
+
+  // Starts-with matches come first; a click chooses; a half-typed name does not stick.
+  await picker.click();
+  await picker.fill("a");
+  await expect(page.locator("#inspector .column-options li").first()).toHaveText("altitude");
+  await picker.fill("popu");
+  await page.locator("#inspector input[placeholder='value']").first().click();
+  await expect(picker).toHaveValue("altitude");
+
+  // A list: the filter hides what does not match, and Select all acts on what it shows.
+  await selectNode(page, "n3");
+  await page.fill("#inspector .check-filter", "a");
+  await expect(page.locator("#inspector .check-list label:visible")).toHaveText([
+    "lat",
+    "canton",
+    "altitude",
+    "area_km2",
+  ]);
+  await page.locator("#inspector .check-all input").check();
+  await expect(page.locator("#inspector .check-tally")).toHaveText("4 of 8");
+});

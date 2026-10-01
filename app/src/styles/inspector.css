@@ -259,3 +259,65 @@
   color: var(--err);
   font-weight: 600;
 }
+
+/* ---------- attribute pickers: type to find ---------- */
+
+.column-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.column-picker .column-input {
+  width: 100%;
+}
+
+.column-picker.unknown .column-input {
+  border-color: var(--err);
+}
+
+.column-options {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 25;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-3);
+  font-size: 13px;
+}
+
+.column-options[hidden] {
+  display: none;
+}
+
+.column-options li {
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.column-options li[aria-selected="true"] {
+  background: var(--paper-2);
+}
+
+.column-options li.none {
+  color: var(--muted);
+  cursor: default;
+}
+
+.check-filter {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.check-list label[hidden] {
+  display: none;
+}
