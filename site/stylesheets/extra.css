@@ -1,0 +1,36 @@
+/* GeoMarmot's colours on the Zensical theme: the app's green, ink and highlight. */
+
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #3f7d5a;
+  --md-primary-fg-color--light: #7fae8c;
+  --md-primary-fg-color--dark: #2f5f44;
+  --md-accent-fg-color: #d9913a;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #3f7d5a;
+  --md-primary-fg-color--light: #7fae8c;
+  --md-primary-fg-color--dark: #2f5f44;
+  --md-accent-fg-color: #d9913a;
+  --md-typeset-a-color: #7fae8c;
+}
+
+.md-typeset img {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 6px;
+}
+
+/* "Launch the demo" stands out in the tabs, as the one thing to try. */
+.md-tabs__link[href$="/demo/"] {
+  padding: 0.2rem 0.7rem;
+  border-radius: 0.4rem;
+  background: var(--md-primary-fg-color);
+  color: #fff;
+  opacity: 1;
+}
+
+.md-tabs__link[href$="/demo/"]:hover {
+  background: var(--md-primary-fg-color--dark);
+  color: #fff;
+}
