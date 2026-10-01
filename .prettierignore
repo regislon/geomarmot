@@ -13,3 +13,4 @@ tests/fixtures/
 transformers/*/tests.json
 schemas/transformer.schema.json
 schemas/params.schema.json
+_site/

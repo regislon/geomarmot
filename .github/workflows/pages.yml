@@ -1,8 +1,10 @@
 name: pages
 
-# The static app on GitHub Pages. It has no local server behind it: the app sees that ./healthz
+# The README as the home page and the static app under demo/, on GitHub Pages. It has no local server behind it: the app sees that ./healthz
 # does not answer and hides the bucket browser; the assistant works with a key typed in the page.
 on:
+  push:
+    branches: [main]
   workflow_call:
   workflow_dispatch:
 
@@ -29,9 +31,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # The README as the home page, the app under demo/.
+      - run: node scripts/build-site.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

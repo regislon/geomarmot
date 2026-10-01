@@ -7,6 +7,7 @@ export default [
       "node_modules/",
       "dist/",
       "dist-test/",
+      "_site/",
       "server/",
       ".local/",
       "test-results/",

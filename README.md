@@ -27,9 +27,9 @@ large remote Parquet costs its footer, not its body.
 
 GeoMarmot is not published as a package. There are two ways to use it.
 
-### 1. In your browser, at the hosted link
+### 1. In your browser, at the hosted demo
 
-Open **<https://regislon.github.io/geomarmot/>**. Nothing to install: the app runs entirely in your
+Open **<https://regislon.github.io/geomarmot/demo/>**. Nothing to install: the app runs entirely in your
 tab, and the files you open stay on your machine. The hosted copy has no server behind it, so
 `gs://` buckets and the bucket browser are not available there; the assistant works with an API key
 you type into its settings.
