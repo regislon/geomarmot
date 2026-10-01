@@ -163,7 +163,7 @@ export async function graphSettled() {
 // Restarting reloads every source, which can take a while: say so until the graph is rebuilt.
 let restarting = null;
 onEngineRestarting(() => {
-  restarting ??= beginTask("Restarting the engine and reloading your files…", { delay: 0 });
+  restarting ??= beginTask("The marmot was startled: digging back in and reloading your files…", { delay: 0 });
 });
 onEngineRestart(async (reason) => {
   uiLease = mainCompiler.acquire();

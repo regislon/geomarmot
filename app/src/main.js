@@ -99,6 +99,17 @@ async function detectServer() {
   setProxyAvailable(proxy);
 }
 
+/** Shown in turn while the engine starts. */
+const WAKING = [
+  "Waking the marmot from hibernation…",
+  "Stretching after a long winter…",
+  "Sniffing the morning air…",
+  "Clearing the burrow entrance…",
+  "Digging the first tunnels…",
+  "Checking the sky for eagles…",
+  "Whistling to the colony…",
+];
+
 async function main() {
   await openSession();
   await detectServer();
@@ -291,9 +302,16 @@ async function main() {
   // the data engine must not wait on the scenery.
   initMap("map", el("map-status"), el("basemap-select"), { onResolution: renderCoarsenSelect });
   await withProgress(
-    "Starting the engine…",
+    WAKING[0],
     async (task) => {
-      await boot();
+      // The engine takes a few seconds to start: the marmot narrates.
+      let line = 0;
+      const narrate = setInterval(() => task.update(WAKING[(line = (line + 1) % WAKING.length)], null), 1600);
+      try {
+        await boot();
+      } finally {
+        clearInterval(narrate);
+      }
       task.update("Restoring your last graph…", null);
       // Generated transformers first: the autosaved graph may use them.
       await installStoredCustoms();

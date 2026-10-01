@@ -45,7 +45,7 @@ test.afterEach(async () => {
 const seen = () => page.evaluate(() => window.__progress);
 
 test("the engine's start shows in the middle of the canvas, and the card goes once it is ready", async () => {
-  expect((await seen()).some((entry) => entry.startsWith("Starting the engine…"))).toBe(true);
+  expect((await seen()).some((entry) => entry.startsWith("Waking the marmot from hibernation…"))).toBe(true);
   await expect(page.locator("#progress")).toBeHidden();
   // It is inside the canvas, centred on it.
   const card = await page.evaluate(() => document.getElementById("progress").parentElement.id);
