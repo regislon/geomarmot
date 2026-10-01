@@ -178,3 +178,8 @@
   border-style: dashed;
   border-color: var(--blue-soft);
 }
+
+.ai-model {
+  display: grid;
+  gap: 4px;
+}

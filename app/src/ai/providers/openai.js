@@ -111,3 +111,28 @@ export async function sendDirect(body, key, signal) {
     throw err;
   }
 }
+
+/** Ids that are chat models: GPT and the o-series reasoning models. */
+const CHAT = /^(gpt-|o\d|chatgpt-)/;
+/** Ids that share the prefix but do something else. */
+const NOT_CHAT = /(audio|realtime|transcribe|tts|image|search|embedding|instruct|moderation|dall-e|whisper|codex)/;
+
+/**
+ * The chat models this key can use, newest first, asked of the API itself
+ * rather than written down here, where the list would go stale.
+ */
+export async function listModels(key) {
+  const sdk = await import("openai");
+  const client = new sdk.default({ apiKey: key, dangerouslyAllowBrowser: true });
+  const models = [];
+  try {
+    for await (const model of client.models.list()) models.push(model);
+  } catch (err) {
+    if (err instanceof sdk.APIError) throw new ProviderError(typeForStatus(err.status), err.message, err.status);
+    throw new ProviderError("network", "Could not reach the API to list models.");
+  }
+  return models
+    .filter((model) => CHAT.test(model.id) && !NOT_CHAT.test(model.id))
+    .sort((a, b) => b.created - a.created || a.id.localeCompare(b.id))
+    .map((model) => model.id);
+}

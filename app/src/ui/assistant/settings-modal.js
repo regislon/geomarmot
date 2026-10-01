@@ -54,27 +54,80 @@ export function initAssistantSettings() {
   let keyDraft;
   let rememberDraft;
   let available = { anthropic: false, openai: false };
+  /** OpenAI's models for the current key: null until asked, then a list, or an error message. */
+  let openaiModels = null;
+  let modelsNote = "";
+  let modelSlot = null;
+  let typingModel = false;
+
+  const keyInHand = () => keyDraft || loadKey(draft.provider);
+
+  /** Ask OpenAI which models this key can use; only the model field re-renders. */
+  async function fetchOpenAiModels() {
+    const key = keyInHand();
+    if (draft.provider !== "openai" || draft.transport !== "browser" || !key) return;
+    modelsNote = "Reading your models…";
+    fillModel();
+    try {
+      openaiModels = await ADAPTERS.openai.listModels(key);
+      modelsNote = openaiModels.length ? "" : "This key lists no chat models.";
+      if (!draft.model && openaiModels.length) draft.model = openaiModels[0];
+    } catch (err) {
+      openaiModels = null;
+      modelsNote = `Could not list your models (${err.message}); type a model name.`;
+    }
+    fillModel();
+  }
+
+  function fillModel() {
+    if (!modelSlot) return;
+    const adapter = ADAPTERS[draft.provider];
+    const list = draft.provider === "anthropic" ? adapter.MODELS : openaiModels || [];
+    let control;
+    if (list.length && !typingModel) {
+      const options = [...list];
+      if (draft.model && !options.includes(draft.model)) options.unshift(draft.model);
+      control = h(
+        "select",
+        {
+          id: "ai-model",
+          onchange: (e) => {
+            if (e.target.value === "__other") {
+              typingModel = true;
+              fillModel();
+            } else draft.model = e.target.value;
+          },
+        },
+        [
+          ...options.map((m) => {
+            const option = h("option", { value: m, text: m });
+            option.selected = m === draft.model;
+            return option;
+          }),
+          h("option", { value: "__other", text: "Other…" }),
+        ],
+      );
+    } else {
+      control = h("input", {
+        id: "ai-model",
+        type: "text",
+        value: draft.model,
+        placeholder:
+          draft.provider === "openai" && !keyInHand() ? "add your API key below to list your models" : "model name",
+        oninput: (e) => (draft.model = e.target.value.trim()),
+      });
+    }
+    modelSlot.replaceChildren(
+      control,
+      ...(modelsNote ? [h("span", { class: "muted ai-note", text: modelsNote })] : []),
+    );
+  }
 
   function render() {
-    const adapter = ADAPTERS[draft.provider];
     const serverOk = available[draft.provider];
-    const model =
-      draft.provider === "anthropic"
-        ? h(
-            "select",
-            { onchange: (e) => (draft.model = e.target.value) },
-            adapter.MODELS.map((m) => {
-              const option = h("option", { value: m, text: m });
-              option.selected = m === draft.model;
-              return option;
-            }),
-          )
-        : h("input", {
-            type: "text",
-            value: draft.model,
-            placeholder: "model name",
-            oninput: (e) => (draft.model = e.target.value.trim()),
-          });
+    const model = h("div", { class: "ai-model" });
+    modelSlot = model;
+    fillModel();
     const key = h("input", {
       id: "ai-key",
       type: "password",
@@ -82,6 +135,7 @@ export function initAssistantSettings() {
       spellcheck: "false",
       placeholder: loadKey(draft.provider) ? "•••••••• (saved)" : "paste an API key",
       oninput: (e) => (keyDraft = e.target.value),
+      onchange: () => fetchOpenAiModels(),
     });
     const remember = h("input", { id: "ai-remember", type: "checkbox" });
     remember.checked = rememberDraft;
@@ -104,7 +158,11 @@ export function initAssistantSettings() {
           draft.model = ADAPTERS[value].DEFAULT_MODEL;
           keyDraft = "";
           rememberDraft = isRemembered(value);
+          openaiModels = null;
+          modelsNote = "";
+          typingModel = false;
           render();
+          fetchOpenAiModels();
         }),
       ),
       field(
@@ -167,8 +225,10 @@ export function initAssistantSettings() {
     draft = getSettings();
     keyDraft = "";
     rememberDraft = isRemembered(draft.provider);
+    typingModel = false;
     modal.hidden = false;
     render();
+    fetchOpenAiModels();
     available = await serverProviders();
     // Only the route option depends on the answer. Re-rendering the form here would replace the
     // key field under the user's typing, and what they had typed would be lost.

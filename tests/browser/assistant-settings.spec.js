@@ -92,3 +92,49 @@ test("the key never reaches the autosave or a saved graph", async () => {
   const [download] = await Promise.all([page.waitForEvent("download"), page.click("#btn-export-graph")]);
   expect(readFileSync(await download.path(), "utf8")).not.toContain(KEY);
 });
+
+test("OpenAI: the model list comes from the API, for the key given, newest chat models first", async () => {
+  const { page } = app;
+  const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
+  const asked = [];
+  await page.route("https://api.openai.com/**", (route) => {
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
+    asked.push(route.request().headers().authorization);
+    const model = (id, created) => ({ id, object: "model", created, owned_by: "system" });
+    return route.fulfill({
+      headers: { ...CORS, "content-type": "application/json" },
+      body: JSON.stringify({
+        object: "list",
+        data: [
+          model("gpt-old", 100),
+          model("text-embedding-3-large", 900),
+          model("gpt-new", 300),
+          model("gpt-new-realtime", 400),
+          model("o9-mini", 200),
+        ],
+      }),
+    });
+  });
+  await openSettings(page);
+  await page.check('input[name="ai-provider"][value="openai"]');
+  // No key yet: a text field that says why there is no list.
+  await expect(page.locator("#ai-model")).toHaveAttribute("placeholder", /add your API key/);
+  await page.fill("#ai-key", "sk-openai-test");
+  await page.locator("#ai-key").blur();
+  await expect(page.locator("#ai-model option")).toHaveText(["gpt-new", "o9-mini", "gpt-old", "Other…"]);
+  expect(asked).toEqual(["Bearer sk-openai-test"]);
+  await page.selectOption("#ai-model", "o9-mini");
+  await page.click("#ai-settings-save");
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("geomarmot:ai-settings.v1")));
+  expect(saved).toMatchObject({ provider: "openai", model: "o9-mini" });
+
+  // "Other…" lets a name not in the list be typed.
+  await openSettings(page);
+  await expect(page.locator("#ai-model")).toHaveValue("o9-mini");
+  await page.selectOption("#ai-model", "__other");
+  await page.fill("#ai-model", "gpt-custom");
+  await page.click("#ai-settings-save");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("geomarmot:ai-settings.v1")).model)).toBe(
+    "gpt-custom",
+  );
+});
