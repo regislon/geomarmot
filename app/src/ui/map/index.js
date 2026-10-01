@@ -18,7 +18,7 @@ import { decodeWKB } from "../../core/wkb.js";
 import { H3_INDEX_COLUMN, cellToPolygon } from "../../engines/h3/index.js";
 import maplibregl from "maplibre-gl";
 import { geometryFeatures, h3Features } from "./features.js";
-import { addDataLayers, applyHiddenFilter, hiddenKeys, styleFor } from "./layers.js";
+import { addDataLayers, applyHiddenFilter, hiddenKeys, markersFor, styleFor } from "./layers.js";
 
 const DEFAULT_FEATURE_LIMIT = 8000;
 /**
@@ -158,7 +158,7 @@ export async function showGeometries(targets) {
   // The coarsen control only makes sense for a single H3 view.
   onResolution?.(targets.length === 1 ? resolution : null);
 
-  setData({ type: "FeatureCollection", features: all });
+  setData({ type: "FeatureCollection", features: [...all, ...markersFor(all, boundsOf)] });
   applyHiddenFilter();
   // Fit to what is actually shown, so hiding a distant layer zooms back in.
   const visible = hiddenKeys.length ? all.filter((feature) => !hiddenKeys.includes(feature.properties._pv_key)) : all;
@@ -254,6 +254,7 @@ export function initMap(container, status, basemapSelect, handlers = {}) {
 
   map.on("click", "features-fill", (event) => showPopup(event));
   map.on("click", "features-point", (event) => showPopup(event));
+  map.on("click", "features-marker", (event) => showPopup(event));
 
   // `styledata`, not `load`. Adding a source and layers needs only the style;
   // `load` additionally waits for the first frame to be painted, and a browser
@@ -269,7 +270,9 @@ export function initMap(container, status, basemapSelect, handlers = {}) {
 function showPopup(event) {
   const feature = event.features?.[0];
   if (!feature) return;
+  // The _pv_ properties are the map's own bookkeeping (colour, layer, marker), not attributes.
   const rows = Object.entries(feature.properties || {})
+    .filter(([key]) => !key.startsWith("_pv_"))
     .slice(0, 20)
     .map(([key, value]) => `<tr><th>${escapeHtml(key)}</th><td>${escapeHtml(String(value))}</td></tr>`)
     .join("");
