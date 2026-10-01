@@ -2,7 +2,8 @@
 
 GeoMarmot is a canvas of transformers: data comes in through **Readers**, flows from node to node,
 and leaves through **Writers**. Nothing is computed until you look at it — select a node and its
-rows appear in the table and its geometry on the map.
+rows appear in the table and its geometry on the map. The **ⓘ** at the start of a row opens that feature: all its
+attributes, and its geometry described (type, vertices, extents, area, validity, WKT).
 
 ## The toolbar
 

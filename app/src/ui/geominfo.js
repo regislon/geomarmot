@@ -8,24 +8,22 @@
  * zoom-to-feature works the way it does, and it means this panel costs one
  * round trip on click and nothing at all before that.
  *
- * The bytes go back to DuckDB as hex rather than as a bound parameter because
- * the query helper inlines its SQL — there is nowhere to bind to.
+ * The bytes go back to DuckDB as a registered buffer, read with read_blob:
+ * inlined into the SQL as a hex literal, an administrative boundary's
+ * megabytes of WKB ran the Wasm parser out of memory.
+ *
+ * The panel also lists every attribute of the row, since a wide table shows
+ * only the first few columns at a time.
  */
 
 import { guardedRead } from "./read-guard.js";
-import { readQuery, qlit } from "../core/duck.js";
+import { db, readQuery, qlit } from "../core/duck.js";
 import { cellToWkb } from "../engines/h3/index.js";
 import { decodeWKB, toBytes } from "../core/wkb.js";
 import { isLonLatCode, LONLAT } from "../core/schema.js";
 
 /** Past this the WKT is cut for display; the copy button still gets it whole. */
 const WKT_PREVIEW_CHARS = 4000;
-
-function toHex(bytes) {
-  let hex = "";
-  for (const byte of bytes) hex += byte.toString(16).padStart(2, "0");
-  return hex;
-}
 
 /**
  * Winding of the outer ring, by the shoelace sign.
@@ -67,48 +65,60 @@ function pickedBytes(pick) {
  * extents stay in the stream's units, because those are the numbers that match
  * what a Reader or a Writer would show.
  */
+let featureSeq = 0;
+
 export async function describeFeature(pick, crs = LONLAT) {
   const bytes = pickedBytes(pick);
   if (!bytes?.length) throw new Error("This row carries no geometry.");
-  const geometry = `ST_GeomFromWKB(from_hex(${qlit(toHex(bytes))}))`;
-
-  const base = (
-    await guardedRead(() =>
-      readQuery(
-        `SELECT ST_GeometryType(${geometry}) AS type,
-              ST_Dimension(${geometry}) AS dimension,
-              ST_NPoints(${geometry}) AS vertices,
-              ST_NumGeometries(${geometry}) AS parts,
-              ST_IsEmpty(${geometry}) AS is_empty,
-              ST_IsValid(${geometry}) AS is_valid,
-              ST_IsSimple(${geometry}) AS is_simple,
-              ST_HasZ(${geometry}) AS has_z,
-              ST_HasM(${geometry}) AS has_m,
-              ST_XMin(${geometry}) AS xmin, ST_YMin(${geometry}) AS ymin,
-              ST_XMax(${geometry}) AS xmax, ST_YMax(${geometry}) AS ymax,
-              ST_Area(ST_Transform(${geometry}, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS area_m2,
-              ST_Length(ST_Transform(${geometry}, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS length_m,
-              ST_Perimeter(ST_Transform(${geometry}, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS perimeter_m,
-              ST_AsText(${geometry}) AS wkt`,
-      ),
-    )
-  )[0];
-
-  // ST_ExteriorRing and ST_NInteriorRings are polygon-only and raise on
-  // anything else, so they are asked for separately rather than guarded with a
-  // CASE that DuckDB would evaluate regardless.
+  const file = `__feature_${++featureSeq}.wkb`;
+  await db().registerFileBuffer(file, bytes.slice());
+  const from = `(SELECT ST_GeomFromWKB(content) AS g FROM read_blob(${qlit(file)})) AS feature`;
+  let base;
   let rings = null;
-  if (base.type === "POLYGON") {
-    rings = (
+  try {
+    base = (
       await guardedRead(() =>
         readQuery(
-          `SELECT ST_NInteriorRings(${geometry}) AS holes,
-                ST_IsClosed(ST_ExteriorRing(${geometry})) AS closed,
-                ST_IsRing(ST_ExteriorRing(${geometry})) AS is_ring,
-                ST_Equals(${geometry}, ST_ConvexHull(${geometry})) AS convex`,
+          `SELECT ST_GeometryType(g)::VARCHAR AS type,
+              ST_Dimension(g) AS dimension,
+              ST_NPoints(g) AS vertices,
+              ST_NumGeometries(g) AS parts,
+              ST_IsEmpty(g) AS is_empty,
+              ST_IsValid(g) AS is_valid,
+              ST_IsSimple(g) AS is_simple,
+              ST_HasZ(g) AS has_z,
+              ST_HasM(g) AS has_m,
+              ST_XMin(g) AS xmin, ST_YMin(g) AS ymin,
+              ST_XMax(g) AS xmax, ST_YMax(g) AS ymax,
+              ST_Area(ST_Transform(g, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS area_m2,
+              ST_Length(ST_Transform(g, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS length_m,
+              ST_Perimeter(ST_Transform(g, ${qlit(crs)}, 'EPSG:6933', always_xy := true)) AS perimeter_m,
+              ST_AsText(g) AS wkt
+           FROM ${from}`,
         ),
       )
     )[0];
+
+    // ST_ExteriorRing and ST_NInteriorRings are polygon-only and raise on
+    // anything else, so they are asked for separately rather than guarded with a
+    // CASE that DuckDB would evaluate regardless.
+    if (base.type === "POLYGON") {
+      rings = (
+        await guardedRead(() =>
+          readQuery(
+            `SELECT ST_NInteriorRings(g) AS holes,
+                ST_IsClosed(ST_ExteriorRing(g)) AS closed,
+                ST_IsRing(ST_ExteriorRing(g)) AS is_ring,
+                ST_Equals(g, ST_ConvexHull(g)) AS convex
+             FROM ${from}`,
+          ),
+        )
+      )[0];
+    }
+  } finally {
+    await db()
+      .dropFile(file)
+      .catch(() => {});
   }
 
   let shape = null;
@@ -126,6 +136,7 @@ export async function describeFeature(pick, crs = LONLAT) {
     rings,
     orientation: orientationOf(shape),
     wkt: base.wkt || "",
+    attributes: pick?.attributes || [],
   };
 }
 
@@ -172,8 +183,28 @@ function measurement(value, unit, divisor) {
  * The order: what the geometry is, then where it is, then the per-shape
  * questions.
  */
+/** An attribute value as text: numbers and dates readable, nulls as null, nested values as JSON. */
+function attributeText(value) {
+  if (value === null || value === undefined) return "null";
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "number")
+    return Number.isInteger(value) ? String(value) : value.toLocaleString(undefined, { maximumFractionDigits: 10 });
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object") return JSON.stringify(value, (_, v) => (typeof v === "bigint" ? v.toString() : v));
+  return String(value);
+}
+
 export function renderFeature(container, info) {
   container.replaceChildren();
+
+  if (info.attributes?.length) {
+    container.appendChild(section(`Attributes (${info.attributes.length})`));
+    for (const [name, value] of info.attributes) {
+      const line = row(name, attributeText(value));
+      if (value === null || value === undefined) line.classList.add("null");
+      container.appendChild(line);
+    }
+  }
 
   container.appendChild(section("Geometry"));
   container.appendChild(row("Coordinate system", info.lonLat ? `${info.crs} (longitude/latitude)` : info.crs));

@@ -378,6 +378,11 @@ test("attributes are picked by typing: a single attribute and a list", async () 
     "altitude",
     "area_km2",
   ]);
+  // The inspector redraws (here: away and back); the filter stays.
+  await selectNode(page, "n2");
+  await selectNode(page, "n3");
+  await expect(page.locator("#inspector .check-filter")).toHaveValue("a");
+  await expect(page.locator("#inspector .check-list label:visible")).toHaveCount(4);
   await page.locator("#inspector .check-all input").check();
   await expect(page.locator("#inspector .check-tally")).toHaveText("4 of 8");
 });

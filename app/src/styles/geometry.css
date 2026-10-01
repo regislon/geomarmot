@@ -105,3 +105,8 @@ td.row-info {
   border-color: var(--accent);
   color: #fff;
 }
+
+.geo-row.null .geo-value {
+  color: var(--muted);
+  font-style: italic;
+}

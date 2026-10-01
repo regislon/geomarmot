@@ -12,6 +12,8 @@
 import { h } from "./widgets.js";
 
 let pickers = 0;
+/** Filter text per node and param, kept across inspector redraws. */
+const filterTexts = new Map();
 
 const matches = (names, text) => {
   const needle = text.trim().toLowerCase();
@@ -133,21 +135,37 @@ export function columnSelect(names, value, onChange, placeholder = "type to find
 /**
  * A filter box over a list of check boxes, one per name: typing hides the
  * names that do not match. Returns the box and the names currently shown.
+ * The text is kept per `key` (node and param): the inspector redraws when a
+ * compile lands, and a filter that emptied itself then would make Select all
+ * act on every attribute again.
  * @param {Map<string, HTMLInputElement>} boxes
  * @param {() => void} [onFilter]
+ * @param {string} [key]
  */
-export function filterChecks(boxes, onFilter = () => {}) {
+export function filterChecks(boxes, onFilter = () => {}, key = "") {
   const input = h("input", {
     type: "search",
     class: "check-filter",
     placeholder: "Filter attributes",
     "aria-label": "Filter attributes",
   });
-  const visible = () => [...boxes].filter(([, box]) => !box.closest("label").hidden).map(([name]) => name);
-  input.addEventListener("input", () => {
+  input.value = filterTexts.get(key) || "";
+  const visible = () => [...boxes].filter(([, box]) => !box.closest("label")?.hidden).map(([name]) => name);
+  const apply = () => {
     const needle = input.value.trim().toLowerCase();
-    for (const [name, box] of boxes)
-      box.closest("label").hidden = Boolean(needle) && !name.toLowerCase().includes(needle);
+    if (key) filterTexts.set(key, input.value);
+    for (const [name, box] of boxes) {
+      const label = box.closest("label");
+      if (label) label.hidden = Boolean(needle) && !name.toLowerCase().includes(needle);
+    }
+  };
+  input.addEventListener("input", () => {
+    apply();
+    onFilter();
+  });
+  // The boxes join their list after this returns: apply a kept filter then.
+  queueMicrotask(() => {
+    apply();
     onFilter();
   });
   return { input, visible };

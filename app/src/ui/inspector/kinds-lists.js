@@ -45,7 +45,7 @@ export function renderColumnsParam(param, node, columns, commit) {
   }
 
   // A wide table gets a filter; Select all then acts on the attributes it shows.
-  const filter = names.length > 6 ? filterChecks(boxes, () => toggle?.sync()) : null;
+  const filter = names.length > 6 ? filterChecks(boxes, () => toggle?.sync(), `${node.id}:${param.id}`) : null;
   // A single column needs no master switch — it would be the longer click.
   const toggle = names.length > 1 ? selectAllToggle(names, chosen, boxes, apply, filter?.visible) : null;
 

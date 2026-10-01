@@ -77,11 +77,15 @@ function renderBody(rows) {
       const info = document.createElement("button");
       info.className = "info-btn";
       info.textContent = "\u24D8";
-      info.title = "Geometry of this feature";
+      info.title = "All attributes and the geometry of this feature";
       info.disabled = value == null;
       info.addEventListener("click", (event) => {
         event.stopPropagation();
-        elements.onInfo?.({ kind: state.pick, value });
+        elements.onInfo?.({
+          kind: state.pick,
+          value,
+          attributes: state.columns.map((column) => [column.name, row[column.name]]),
+        });
       });
       cell.appendChild(info);
       tr.appendChild(cell);
