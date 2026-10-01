@@ -321,3 +321,55 @@
 .check-list label[hidden] {
   display: none;
 }
+
+/* The selected attributes under a check list, as removable chips. */
+.chosen-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.chosen-head {
+  width: 100%;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.chosen {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 1px 2px 1px 8px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  border: 1px solid var(--border);
+}
+
+.chosen > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chosen.missing {
+  border-color: var(--err);
+  color: var(--err);
+}
+
+.chosen-remove {
+  border: none;
+  background: none;
+  padding: 0 4px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.chosen-remove:hover:not(:disabled) {
+  color: var(--err);
+}

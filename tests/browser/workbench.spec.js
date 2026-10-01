@@ -388,4 +388,11 @@ test("attributes are picked by typing: a single attribute and a list", async () 
   await expect(page.locator("#inspector .check-list label:visible")).toHaveCount(4);
   await page.locator("#inspector .check-all input").check();
   await expect(page.locator("#inspector .check-tally")).toHaveText("4 of 8");
+  // What is selected is listed under the boxes, filter or not, and × drops one.
+  await page.fill("#inspector .check-filter", "lat");
+  await expect(page.locator("#inspector .chosen-head")).toHaveText("Selected (4)");
+  await expect(page.locator("#inspector .chosen > span")).toHaveText(["lat", "canton", "altitude", "area_km2"]);
+  await page.locator("#inspector .chosen", { hasText: "canton" }).locator(".chosen-remove").click();
+  await expect(page.locator("#inspector .chosen > span")).toHaveText(["lat", "altitude", "area_km2"]);
+  await expect(page.locator("#inspector .check-tally")).toHaveText("3 of 8");
 });

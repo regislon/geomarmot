@@ -170,3 +170,32 @@ export function filterChecks(boxes, onFilter = () => {}, key = "") {
   });
   return { input, visible };
 }
+
+/**
+ * The selected attributes as chips, in input order, each with × to drop it.
+ * One no longer on the input stays listed, marked, until it is dropped.
+ * @param {(name: string) => void} onRemove
+ */
+export function chosenChips(onRemove) {
+  const root = h("div", { class: "chosen-list", "aria-live": "polite" });
+  const show = (names, chosen) => {
+    const missing = [...chosen].filter((name) => !names.includes(name));
+    const all = [...names.filter((name) => chosen.has(name)), ...missing];
+    root.replaceChildren(
+      h("span", { class: "chosen-head", text: all.length ? `Selected (${all.length})` : "Nothing selected" }),
+      ...all.map((name) =>
+        h("span", { class: `chosen${missing.includes(name) ? " missing" : ""}` }, [
+          h("span", { text: name, title: missing.includes(name) ? "Not on the input any more" : name }),
+          h("button", {
+            class: "chosen-remove",
+            text: "×",
+            title: `Remove ${name}`,
+            "aria-label": `Remove ${name}`,
+            onclick: () => onRemove(name),
+          }),
+        ]),
+      ),
+    );
+  };
+  return { root, show };
+}

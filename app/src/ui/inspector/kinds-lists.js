@@ -16,7 +16,7 @@ import {
   suggestingInput,
   textInput,
 } from "./widgets.js";
-import { columnSelect, filterChecks } from "./column-picker.js";
+import { chosenChips, columnSelect, filterChecks } from "./column-picker.js";
 
 export function renderColumnsParam(param, node, columns, commit) {
   // `filter: "numeric"` keeps sum and mean away from a text column, where they
@@ -29,10 +29,21 @@ export function renderColumnsParam(param, node, columns, commit) {
     list.appendChild(h("p", { class: "muted", text: "No numeric attributes on this input." }));
   }
 
+  // What is selected, whatever the filter hides, with × to drop one.
+  const picked = chosenChips((name) => {
+    chosen.delete(name);
+    const box = boxes.get(name);
+    if (box) box.checked = false;
+    toggle?.sync();
+    apply();
+  });
+  const showPicked = () => picked.show(names, chosen);
+
   const apply = () => {
     // Preserve the upstream column order rather than click order, so the
     // exported file's columns come out in the order the user sees them.
     node.params[param.id] = names.filter((column) => chosen.has(column));
+    showPicked();
     commit({ rerender: false });
   };
 
@@ -59,7 +70,8 @@ export function renderColumnsParam(param, node, columns, commit) {
   }
 
   if (!toggle) return list;
-  return h("div", { class: "check-group" }, [...(filter ? [filter.input] : []), toggle.row, list]);
+  showPicked();
+  return h("div", { class: "check-group" }, [...(filter ? [filter.input] : []), toggle.row, list, picked.root]);
 }
 
 export function renderConditionsParam(param, node, context, commit) {
