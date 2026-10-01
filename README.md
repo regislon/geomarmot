@@ -48,6 +48,8 @@ alike ([CONTRIBUTING](CONTRIBUTING.md)).
   back out ([formats](docs/formats.md)).
 - **Coordinate systems** are tracked through the graph; the map draws lon/lat and anything PROJ can
   bring back to it.
+- **Save your work** as a file on your computer, or as named workspaces kept in the browser
+  ([using GeoMarmot](docs/using.md)).
 - **Works offline** once installed: every dependency and DuckDB extension ships with the app.
 - **An optional assistant** builds graphs from a request, with Claude or OpenAI models. It proposes
   a draft you preview and apply; you choose what it may see of your data, and by default that is
@@ -106,6 +108,7 @@ Coding agents start from [AGENTS.md](AGENTS.md).
 
 | | |
 |---|---|
+| [Using GeoMarmot](docs/using.md) | the toolbar, saving and opening, running the Writers, the assistant |
 | [Architecture](docs/architecture.md) | how a file becomes a view, generations and leases, the assistant |
 | [Transformer API](docs/transformer-api.md) and [params](docs/params.md) | the contract every transformer follows |
 | [Engines](docs/engines.md) | DuckDB-Wasm, GDAL, JSTS, h3-js, zarrita, SheetJS — and their limits |

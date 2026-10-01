@@ -305,7 +305,7 @@ export async function copyToBuffer(sql, virtualName) {
   }
 }
 
-/** Stop whatever the main connection is running (the Export button's Cancel). */
+/** Stop whatever the main connection is running (the Cancel beside Run). */
 export async function cancelMain() {
   const stopped = await Promise.race([
     conn()

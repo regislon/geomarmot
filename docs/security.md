@@ -33,7 +33,8 @@ it may come from a file someone sent you, or from the assistant.
 - **Restricted by default.** Every node with SQL is `restricted` unless you switch it to
   unrestricted in the inspector and confirm. Editing a field never changes the mode. A graph
   opened from a file comes back restricted, with a banner naming the nodes that asked otherwise;
-  the assistant cannot set the mode at all.
+  the assistant cannot set the mode at all. What this app saved in this browser — the autosave,
+  undo history and workspaces saved with Save ▸ To this browser — keeps the mode you set.
 - **The guard.** In restricted mode each SQL fragment is checked before anything runs
   (`app/src/core/sqlguard/`): it is parsed with DuckDB's own `json_serialize_sql` — parsed, never
   executed — in a placeholder form, and refused unless it is a single SELECT that reads only the
@@ -86,7 +87,8 @@ highest level the conversation had reached. When params are sent at a lower leve
 are replaced by `{ "redacted": "derived from data above the current level" }`. Values you typed,
 or change yourself, are always sent. Two kinds of value are never redacted, because they cannot
 carry data: choices from a fixed list, and column names (sent at level 1 anyway). The origin is
-kept through Apply, undo and redo, autosave, and saving and opening a graph file.
+kept through Apply, undo and redo, autosave, workspaces saved in the browser, and saving and opening a
+graph file.
 
 **Lowering the level ends the conversation.** Assistant replies can quote data they were shown, and
 that cannot be filtered afterwards. So when the level goes down, the request in flight is

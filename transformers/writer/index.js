@@ -9,7 +9,7 @@ export default defineTransformer({
   summary: "Writes what reaches it to a file: Parquet, GeoParquet, GeoJSON, CSV or Excel.",
   description:
     "The Writer is where a graph ends. It writes the rows arriving at its input to one file, which the " +
-    "browser saves to your downloads; nothing is uploaded. It runs only when you ask — Export in the " +
+    "browser saves to your downloads; nothing is uploaded. It runs only when you ask — Run in the " +
     "toolbar writes every connected Writer, and Write this file writes just one — because every other " +
     "node is a lazy view. GeoParquet carries valid geo metadata, GeoJSON names a projected CRS, and Excel " +
     "keeps 64-bit integers exact and geometry as WKT. It does not write to cloud buckets.",

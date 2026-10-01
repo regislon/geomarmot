@@ -1,5 +1,5 @@
 /*
- * Export.
+ * Run (the toolbar button that writes every connected Writer).
  *
  * Parquet and CSV are a plain COPY, GeoJSON is assembled in SQL because the
  * GDAL writer does not work here, and Excel is built by SheetJS in a worker. GeoParquet is the awkward one: whether

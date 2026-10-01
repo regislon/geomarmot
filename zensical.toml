@@ -16,6 +16,7 @@ nav = [
   { "Home" = "index.md" },
   { "Launch the demo" = "https://regislon.github.io/geomarmot/demo/" },
   { "Using GeoMarmot" = [
+    { "Getting around" = "using.md" },
     { "Formats" = "formats.md" },
     { "Security and privacy" = "security.md" },
     { "Parity" = "parity.md" },

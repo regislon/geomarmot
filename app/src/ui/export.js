@@ -1,4 +1,4 @@
-/* Export: running the connected Writers. */
+/* Run: writing every connected Writer (the toolbar's Run button, #btn-export). */
 
 import { cancelMain } from "../core/duck.js";
 import { graph, upstreamCrs, upstreamView } from "../core/graph/index.js";

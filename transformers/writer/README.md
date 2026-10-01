@@ -4,7 +4,7 @@ Writes the rows that reach it to a file in your browser's downloads.
 
 ## What it does
 
-The Writer is where a graph ends. When you press **Export** in the toolbar (every connected Writer)
+The Writer is where a graph ends. When you press **Run** in the toolbar (every connected Writer)
 or **Write this file** in its inspector (just this one), it writes its input to a single file.
 Nothing is uploaded: the file is assembled in the page and saved like any other download.
 
