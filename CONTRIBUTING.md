@@ -1,7 +1,14 @@
 # Contributing
 
-Thank you for helping. GeoMarmot is built to be changed by people and coding agents alike: the
-rules are written down ([AGENTS.md](AGENTS.md)), and the checks enforce them.
+**All contributions are welcome.** A new transformer, a fix, a test case that shows a bug, a
+better description, a documentation page, a bug report, an idea in an issue — every one of them
+makes GeoMarmot better, whether you have been doing spatial ETL for twenty years or this is your
+first pull request. You can write the code yourself or with a coding agent: GeoMarmot is built to be
+changed by people and agents alike, the rules are written down ([AGENTS.md](AGENTS.md)), and the
+checks enforce them.
+
+Not sure where to start? Open an issue describing what you would like to do, and we will help you
+find the right place.
 
 ## Set up
 
@@ -129,8 +136,30 @@ With Claude Code, the [ponytail](https://github.com/dietrichgebert/ponytail) plu
 
 ## Pull requests
 
-Keep them small and on one subject. Fill in the template: what changes, that a human has read the
-fixtures, the code-economy answers, and which agent (if any) wrote it.
+Every pull request is read by a maintainer. It is accepted when:
+
+1. **CI passes**: the `check`, `browser` and `server` jobs (and `package`, when it runs). Run
+   `npm run check` and `npm run test:browser` before you push to save a round trip.
+2. **The behaviour is tested.** A new or changed transformer comes with `tests.json` cases written
+   first; other changes come with a unit, I/O or end-to-end test. A bug fix comes with the test
+   that failed before it.
+3. **A human has read the fixtures.** Captured expectations are claims about behaviour; say in the
+   pull request that you checked them.
+4. **It is documented.** Transformer metadata and READMEs pass `npm run check:docs`; user-visible
+   changes update the relevant page under `docs/`.
+5. **It keeps the safety rules.** No SQL path around the SQL guard, nothing sent to a model around
+   the privacy gate, no hook that reaches the main engine directly ([security](docs/security.md)).
+6. **It is small and on one subject**, and the code-economy questions in the template are answered.
+   Large changes are easier to accept after a short issue agreeing on the approach.
+7. **It can be released under the project's licence**: you wrote it (yourself or with an agent),
+   or it comes from a compatible open-source licence that you name, and it is contributed under
+   Apache-2.0.
+
+Fill in the template: what changes, that a human has read the fixtures, the code-economy answers,
+and which agent (if any) wrote it. If something is missing, the review will say what and help you
+get there — a pull request that is not ready yet is still welcome.
+
+Be kind in issues and reviews; see the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Releasing
 
