@@ -23,17 +23,22 @@ alike ([CONTRIBUTING](CONTRIBUTING.md)).
 
 ## Why a marmot?
 
-- **Small and light.** A marmot is not a big animal, and GeoMarmot is not a big install: it is a web
-  page, and the heavy lifting happens in your own browser tab.
-- **It digs tunnels.** Marmots dig burrows of connected tunnels; GeoMarmot digs the tunnels your
-  data flows through, from one transformer to the next.
-- **It doesn't try to do everything, and it doesn't bother anyone.** A marmot keeps to its own
-  burrow. GeoMarmot will not do every job a big desktop GIS does, but it does not get in your way
-  either: nothing to install, no account, and your files never leave your machine.
-- **It knows when to rest.** Marmots hibernate. GeoMarmot computes nothing until you look at a
-  result: each transformer is a view, woken up only when something reads it.
-- **It whistles.** A marmot whistles to warn the others. GeoMarmot says what went wrong in plain
-  words, and its assistant asks before it sees any of your data.
+- **Small and light.** Spatial ETL usually means a heavy desktop suite, a licence server or a
+  spatial database to set up. GeoMarmot is a web page: the geoprocessing runs in your browser tab,
+  with DuckDB spatial, GDAL and PROJ built in.
+- **It digs tunnels through the terrain.** A marmot's burrow is a network of tunnels under the
+  landscape; a GeoMarmot graph is a network of tunnels your layers flow through — read, reproject,
+  overlay, buffer, aggregate to H3, write out — one transformer to the next.
+- **It doesn't try to be a whole GIS, and it doesn't disturb anything.** No digitising, no map
+  layout, no cartography: it moves and transforms spatial data, and leaves the rest to your GIS. In
+  return it touches nothing: no install, no server to run, no database to load, and your datasets
+  never leave your machine.
+- **It knows when to rest.** Marmots hibernate. GeoMarmot computes nothing until you look: each
+  transformer is a view, woken up only when the table, the map or an export reads it — so a large
+  GeoParquet or a whole H3 tile costs only what you actually draw or write.
+- **It whistles when something is wrong.** A marmot whistles to warn the colony. GeoMarmot warns
+  when coordinates are not what they claim to be — a projected layer with no CRS, two inputs in
+  different coordinate systems — before a wrong map or a wrong export does.
 
 ## What it does
 
