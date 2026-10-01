@@ -25,6 +25,13 @@ export const DEFAULT_MODEL = "claude-opus-5-5";
 export const MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"];
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
+/** A conversation begun with another provider: drop the blocks only it can read (OpenAI's reasoning items). */
+function withoutForeignBlocks(messages) {
+  return messages
+    .map((m) => (Array.isArray(m.content) ? { ...m, content: m.content.filter((b) => b.type !== "openai_item") } : m))
+    .filter((m) => !Array.isArray(m.content) || m.content.length);
+}
+
 /** Models that take adaptive thinking, effort and server-side fallbacks. */
 const isCurrent = (model) => /^claude-(opus|sonnet|fable)-5/.test(model);
 
@@ -45,7 +52,7 @@ export function buildRequest({
     model,
     max_tokens: maxTokens,
     system,
-    messages,
+    messages: withoutForeignBlocks(messages),
     cache_control: { type: "ephemeral" },
   };
   if (tools.length) {

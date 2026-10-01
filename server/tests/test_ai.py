@@ -105,7 +105,7 @@ def test_refuses_fields_outside_the_allowlist(ai, calls):
 def test_refuses_an_unknown_provider_and_a_missing_key(ai):
     with_session(ai)
     assert ai.post("/ai/other", json=BODY).status_code == 404
-    response = ai.post("/ai/openai", json={"model": "m", "messages": []})
+    response = ai.post("/ai/openai", json={"model": "m", "input": []})
     assert response.status_code == 400
     assert response.json()["error"]["type"] == "no_key"
 
@@ -168,4 +168,10 @@ def test_the_real_clients_are_the_official_sdks():
     import openai
 
     assert hasattr(anthropic.Anthropic(api_key="x").beta.messages, "create")
-    assert hasattr(openai.OpenAI(api_key="x").chat.completions, "create")
+    assert hasattr(openai.OpenAI(api_key="x").responses, "create")
+
+
+def test_openai_requests_are_responses_api_shaped(ai):
+    with_session(ai)
+    old_style = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+    assert ai.post("/ai/openai", json=old_style).json()["error"]["type"] == "bad_request"

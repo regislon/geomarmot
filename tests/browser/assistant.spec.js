@@ -159,3 +159,60 @@ test("an API error is reported without losing the message box", async () => {
   await expect(page.locator("#assistant-log .chat-msg.error")).toContainText("API key was refused");
   await expect(page.locator("#assistant-send")).toBeEnabled();
 });
+
+test("OpenAI: tool calls go through the Responses API, with reasoning items sent back", async () => {
+  const { page } = app;
+  await setUp(page);
+  const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "*" };
+  const json = { ...CORS, "content-type": "application/json" };
+  const sent = [];
+  const reasoning = { type: "reasoning", id: "rs_1", summary: [], encrypted_content: "opaque" };
+  await page.route("https://api.openai.com/**", (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
+    if (request.url().endsWith("/models"))
+      return route.fulfill({
+        headers: json,
+        body: JSON.stringify({ object: "list", data: [{ id: "gpt-test", object: "model", created: 1 }] }),
+      });
+    sent.push({ url: request.url(), body: request.postDataJSON() });
+    const output =
+      sent.length === 1
+        ? [reasoning, { type: "function_call", id: "fc_1", call_id: "call_1", name: "get_graph", arguments: "{}" }]
+        : [
+            {
+              type: "message",
+              role: "assistant",
+              content: [{ type: "output_text", text: "Your graph has one Reader." }],
+            },
+          ];
+    return route.fulfill({
+      headers: json,
+      body: JSON.stringify({
+        id: `resp_${sent.length}`,
+        object: "response",
+        status: "completed",
+        model: "gpt-test",
+        output,
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    });
+  });
+  await page.click("#assistant-settings");
+  await page.check('input[name="ai-provider"][value="openai"]');
+  await page.fill("#ai-key", "sk-openai-test");
+  await page.locator("#ai-key").blur();
+  await expect(page.locator("#ai-model")).toHaveValue("gpt-test");
+  await page.click("#ai-settings-save");
+  await ask(page, "what is in my graph?");
+  await expect(page.locator("#assistant-log")).toContainText("Your graph has one Reader.");
+
+  expect(sent.every((r) => r.url.endsWith("/v1/responses"))).toBe(true);
+  expect(sent[0].body).toMatchObject({ model: "gpt-test", store: false, tool_choice: "auto" });
+  expect(sent[0].body.tools.every((t) => t.type === "function" && t.strict === true)).toBe(true);
+  const second = sent[1].body.input;
+  expect(second).toContainEqual(reasoning);
+  expect(second).toContainEqual({ type: "function_call", call_id: "call_1", name: "get_graph", arguments: "{}" });
+  expect(second.find((item) => item.type === "function_call_output")).toMatchObject({ call_id: "call_1" });
+  expect(JSON.stringify(sent)).not.toContain("CANARY");
+});

@@ -47,9 +47,23 @@ ALLOWED_FIELDS = {
             "fallbacks",
         }
     ),
-    "openai": frozenset({"model", "messages", "tools", "tool_choice", "max_completion_tokens", "parallel_tool_calls"}),
+    # The Responses API (client.responses.create): current models take function tools only there.
+    "openai": frozenset(
+        {
+            "model",
+            "instructions",
+            "input",
+            "tools",
+            "tool_choice",
+            "max_output_tokens",
+            "parallel_tool_calls",
+            "reasoning",
+            "store",
+            "include",
+        }
+    ),
 }
-REQUIRED_FIELDS = frozenset({"model", "messages"})
+REQUIRED_FIELDS = {"anthropic": frozenset({"model", "messages"}), "openai": frozenset({"model", "input"})}
 
 
 def enabled() -> bool:
@@ -74,7 +88,7 @@ def _openai(key: str) -> Callable[[dict[str, Any]], Any]:
     import openai
 
     client = openai.OpenAI(api_key=key)
-    return lambda body: client.chat.completions.create(**body)
+    return lambda body: client.responses.create(**body)
 
 
 DEFAULT_CLIENTS: dict[str, Callable[[str], Callable[[dict[str, Any]], Any]]] = {
@@ -144,7 +158,7 @@ def add_ai_routes(
         extra = sorted(set(body) - ALLOWED_FIELDS[provider])
         if extra:
             return _error(400, "bad_request", f"Fields not accepted by the relay: {', '.join(extra)}.")
-        missing = sorted(REQUIRED_FIELDS - set(body))
+        missing = sorted(REQUIRED_FIELDS[provider] - set(body))
         if missing:
             return _error(400, "bad_request", f"Missing fields: {', '.join(missing)}.")
         key = _key(provider)

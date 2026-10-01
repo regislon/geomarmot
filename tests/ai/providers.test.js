@@ -121,7 +121,8 @@ describe("anthropic adapter", () => {
 });
 
 describe("openai adapter", () => {
-  test("translates the conversation and drops blocks it cannot read", () => {
+  test("translates the conversation to Responses API input, keeping reasoning items and dropping thinking", () => {
+    const reasoning = { type: "reasoning", id: "rs_1", summary: [], encrypted_content: "enc" };
     const body = openai.buildRequest({
       model: "some-model",
       system: "sys",
@@ -132,6 +133,7 @@ describe("openai adapter", () => {
           role: "assistant",
           content: [
             { type: "thinking", thinking: "", signature: "s" },
+            { type: "openai_item", item: reasoning },
             { type: "text", text: "ok" },
             { type: "tool_use", id: "c1", name: "search_transformers", input: { query: "x", limit: 1 } },
           ],
@@ -139,43 +141,70 @@ describe("openai adapter", () => {
         { role: "user", content: [{ type: "tool_result", tool_use_id: "c1", content: "[]" }] },
       ],
     });
-    expect(body.messages).toEqual([
-      { role: "system", content: "sys" },
+    expect(body.instructions).toBe("sys");
+    expect(body.store).toBe(false);
+    expect(body.include).toEqual(["reasoning.encrypted_content"]);
+    expect(body.input).toEqual([
       { role: "user", content: "hi" },
-      {
-        role: "assistant",
-        content: "ok",
-        tool_calls: [
-          {
-            id: "c1",
-            type: "function",
-            function: { name: "search_transformers", arguments: '{"query":"x","limit":1}' },
-          },
-        ],
-      },
-      { role: "tool", tool_call_id: "c1", content: "[]" },
+      reasoning,
+      { role: "assistant", content: "ok" },
+      { type: "function_call", call_id: "c1", name: "search_transformers", arguments: '{"query":"x","limit":1}' },
+      { type: "function_call_output", call_id: "c1", output: "[]" },
     ]);
-    expect(body.tools[0].function.strict).toBe(true);
+    expect(body.tools[0]).toMatchObject({ type: "function", name: "search_transformers", strict: true });
+    expect(body.tools[0].parameters.properties.limit).toEqual({ type: "integer" });
+    expect(body).not.toHaveProperty("messages");
+    expect(body).not.toHaveProperty("reasoning_effort");
   });
 
   test("needs a model named", () => {
     expect(() => openai.buildRequest({ ...REQUEST, model: "" })).toThrow(ProviderError);
   });
 
-  test("parses tool calls, finish reasons and refusals", () => {
+  test("parses output items: reasoning, text, function calls, refusals, cut-offs", () => {
+    const reasoning = { type: "reasoning", id: "rs_1", summary: [] };
     const parsed = openai.parseResponse({
       model: "m",
-      choices: [
+      status: "completed",
+      output: [
+        reasoning,
+        { type: "message", role: "assistant", content: [{ type: "output_text", text: "Looking." }] },
+        { type: "function_call", call_id: "c", name: "f", arguments: "{bad" },
+      ],
+      usage: { input_tokens: 3, output_tokens: 4 },
+    });
+    expect(parsed.stopReason).toBe("tool_use");
+    expect(parsed.content[0]).toEqual({ type: "openai_item", item: reasoning });
+    expect(parsed.text).toBe("Looking.");
+    expect(parsed.toolCalls[0]).toEqual({ id: "c", name: "f", input: { __invalidJson: "{bad" } });
+    expect(parsed.usage).toEqual({ input: 3, output: 4 });
+    const refused = openai.parseResponse({
+      output: [{ type: "message", content: [{ type: "refusal", refusal: "I can't." }] }],
+    });
+    expect(refused).toMatchObject({ stopReason: "refusal", refusal: { explanation: "I can't." } });
+    const cut = openai.parseResponse({
+      status: "incomplete",
+      incomplete_details: { reason: "max_output_tokens" },
+      output: [],
+    });
+    expect(cut.stopReason).toBe("max_tokens");
+  });
+
+  test("a conversation switched to Claude drops OpenAI's reasoning items", () => {
+    const body = anthropic.buildRequest({
+      ...REQUEST,
+      messages: [
+        { role: "user", content: [{ type: "text", text: "hi" }] },
         {
-          finish_reason: "tool_calls",
-          message: { content: null, tool_calls: [{ id: "c", function: { name: "f", arguments: "{bad" } }] },
+          role: "assistant",
+          content: [
+            { type: "openai_item", item: { type: "reasoning" } },
+            { type: "text", text: "ok" },
+          ],
         },
       ],
     });
-    expect(parsed.stopReason).toBe("tool_use");
-    expect(parsed.toolCalls[0].input).toEqual({ __invalidJson: "{bad" });
-    const refused = openai.parseResponse({ choices: [{ finish_reason: "stop", message: { refusal: "I can't." } }] });
-    expect(refused.stopReason).toBe("refusal");
+    expect(body.messages[1].content).toEqual([{ type: "text", text: "ok" }]);
   });
 });
 
