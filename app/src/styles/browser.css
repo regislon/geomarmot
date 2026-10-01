@@ -307,6 +307,38 @@
   text-decoration: underline;
 }
 
+/* Opened from another window, so drawn above it. */
+.modal.stacked {
+  z-index: 21;
+}
+
+.gcs-help-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(620px, 100%);
+  max-height: min(85vh, 760px);
+}
+
+.gcs-help-body {
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.gcs-help-body ol {
+  padding-left: 1.3em;
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.gcs-help-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  background: var(--paper-2);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
 /* ---------- workspaces kept in this browser ---------- */
 
 .workspace-panel {

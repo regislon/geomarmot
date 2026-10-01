@@ -115,6 +115,10 @@ export function initConnectors(config) {
     if (event.target === elements.modal) closeConnect();
   });
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !elements.modal.hidden) closeConnect();
+    if (event.key !== "Escape" || elements.modal.hidden) return;
+    // A window opened from this one (the client ID help) closes first.
+    const stacked = document.querySelector(".modal.stacked:not([hidden])");
+    if (stacked) stacked.hidden = true;
+    else closeConnect();
   });
 }

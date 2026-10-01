@@ -63,6 +63,12 @@ test("without the local server, buckets are read with a Google sign-in", async (
     // Not registered yet: the button leads to the setup.
     await page.click("#gcs-sign-in");
     await expect(page.locator("#gcs-google-text")).toContainText("OAuth client ID");
+    // The ? explains how to get one, with this site's origin to register; Escape closes only it.
+    await page.click("#gcs-client-help");
+    await expect(page.locator("#gcs-help-origin")).toHaveText(new URL(page.url()).origin);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#gcs-help-modal")).toBeHidden();
+    await expect(page.locator("#connect-modal")).toBeVisible();
     await page.fill("#gcs-client-id", CLIENT_ID);
     await page.click("#gcs-client-save");
     await page.click("#gcs-sign-in");

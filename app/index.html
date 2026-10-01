@@ -254,6 +254,58 @@
       </div>
     </div>
 
+    <div id="gcs-help-modal" class="modal stacked" hidden>
+      <div class="modal-panel gcs-help-panel">
+        <div class="modal-head">
+          <h2>Get an OAuth client ID</h2>
+          <button id="gcs-help-close" class="icon-btn" title="Close">×</button>
+        </div>
+        <div class="gcs-help-body">
+          <p>
+            The client ID registers this site with Google, so that <em>Sign in with Google</em> can ask for read access
+            to your buckets. It is set up once, by whoever runs the site, in a Google Cloud project of your
+            organisation. It is not a secret. It takes about five minutes.
+          </p>
+          <ol>
+            <li>
+              <strong>Open the Google Auth Platform.</strong> Go to
+              <a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noopener"
+                >console.cloud.google.com/auth/overview</a
+              >, pick the project at the top, and click <em>Get started</em> if asked.
+            </li>
+            <li>
+              <strong>Branding and audience.</strong> App name <em>GeoMarmot</em>, your email as support and contact
+              address. For <em>Audience</em>, choose <strong>Internal</strong>: only accounts of your Google Workspace
+              organisation can sign in, and Google does not need to review the app.
+            </li>
+            <li>
+              <strong>Scope.</strong> Under <em>Data Access ▸ Add or remove scopes</em>, add
+              <code>https://www.googleapis.com/auth/devstorage.read_only</code> (read only) and save.
+            </li>
+            <li>
+              <strong>The client.</strong> Under <em>Clients ▸ Create client</em>, choose <em>Web application</em>. In
+              <em>Authorised JavaScript origins</em>, add <code id="gcs-help-origin"></code>. Leave the redirect URIs
+              empty, and click <em>Create</em>.
+            </li>
+            <li>
+              <strong>Copy the Client ID</strong> (it ends in <code>.apps.googleusercontent.com</code>) and paste it
+              into the box behind this window. The client secret is not needed.
+            </li>
+          </ol>
+          <p class="muted">
+            To build it into the published site instead, so nobody has to paste it, set it as the
+            <code>GOOGLE_CLIENT_ID</code> variable of the GitHub repository (<em
+              >Settings ▸ Secrets and variables ▸ Actions ▸ Variables</em
+            >) and run the <em>pages</em> workflow again.
+          </p>
+          <p class="muted">
+            "Access blocked: origin mismatch" means the address in step 4 is not exactly this site's. "Permission
+            denied" on a bucket means your Google account cannot read it.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div id="connect-modal" class="modal" hidden>
       <div class="modal-panel connect-panel">
         <div class="modal-head">
@@ -330,6 +382,7 @@
                     placeholder="OAuth client ID (….apps.googleusercontent.com)"
                   />
                   <button id="gcs-client-save">Save</button>
+                  <button id="gcs-client-help" class="icon-btn" title="How to get a client ID">?</button>
                 </div>
                 <button id="gcs-client-change" class="link-btn">Set up Google sign-in for this site</button>
               </div>

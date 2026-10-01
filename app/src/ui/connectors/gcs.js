@@ -251,6 +251,16 @@ export function initGcs(config) {
     g.clientInput.focus();
   };
   g.change.addEventListener("click", setUp);
+  // The steps, with this site's own origin to paste into Google's console.
+  g.help.addEventListener("click", () => {
+    g.helpOrigin.textContent = window.location.origin;
+    g.helpModal.hidden = false;
+  });
+  const closeHelp = () => (g.helpModal.hidden = true);
+  g.helpClose.addEventListener("click", closeHelp);
+  g.helpModal.addEventListener("click", (event) => {
+    if (event.target === g.helpModal) closeHelp();
+  });
   g.signIn.addEventListener("click", () => {
     // Not registered yet: the button leads to the one-time setup instead of a popup that would fail.
     if (!clientId()) return setUp();
