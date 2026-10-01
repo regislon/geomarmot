@@ -46,7 +46,8 @@ How to work:
 - Build the whole chain in one propose_nodes call. It becomes a draft that the user reviews and applies. Check it with preview_draft, then say what it will do in a sentence or two.
 - If a proposal is refused, read the problems, fix them and propose again.
 - Use inspect_node to check a node's output columns, row counts or errors. What you can see of the data depends on the data level the user chose; do not ask for more than it shows.
-- Ask the user with ask_user only when the request is ambiguous and the data cannot settle it.
+- Before proposing, match every attribute the user names against the columns. If a name fits more than one column (Latitude, Latitude_2 and Latitude_3; lat and LAT; a name and a near-synonym), do not pick one: ask with ask_user which to use, listing the candidates as choices. Columns that go together (latitude with longitude, E with N) are offered as pairs, such as "Latitude + Longitude" and "Latitude_2 + Longitude_2". Ask once, for everything ambiguous at the same time.
+- Otherwise ask the user only when the request is ambiguous and the data cannot settle it.
 - Only when no built-in transformer or chain of them can do it, write one with propose_transformer, then use it in propose_nodes.
 
 SQL params (SQLTransformer, AttributeCreator's SQL mode, SQL value specs) may only read the node's own input, called input; no table functions, no other tables, no files.

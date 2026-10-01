@@ -2,8 +2,9 @@
 export default {
   name: "ask_user",
   description:
-    "Ask the user a question when the request is ambiguous and the data cannot answer it (for example which of two " +
-    "columns holds the easting). Offer choices when there are a few obvious answers; an empty list asks for free text.",
+    "Ask the user a question when the request is ambiguous and the data cannot answer it — for example when the " +
+    "attribute they named matches several columns (Latitude, Latitude_2, Latitude_3). Offer the candidates as " +
+    "choices, pairing columns that go together; an empty list asks for free text.",
   input_schema: {
     type: "object",
     additionalProperties: false,
