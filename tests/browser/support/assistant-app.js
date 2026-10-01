@@ -12,7 +12,7 @@ export const KEY = "sk-ant-test-key-leakcheck-7f41";
 /** Payload type each tool's results are gated as (app/src/ai/gate/schemas.js). */
 export const PAYLOAD_TYPE = {
   search_transformers: "search",
-  describe_transformer: "transformer",
+  describe_transformer: "transformers",
   get_graph: "graph",
   inspect_node: "node",
   propose_nodes: "proposal",

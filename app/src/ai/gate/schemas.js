@@ -129,6 +129,8 @@ const BUILDERS = {
   search: () => closed({ results: list(brief, 50) }),
   /** describe_transformer: one catalogue entry, which is static. */
   transformer: () => transformerSchema,
+  /** describe_transformer: several catalogue entries, and the ids it does not know. */
+  transformers: () => closed({ entries: list(transformerSchema, 8), unknown: list(IDENT, 8) }),
   /** get_graph, and the summary that restarts a conversation. */
   graph: (level) =>
     closed(

@@ -88,7 +88,7 @@ for (const level of [1, 2]) {
     const requests = await fakeClaude(page, [
       reply([toolUse("get_graph", {}), toolUse("search_transformers", { query: "filter rows", limit: 3 })]),
       reply(["n1", "n2", "n3", "n4", "n5", "n6", "n99"].map((node) => toolUse("inspect_node", { node }))),
-      reply([toolUse("inspect_node", { node: 5 }), toolUse("describe_transformer", { id: "Nope" })]),
+      reply([toolUse("inspect_node", { node: 5 }), toolUse("describe_transformer", { ids: ["Nope"] })]),
       reply([
         toolUse(
           "propose_nodes",
@@ -120,7 +120,6 @@ for (const level of [1, 2]) {
       "SQL_FORBIDDEN_CONSTRUCT",
       "UNKNOWN_NODE",
       "INVALID_INPUT",
-      "UNKNOWN_TRANSFORMER",
       "CONVERSION_FAILED",
     ]) {
       expect(codes, code).toContain(code);

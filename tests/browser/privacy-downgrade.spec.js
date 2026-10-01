@@ -130,7 +130,7 @@ test("a value copied from data into a param is redacted below its level, everywh
     reply([text("Draft ready.")]),
     reply([
       toolUse("get_graph", {}),
-      toolUse("describe_transformer", { id: "CustomPick" }),
+      toolUse("describe_transformer", { ids: ["CustomPick"] }),
       toolUse("search_transformers", { query: "pick", limit: 5 }),
     ]),
     reply([text("Seen.")]),
@@ -158,7 +158,7 @@ test("a value copied from data into a param is redacted below its level, everywh
   const [, , , toolRound] = requests;
   for (const request of [requests[2], toolRound]) expect(JSON.stringify(request.body)).not.toContain("CANARY");
   const results = toolRound.body.messages.at(-1).content.map((b) => JSON.parse(b.content));
-  const described = results.find((r) => r.id === "CustomPick");
+  const described = results.find((r) => r.entries)?.entries.find((e) => e.id === "CustomPick");
   expect(described.id).toBe("CustomPick");
   expect(described.summary).toMatch(/higher data level/);
   const summary = openingSummary(requests[2]);

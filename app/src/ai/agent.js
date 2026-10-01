@@ -21,10 +21,20 @@ import { send } from "./provider.js";
 import { GateError, errorPayload, gate, structured } from "./gate/index.js";
 import { schemaProblem } from "./gate/errors.js";
 import { TOOL_SPECS, toolNamed } from "./tools/index.js";
+import { catalogue } from "./catalogue.js";
 
 export const MAX_TURNS = 12;
 /** Refused proposals (nodes or transformers) allowed per message before the assistant stops trying. */
 export const MAX_REPAIRS = 3;
+
+/**
+ * Every built-in transformer in one line, so the model picks without searching. Built-ins only, so
+ * the prompt — and its cache — stays the same whatever has been generated meanwhile.
+ */
+const TRANSFORMER_INDEX = catalogue()
+  .filter((entry) => entry.aiUsable && entry.group !== "Custom")
+  .map((entry) => `- ${entry.id} (${entry.group}) — ${entry.summary}`)
+  .join("\n");
 
 export const SYSTEM_PROMPT = `You help people build data-processing graphs in GeoMarmot, a spatial ETL tool that runs in their browser.
 
@@ -32,7 +42,7 @@ A graph is a set of nodes (transformers) joined output port to input port. Reade
 
 How to work:
 - Start from get_graph to see the sources, their columns and the nodes already there.
-- Find transformers with search_transformers, then read describe_transformer for each one you intend to use; use only params and ports it lists, and only column names you have seen. Each param has a "value" (the JSON Schema its value must match) and often an "example": write params in exactly that shape — for instance a value spec is an object such as {"kind": "Attribute", "column": "lon"}, never a bare column name.
+- Choose transformers from the index below; use search_transformers only if none fits. Then read all the ones you intend to use in one describe_transformer call; use only params and ports it lists, and only column names you have seen. Each param has a "value" (the JSON Schema its value must match) and often an "example": write params in exactly that shape — for instance a value spec is an object such as {"kind": "Attribute", "column": "lon"}, never a bare column name.
 - Build the whole chain in one propose_nodes call. It becomes a draft that the user reviews and applies. Check it with preview_draft, then say what it will do in a sentence or two.
 - If a proposal is refused, read the problems, fix them and propose again.
 - Use inspect_node to check a node's output columns, row counts or errors. What you can see of the data depends on the data level the user chose; do not ask for more than it shows.
@@ -41,7 +51,10 @@ How to work:
 
 SQL params (SQLTransformer, AttributeCreator's SQL mode, SQL value specs) may only read the node's own input, called input; no table functions, no other tables, no files.
 
-Keep replies short and plain. Use the tools rather than describing what you would do.`;
+Keep replies short and plain. Use the tools rather than describing what you would do.
+
+The transformers (id — what it does):
+${TRANSFORMER_INDEX}`;
 
 /**
  * Run one user message to completion.
