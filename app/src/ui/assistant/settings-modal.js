@@ -17,17 +17,19 @@ const PROVIDERS = [
   { value: "openai", label: "OpenAI" },
 ];
 
+const NO_SERVER_KEY = "No key is set on a local server for this provider.";
+
 const LEVEL_TEXT = {
   1: "Schema only — column names and types, row counts, CRS, and error codes. No values leave the browser.",
   2: "Adds per-column statistics — min, max, share of nulls, distinct count, extent, up to 5 top values.",
   3: "Adds up to 20 sample rows, preview rows and raw error messages.",
 };
 
-function field(label, control, note = "") {
+function field(label, control, note = null) {
   return h("label", { class: "ai-field" }, [
     h("span", { class: "ai-label", text: label }),
     control,
-    ...(note ? [h("span", { class: "muted ai-note", text: note })] : []),
+    ...(note !== null ? [h("span", { class: "muted ai-note", text: note })] : []),
   ]);
 }
 
@@ -119,7 +121,7 @@ export function initAssistantSettings() {
             render();
           },
         ),
-        serverOk ? "" : "No key is set on a local server for this provider.",
+        serverOk ? "" : NO_SERVER_KEY,
       ),
       field("Model", model),
       ...(draft.provider === "anthropic"
@@ -168,7 +170,19 @@ export function initAssistantSettings() {
     modal.hidden = false;
     render();
     available = await serverProviders();
-    render();
+    // Only the route option depends on the answer. Re-rendering the form here would replace the
+    // key field under the user's typing, and what they had typed would be lost.
+    if (!modal.hidden) showServerRoute();
+  }
+
+  function showServerRoute() {
+    const server = body.querySelector('input[name="ai-transport"][value="server"]');
+    if (!server) return;
+    const ok = available[draft.provider];
+    server.disabled = !ok;
+    server.parentElement.classList.toggle("muted", !ok);
+    const note = server.closest(".ai-field")?.querySelector(".ai-note");
+    if (note) note.textContent = ok ? "" : NO_SERVER_KEY;
   }
 
   function save() {
