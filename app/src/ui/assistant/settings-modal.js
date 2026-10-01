@@ -66,8 +66,7 @@ export function initAssistantSettings() {
   async function fetchOpenAiModels() {
     const key = keyInHand();
     if (draft.provider !== "openai" || draft.transport !== "browser" || !key) return;
-    modelsNote = "Reading your models…";
-    fillModel();
+    showModelsNote("Reading your models…");
     try {
       openaiModels = await ADAPTERS.openai.listModels(key);
       modelsNote = openaiModels.length ? "" : "This key lists no chat models.";
@@ -76,7 +75,22 @@ export function initAssistantSettings() {
       openaiModels = null;
       modelsNote = `Could not list your models (${err.message}); type a model name.`;
     }
-    fillModel();
+    // Never rebuild the field under the user: once they are typing a name, only the note changes.
+    const control = modelSlot?.querySelector("#ai-model");
+    if (typingModel || (control && document.activeElement === control)) showModelsNote(modelsNote);
+    else fillModel();
+  }
+
+  /** Change only the note under the model field. */
+  function showModelsNote(text) {
+    modelsNote = text;
+    if (!modelSlot) return;
+    let note = modelSlot.querySelector(".ai-note");
+    if (!note) {
+      note = h("span", { class: "muted ai-note" });
+      modelSlot.appendChild(note);
+    }
+    note.textContent = text;
   }
 
   function fillModel() {
