@@ -42,7 +42,10 @@ async function selectNode(page, id) {
   const type = await title.textContent();
   // A click can land while the canvas redraws: confirm it took, and click again if not.
   for (let attempt = 0; attempt < 3; attempt++) {
+    // The canvas redraws on every change: wait for the node to be there, and try again if it moved on.
+    await title.waitFor();
     const box = await title.boundingBox();
+    if (!box) continue;
     // Near the left edge: a node far right can run under the inspector, which then takes the click.
     await page.mouse.click(box.x + Math.min(12, box.width / 2), box.y + box.height / 2);
     try {
