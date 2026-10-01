@@ -49,6 +49,7 @@
     "jsts": "2.12.1",
     "maplibre-gl": "4.7.1",
     "openai": "7.25.0",
+    "sql.js": "1.14.2",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zarrita": "0.7.5"
   }

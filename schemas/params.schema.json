@@ -1049,6 +1049,7 @@
             "Parquet",
             "GeoParquet",
             "GeoJSON",
+            "GeoPackage",
             "CSV",
             "Excel"
           ]

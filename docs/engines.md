@@ -42,7 +42,9 @@ stopped by terminating it. Transformer hooks never import the main engine: they 
 
 The spatial extension ships GDAL, which is how GeoPackage, GeoJSON and FlatGeobuf are read — from a
 dropped buffer or over HTTP range reads — and how CRS transforms (`ST_Transform`, PROJ) work. The
-Wasm build of GDAL cannot *write* GeoPackage, so GeoMarmot does not offer it as an export.
+Wasm build of GDAL cannot *write* GeoPackage (its SQLite cannot write to the Wasm file system), so
+GeoMarmot writes GeoPackage itself, with sql.js — a WebAssembly SQLite, loaded on the first
+GeoPackage export — following the OGC GeoPackage 1.3 tables and geometry encoding.
 
 ## JSTS
 

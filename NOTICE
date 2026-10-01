@@ -12,6 +12,9 @@ It bundles or depends on the following third-party software, each under its own 
 - JSTS (EDL-1.0 / EPL-1.0 dual licence) — https://github.com/bjornharrtell/jsts
 - zarrita (MIT) — https://github.com/manzt/zarrita.js, with numcodecs.js (MIT)
 - SheetJS Community Edition (Apache-2.0) — https://sheetjs.com
+- sql.js (MIT) — https://github.com/sql-js/sql.js, a WebAssembly build of SQLite (public domain), used to write GeoPackage
+- Anthropic TypeScript SDK (MIT) — https://github.com/anthropics/anthropic-sdk-typescript
+- OpenAI Node SDK (Apache-2.0) — https://github.com/openai/openai-node
 
 Several geometry and attribute-analysis transformers are modelled on tools from
 WhiteboxTools (MIT, Copyright (c) John Lindsay). Each such transformer credits it

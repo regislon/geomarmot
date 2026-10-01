@@ -2,7 +2,8 @@
  * Run (the toolbar button that writes every connected Writer).
  *
  * Parquet and CSV are a plain COPY, GeoJSON is assembled in SQL because the
- * GDAL writer does not work here, and Excel is built by SheetJS in a worker. GeoParquet is the awkward one: whether
+ * GDAL writer does not work here, GeoPackage is built with sql.js
+ * (geopackage.js) for the same reason, and Excel is built by SheetJS in a worker. GeoParquet is the awkward one: whether
  * duckdb-wasm's spatial build writes the `geo` metadata block is not something
  * to take on faith, so this writes the file and then reads its own footer back
  * to find out. If the block is there, the file ships as real GeoParquet. If it
@@ -16,6 +17,7 @@ import { LONLAT, describe, findGeometryColumn } from "../../core/schema.js";
 import { H3_INDEX_COLUMN, MAX_MATERIALISED_CELLS, createCellGeometryTable } from "../../engines/h3/index.js";
 import { exportExcel } from "./excel.js";
 import { exportGeoJson, exportGeoParquet } from "./geo.js";
+import { exportGeoPackage } from "./geopackage.js";
 
 let _exportCounter = 0;
 
@@ -96,12 +98,13 @@ const EXPORTERS = {
   Parquet: exportParquet,
   GeoParquet: exportGeoParquet,
   GeoJSON: exportGeoJson,
+  GeoPackage: exportGeoPackage,
   CSV: exportCsv,
   Excel: exportExcel,
 };
 
 /** Formats that promise geometry, and so pay to build hexagons for an H3 view. */
-const GEOMETRY_FORMATS = new Set(["GeoParquet", "GeoJSON"]);
+const GEOMETRY_FORMATS = new Set(["GeoParquet", "GeoJSON", "GeoPackage"]);
 
 /**
  * Run one Writer node.
@@ -112,7 +115,9 @@ const GEOMETRY_FORMATS = new Set(["GeoParquet", "GeoJSON"]);
 export async function runWriter(viewName, format, fileName, { crs = LONLAT } = {}) {
   const exporter = EXPORTERS[format];
   if (!exporter) throw new Error(`Unknown export format "${format}"`);
-  const baseName = (fileName || "output").replace(/[^\w.-]/g, "_").replace(/\.(parquet|csv|geojson|json|xlsx)$/i, "");
+  const baseName = (fileName || "output")
+    .replace(/[^\w.-]/g, "_")
+    .replace(/\.(parquet|csv|geojson|json|xlsx|gpkg)$/i, "");
 
   if (!GEOMETRY_FORMATS.has(format)) return exporter(viewName, baseName, crs);
   const columns = await describe(viewName);

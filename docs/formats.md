@@ -39,6 +39,7 @@ A **Writer** node chooses a format and a file name; **Run** writes every connect
 | Parquet | as DuckDB stores it | Columnar and compact. |
 | GeoParquet | WKB, with a `geo` metadata block | `crs` is `null` (OGC:CRS84) for lon/lat, otherwise the CRS code. The written file is read back to check the metadata is there. |
 | GeoJSON | RFC 7946 features | Lon/lat as the spec wants. A projected stream (after a Reprojector) is written in its own coordinates and named in the 2008 `crs` member, which GDAL and QGIS honour. |
+| GeoPackage | GeoPackage binary (ISO WKB with a header) | One layer, named after the file, in the stream's own coordinate system (EPSG codes are recognised by GDAL and QGIS). Attributes keep their types: integer, real, text, boolean, date, datetime, blob; lists and structs become text. No spatial index is written; QGIS and GDAL build one when they need it. |
 | CSV | as WKT text | |
 | Excel | as WKT text | One sheet. Integers beyond 2^53 are written as text rather than rounded; dates become date cells; cells over Excel's 32,767-character limit (very long WKT) are left blank, and the export says how many. |
 

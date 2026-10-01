@@ -170,6 +170,77 @@
           }
         }
       }
+    },
+    {
+      "name": "GeoPackage: typed attributes, a null geometry, read back through the Reader",
+      "sink": true,
+      "params": { "format": "GeoPackage", "filename": "places" },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "name", "type": "VARCHAR" },
+            { "name": "score", "type": "DOUBLE" },
+            { "name": "ok", "type": "BOOLEAN" },
+            { "name": "day", "type": "DATE" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "a", 1.5, true, "2026-01-02", "POINT (1 2)"],
+            [2, "b, c", null, false, null, null]
+          ]
+        }
+      },
+      "expect": {
+        "file": {
+          "name": "places.gpkg",
+          "table": {
+            "columns": [
+              { "name": "id", "type": "BIGINT" },
+              { "name": "name", "type": "VARCHAR" },
+              { "name": "score", "type": "DOUBLE" },
+              { "name": "ok", "type": "BOOLEAN" },
+              { "name": "day", "type": "DATE" },
+              { "name": "geometry", "type": "GEOMETRY" }
+            ],
+            "rows": [
+              ["1", "a", 1.5, true, "2026-01-02", "POINT (1 2)"],
+              ["2", "b, c", null, false, null, null]
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "GeoPackage of a projected stream keeps its CRS, so the Reader brings it back to lon/lat",
+      "sink": true,
+      "params": { "format": "GeoPackage", "filename": "lv95" },
+      "inputs": {
+        "input": {
+          "crs": "EPSG:2056",
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
+          ],
+          "rows": [
+            [1, "POINT (2600000 1200000)"]
+          ]
+        }
+      },
+      "expect": {
+        "file": {
+          "name": "lv95.gpkg",
+          "table": {
+            "columns": [
+              { "name": "id", "type": "BIGINT" },
+              { "name": "geometry", "type": "GEOMETRY" }
+            ],
+            "rows": [
+              ["1", "POINT (7.43863242087181 46.95108277187109)"]
+            ]
+          }
+        }
+      }
     }
   ]
 }

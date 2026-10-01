@@ -6,7 +6,7 @@ export default defineTransformer({
   id: "Writer",
   group: "Output",
   role: "sink",
-  summary: "Writes what reaches it to a file: Parquet, GeoParquet, GeoJSON, CSV or Excel.",
+  summary: "Writes what reaches it to a file: Parquet, GeoParquet, GeoJSON, GeoPackage, CSV or Excel.",
   description:
     "The Writer is where a graph ends. It writes the rows arriving at its input to one file, which the " +
     "browser saves to your downloads; nothing is uploaded. It runs only when you ask — Run in the " +
@@ -31,6 +31,11 @@ export default defineTransformer({
         { value: "Parquet", description: "Columnar and compact; geometry as DuckDB writes it." },
         { value: "GeoParquet", description: "Parquet with geo metadata, readable by GIS tools." },
         { value: "GeoJSON", description: "Text, one feature per row; lon/lat unless the stream is projected." },
+        {
+          value: "GeoPackage",
+          description:
+            "One layer in an SQLite GeoPackage, in the stream's own coordinate system, readable by QGIS and GDAL.",
+        },
         { value: "CSV", description: "Plain text table, geometry dropped to text." },
         { value: "Excel", description: "One sheet, geometry as WKT, Excel's row and cell limits enforced." },
       ],
