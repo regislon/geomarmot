@@ -64,7 +64,7 @@ it may come from a file someone sent you, or from the assistant.
 - **Limits.** Interactive reads are stopped after 30 s: first cancelled, and if the engine does not
   answer within 2 s, restarted with every source registered again
   ([ADR 0004](decisions/0004-sql-inspection-and-cancellation.md)). Memory is capped at 60% of the
-  device's, at most 4 GB. JavaScript geometry work (JSTS) still runs on the main thread in v0.1;
+  device's, at most 4 GB ([Engines](engines.md)). JavaScript geometry work (JSTS) still runs on the main thread in v0.1;
   it is capped and yields, but is not isolated.
 
 ## The assistant

@@ -9,7 +9,8 @@
  * overwriting the panel for the node you are now looking at.
  */
 
-import { boot } from "./core/duck.js";
+import { boot, query } from "./core/duck.js";
+import { memoryLimit } from "./core/memory.js";
 import { clear as clearGraph, graph } from "./core/graph/index.js";
 import { setProgressReporter } from "./engines/h3/index.js";
 import { setOverlayProgress } from "./engines/jsts.js";
@@ -97,6 +98,15 @@ async function detectServer() {
     /* no server */
   }
   setProxyAvailable(proxy);
+}
+
+/** Which engine runs the graph, and how much memory it may use: the limit large files hit first. */
+async function showEngine() {
+  const [{ v }] = await query("SELECT version() AS v").catch(() => [{ v: "" }]);
+  const info = el("engine-info");
+  info.textContent = `DuckDB ${v} in this browser · memory up to ${memoryLimit().replace("GB", " GB")}`;
+  info.title =
+    "The engine is 32-bit WebAssembly: at most 4 GB on any machine, and it cannot spill to disk. For larger data, convert to Parquet, or see issue #1 (a native engine through the local server).";
 }
 
 /** Shown in turn while the engine starts. */
@@ -313,6 +323,7 @@ async function main() {
       const narrate = setInterval(() => task.update(WAKING[(line = (line + 1) % WAKING.length)], null), 1600);
       try {
         await boot();
+        showEngine();
       } finally {
         clearInterval(narrate);
       }

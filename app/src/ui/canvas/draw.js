@@ -9,6 +9,12 @@ import { graph, incomingEdge, inputPorts, nodeById, outputPorts, removeEdge } fr
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 export const NODE_WIDTH = 190;
+/**
+ * Port counts stop at this many rows: past it a port says "100,000+". Counting
+ * every row of a big source on every edit is what made large files sluggish; a
+ * count cut off early lets the scan stop too. The table and Run count all rows.
+ */
+export const PORT_COUNT_CAP = 100_000;
 const HEADER_HEIGHT = 28;
 const PORT_ROW_HEIGHT = 18;
 const PORT_TOP_OFFSET = 14;
@@ -201,7 +207,8 @@ function renderPorts(node, group) {
     const count = state.portCounts.get(`${node.id}:${port.id}`);
     if (count !== undefined) {
       const badge = el("tspan", { class: "port-count" });
-      badge.textContent = `  ${count.toLocaleString()}`;
+      badge.textContent =
+        count > PORT_COUNT_CAP ? `  ${PORT_COUNT_CAP.toLocaleString()}+` : `  ${count.toLocaleString()}`;
       label.appendChild(badge);
     }
     group.appendChild(label);

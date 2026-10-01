@@ -7,6 +7,7 @@ import { onEngineRestart, onEngineRestarting, readQuery } from "../core/duck.js"
 import { graph, mainCompiler, validate } from "../core/graph/index.js";
 import { sources } from "../io/sources.js";
 import { setIssues, setPortCounts } from "./canvas/index.js";
+import { PORT_COUNT_CAP } from "./canvas/draw.js";
 import { setStatus } from "./dom.js";
 import { updateExportButton } from "./export.js";
 import { recordHistory } from "./history.js";
@@ -58,7 +59,10 @@ async function updatePortCounts(lease) {
   for (const [nodeId, byPort] of views) {
     for (const [portId, view] of Object.entries(byPort)) ports.push({ nodeId, portId, view });
   }
-  const selection = ports.map((port, index) => `(SELECT count(*) FROM ${port.view}) AS c${index}`);
+  // Counted up to one past the cap, so "more than the cap" is known without reading the rest.
+  const selection = ports.map(
+    (port, index) => `(SELECT count(*) FROM (SELECT 1 FROM ${port.view} LIMIT ${PORT_COUNT_CAP + 1})) AS c${index}`,
+  );
   try {
     // Inside the try, so the lease is released on this path too — a leaked
     // lease would keep its generation alive and block every later compile.

@@ -12,6 +12,7 @@
  * from what was kept to restore it.
  */
 
+import { memoryLimit } from "./memory.js";
 import * as duckdb from "@duckdb/duckdb-wasm";
 import mvpWasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
 import ehWasm from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
@@ -51,12 +52,6 @@ const _restartingListeners = new Set();
 function extensionRepository() {
   if (import.meta.env?.DEV) return new URL("/duckdb-extensions", window.location.href).href;
   return new URL("../duckdb-extensions", import.meta.url).href;
-}
-
-/** A memory ceiling, so running out gives a DuckDB error rather than a crashed tab. */
-function memoryLimit() {
-  const deviceGb = /** @type {any} */ (navigator).deviceMemory || 4;
-  return `${Math.max(1, Math.min(4, Math.floor(deviceGb * 0.6)))}GB`;
 }
 
 /** Quote an identifier so columns with spaces, accents or keywords survive. */

@@ -14,9 +14,17 @@ not match the installed DuckDB-Wasm ([ADR 0002](decisions/0002-offline-bundle.md
 At boot, spatial, parquet and json are loaded explicitly, then extension autoloading and
 autoinstalling are switched off, so nothing can pull in another extension later.
 
-**Memory.** `memory_limit` is 60% of `navigator.deviceMemory` (4 GB when the browser does not say),
-capped at 4 GB, so running out gives a DuckDB error instead of a crashed tab. The Wasm build cannot
-spill to disk: a query that needs more than the limit fails.
+**Memory.** `memory_limit` is 60% of the memory the browser reports, capped at 4 GB, so running
+out gives a DuckDB error instead of a crashed tab (`app/src/core/memory.js`). Chrome and Edge
+report it (up to 8 GB); Firefox and Safari do not, and a desktop is then taken to have 8 GB, a
+phone or tablet 4 GB. The engine is 32-bit WebAssembly: 4 GB is the most it can address on any
+machine, and it cannot spill to disk, so a query that needs more fails. The current limit is shown
+at the bottom of the left panel. Lifting it means running the graph in native DuckDB through the
+local server ([issue #1](https://github.com/regislon/geomarmot/issues/1)).
+
+**Port counts stop at 100,000.** Counting every row of every port on every edit is what makes a
+large file feel slow, so a port past 100,000 rows shows "100,000+" and its scan stops there. The
+table's row count and Run read everything.
 
 **Compiles cost memory in generations.** Views cost nothing until read, but `prepare` tables (H3
 cells, JSTS shapes, overlay faces) are materialised, and at most two generations exist at once —

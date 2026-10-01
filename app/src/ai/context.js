@@ -13,7 +13,11 @@ import { LONLAT } from "../core/schema.js";
 import { transformerFor } from "../../../transformers/index.js";
 import { paramsSchemaFor } from "./catalogue.js";
 import { draft } from "./draft.js";
+import { PORT_COUNT_CAP } from "../ui/canvas/draw.js";
 import { cell, cut, errorPayload, LIMITS, redactParams, sampleRows } from "./gate/index.js";
+
+/** A port count the model can trust: one cut off at the cap is "unknown" rather than wrong. */
+const exact = (count) => (count === undefined || count > PORT_COUNT_CAP ? null : count);
 
 const NUMERIC =
   /^(TINYINT|SMALLINT|INTEGER|BIGINT|HUGEINT|UTINYINT|USMALLINT|UINTEGER|UBIGINT|FLOAT|DOUBLE|REAL|DECIMAL.*)$/;
@@ -53,7 +57,7 @@ function nodeBrief(world, node, level, isDraft) {
     }),
     outputs: transformer.outputsFor(node.params).map((port) => ({
       port: port.id,
-      rows: isDraft ? null : (world.counts().get(`${node.id}:${port.id}`) ?? null),
+      rows: isDraft ? null : exact(world.counts().get(`${node.id}:${port.id}`)),
       crs: null,
       columns: [],
     })),
@@ -166,7 +170,7 @@ export async function inspectNode(world, nodeId, level) {
       /** @type {any} */
       const out = {
         port: port.id,
-        rows: world.counts().get(`${node.id}:${port.id}`) ?? null,
+        rows: exact(world.counts().get(`${node.id}:${port.id}`)),
         crs: lease.crsByNode.get(node.id) || LONLAT,
         columns,
       };
