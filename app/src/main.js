@@ -11,6 +11,7 @@
 
 import { boot, query } from "./core/duck.js";
 import { memoryLimit } from "./core/memory.js";
+import { initMemoryMeter } from "./ui/memory-meter.js";
 import { clear as clearGraph, graph } from "./core/graph/index.js";
 import { setProgressReporter } from "./engines/h3/index.js";
 import { setOverlayProgress } from "./engines/jsts.js";
@@ -324,6 +325,7 @@ async function main() {
       try {
         await boot();
         showEngine();
+        initMemoryMeter();
       } finally {
         clearInterval(narrate);
       }

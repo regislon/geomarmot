@@ -50,6 +50,10 @@ test("the engine's start shows in the middle of the canvas, and the card goes on
   // It is inside the canvas, centred on it.
   const card = await page.evaluate(() => document.getElementById("progress").parentElement.id);
   expect(card).toBe("canvas-wrap");
+  // The toolbar's memory meter: what the engine holds against its limit.
+  await expect(page.locator("#memory")).toBeVisible();
+  await expect(page.locator("#memory-text")).toHaveText(/ \/ \d(\.\d)? GB$/);
+  await expect(page.locator("#memory")).toHaveAttribute("title", /limit/);
 });
 
 test("writing a GeoPackage shows its rows; quick steps do not flash a card", async () => {

@@ -139,6 +139,59 @@ select {
   color: #fff;
 }
 
+/* The engine's memory against its limit. */
+.memory-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: var(--sp-3);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: default;
+}
+
+.memory-meter[hidden] {
+  display: none;
+}
+
+.memory-bar {
+  position: relative;
+  width: 72px;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+#memory-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2%;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  transition: width 0.4s ease;
+}
+
+.memory-meter[data-level="mid"] #memory-fill {
+  background: var(--highlight);
+}
+
+.memory-meter[data-level="high"] #memory-fill {
+  background: var(--err);
+}
+
+#memory-text {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .memory-label,
+  #memory-text {
+    display: none;
+  }
+}
+
 /* ---------- toolbar menus ---------- */
 
 .menu {

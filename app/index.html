@@ -98,6 +98,19 @@
           </button>
         </div>
         <span class="spacer"></span>
+        <div
+          id="memory"
+          class="memory-meter"
+          role="meter"
+          aria-label="Engine memory"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          hidden
+        >
+          <span class="memory-label">Memory</span>
+          <span class="memory-bar"><span id="memory-fill"></span></span>
+          <span id="memory-text"></span>
+        </div>
         <span id="status">Waking the marmot…</span>
       </header>
 

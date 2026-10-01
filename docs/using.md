@@ -21,6 +21,7 @@ while it shows.
 | **Run** | Writes every connected **Writer** to its file. It is greyed out until a Writer has something connected. A **Cancel** button appears while it runs. |
 | **Undo**, **Redo** | Step back and forward through your edits (⌘Z / Ctrl+Z, ⇧⌘Z / Ctrl+Shift+Z). |
 | **Arrange** | Lays the nodes out in columns, each one right of what feeds it. |
+| **Memory** | How much of its memory limit the engine is using; hover it for the numbers. It turns amber past 60% and red past 85%. See [Engines](engines.md) for where the limit comes from. |
 | **Assistant** | Opens the assistant beside the canvas ([below](#the-assistant)). |
 
 ## Getting data in
