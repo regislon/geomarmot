@@ -30,7 +30,7 @@ Drag files onto the page, or click **Connect** in the toolbar and pick where the
 | Connector | What it opens |
 |---|---|
 | **This computer** (the default) | *Choose files…*, or, in Chrome and Edge, *Open a folder…* to walk a folder and pick files from it. The folder can be reopened after a reload; the browser asks first. |
-| **Google Cloud Storage** | Type a bucket name and walk its folders. It needs GeoMarmot running on your computer ([Run it](../README.md#run-it)), which reads the bucket with your own Google credentials. |
+| **Google Cloud Storage** | Type a bucket name and walk its folders. With GeoMarmot running on your computer ([Run it](../README.md#run-it)), the server reads the bucket with your gcloud credentials. On the hosted demo, *Sign in with Google* instead ([below](#google-cloud-storage-without-the-server)). |
 | **Web address** | A link to a file, a `gs://` path, or a Zarr store. |
 | **Database** | Not available yet. |
 
@@ -42,6 +42,33 @@ Each file becomes a line under **Layers**; hover it for its rows, columns and CR
 **+ Reader** to add a Reader node for it. Files from your computer are read in your browser and
 never uploaded; remote files are read in parts, as queries need them. Which formats are supported,
 and how, is in [Formats](formats.md).
+
+### Google Cloud Storage without the server
+
+On the hosted demo there is no server to read your gcloud credentials, and a web page cannot read
+them itself. *Sign in with Google* asks Google for a read-only Cloud Storage token for this page;
+Google shows its consent screen, and the token lasts about an hour. It is kept in the tab's memory
+only and is sent to `storage.googleapis.com` and nowhere else. You see the buckets your Google
+account can read; no change to the buckets is needed.
+
+Differences from the server:
+
+- A file is downloaded whole, then opened like a file from your computer. Files over 1 GB ask
+  first. With the server, large Parquet files are read in parts instead.
+- Zarr stores need the server.
+
+The sign-in needs an **OAuth client ID** for the site, set up once in the Google Cloud console:
+
+1. *APIs & Services ▸ OAuth consent screen*: choose *Internal* to limit it to your Google
+   Workspace organisation (no Google review needed), and add the scope
+   `https://www.googleapis.com/auth/devstorage.read_only`.
+2. *APIs & Services ▸ Credentials ▸ Create credentials ▸ OAuth client ID*, type *Web application*.
+   Under *Authorised JavaScript origins*, add the site's origin (for example
+   `https://regislon.github.io`) and, for development, `http://localhost:5173`. No redirect URI is
+   needed.
+3. Either paste the client ID into the connector (it is remembered in this browser), or set it as
+   the `GOOGLE_CLIENT_ID` variable of the GitHub repository (*Settings ▸ Secrets and variables ▸
+   Actions ▸ Variables*) so the published demo has it built in. A client ID is not a secret.
 
 ## Building a graph
 

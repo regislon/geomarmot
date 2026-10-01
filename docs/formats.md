@@ -3,7 +3,7 @@
 ## Reading
 
 Drop a file on the page, or open one through **Connect**: from this computer, a link or a `gs://`
-path, or a bucket (local server only). A dropped file is read into memory and never uploaded; a URL is read with HTTP range
+path, or a bucket (through the local server, or a Google sign-in on the hosted demo). A dropped file is read into memory and never uploaded; a URL is read with HTTP range
 requests, so a remote Parquet costs its footer and the row groups a query needs.
 
 | Format | Extensions | Read by | Notes |

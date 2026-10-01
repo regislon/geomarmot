@@ -158,10 +158,11 @@ async function gunzip(bytes) {
 }
 const GZIP = /\.gz$/i;
 
-export async function addLocalFile(file, { chooseSheets = null } = {}) {
+/** `origin` labels where the bytes came from: "local", or "gcs" for a bucket file read through the Google sign-in. */
+export async function addLocalFile(file, { chooseSheets = null, origin = "local" } = {}) {
   if (XLSX_EXTENSIONS.test(file.name)) {
     const bytes = await file.arrayBuffer();
-    return xlsxSheetSources(file.name, bytes, "local", { sizeBytes: file.size }, chooseSheets);
+    return xlsxSheetSources(file.name, bytes, origin, { sizeBytes: file.size }, chooseSheets);
   }
   const zipped = GZIP.test(file.name);
   const fileName = logicalName(zipped ? file.name.replace(GZIP, "") : file.name);
@@ -172,7 +173,7 @@ export async function addLocalFile(file, { chooseSheets = null } = {}) {
     return zipped ? gunzip(fresh) : fresh;
   };
   await registerBuffer(fileName, zipped ? await gunzip(raw) : raw, read);
-  const base = blankSource(fileName, file.name, "local", { sizeBytes: file.size });
+  const base = blankSource(fileName, file.name, origin, { sizeBytes: file.size });
   if (base.format === "ogr") {
     return ogrLayerSources(base).catch((err) => {
       throw ogrOpenError(base, err);

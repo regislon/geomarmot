@@ -24,6 +24,25 @@ host, never to a host taken from the request. There are no CORS headers. Remote 
 supported in v0.1: the server binds `127.0.0.1` (and `0.0.0.0` only inside a container, where the
 Host rule still refuses anything but loopback names).
 
+## Google sign-in (no server)
+
+Without the server, the Google Cloud Storage connector reads buckets with a token from Google's
+own sign-in (Google Identity Services, `app/src/ui/connectors/google.js`):
+
+- The scope is `devstorage.read_only`: the page can list and read objects, never change them.
+- The token is held in memory for the tab's life (about an hour). It is never written to
+  localStorage, sessionStorage, a saved graph, the autosave or a URL, and never reaches DuckDB:
+  files are downloaded with the token in an `Authorization` header and opened from memory.
+- It is sent only to `storage.googleapis.com`. Its JSON API answers any origin with CORS, so no
+  bucket setting is involved; what you can read is what your Google account can read.
+- *Sign out* revokes it with Google.
+- Google's script (`accounts.google.com/gsi/client`) is loaded only when this connector is used
+  without a server, so the app makes no request to Google otherwise.
+- The OAuth client ID is public by design; it is remembered in localStorage when typed in.
+
+`tests/browser/static-host.spec.js` checks the header-only rule and that no storage holds the
+token.
+
 ## SQL
 
 Some parameters take SQL: SQLTransformer's query, AttributeCreator's SQL mode, and the SQL kind of

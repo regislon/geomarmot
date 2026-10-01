@@ -275,6 +275,24 @@
               <p id="computer-note" class="muted"></p>
             </div>
             <div id="connector-gcs" class="connector" hidden>
+              <div id="gcs-google" class="gcs-google" hidden>
+                <p id="gcs-google-text" class="muted"></p>
+                <div id="gcs-client-row" class="url-row">
+                  <input
+                    id="gcs-client-id"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="OAuth client ID (….apps.googleusercontent.com)"
+                  />
+                  <button id="gcs-client-save">Save</button>
+                </div>
+                <div class="connect-actions">
+                  <button id="gcs-sign-in" class="primary">Sign in with Google</button>
+                  <button id="gcs-sign-out">Sign out</button>
+                  <button id="gcs-client-change">Change client ID</button>
+                </div>
+              </div>
               <div class="url-row">
                 <input
                   id="browse-bucket"

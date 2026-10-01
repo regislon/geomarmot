@@ -10,7 +10,9 @@
 
 import { isProxyAvailable } from "../../io/remote.js";
 import { initComputer, showComputer } from "./computer.js";
-import { initGcs, showGcs } from "./gcs.js";
+import { setStatus } from "../dom.js";
+import { downloadWithGoogle, initGcs, showGcs } from "./gcs.js";
+import { signedIn } from "./google.js";
 import { prefs, remember, savePrefs } from "./prefs.js";
 import { row } from "./rows.js";
 
@@ -32,7 +34,7 @@ function renderList() {
       button.className = "connect-item";
       button.dataset.connector = connector.id;
       button.setAttribute("aria-pressed", String(connector.id === current));
-      const detail = connector.server && !isProxyAvailable() ? "Needs the local server" : connector.detail;
+      const detail = connector.server && !isProxyAvailable() ? "Sign in with Google" : connector.detail;
       button.innerHTML = `<span class="connect-icon">${connector.icon}</span><span><span class="connect-name"></span><span class="connect-detail"></span></span>`;
       button.querySelector(".connect-name").textContent = connector.name;
       button.querySelector(".connect-detail").textContent = detail;
@@ -71,6 +73,11 @@ function submitUrl() {
   if (!url.includes("?")) savePrefs({ url: { recent: remember(prefs().url?.recent, url) } });
   elements.urlInput.value = "";
   closeConnect();
+  // Without the server, a gs:// path can still be read through the Google sign-in.
+  if (/^gs:\/\//.test(url) && !isProxyAvailable() && signedIn()) {
+    downloadWithGoogle(url).catch((err) => setStatus(`${url}: ${err.message}`, true));
+    return;
+  }
   loadUrl(url);
 }
 
@@ -97,7 +104,7 @@ export function initConnectors(config) {
     fn(value);
   };
   initComputer({ ...config.computer, onFiles: done(config.onFiles), chooseFiles: done(config.chooseFiles) });
-  initGcs({ ...config.gcs, onPick: done(config.onUrl) });
+  initGcs({ ...config.gcs, onPick: done(config.onUrl), onFiles: config.onFiles, onClose: closeConnect });
   elements.urlGo.addEventListener("click", submitUrl);
   elements.urlInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") submitUrl();

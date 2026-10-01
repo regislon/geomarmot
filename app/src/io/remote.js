@@ -33,7 +33,9 @@ export function resolveUrl(input) {
   // URL the proxy cannot forward.
   if (text.startsWith("gs://")) {
     if (!proxyAvailable) {
-      throw new Error("gs:// paths need the local server (the geomarmot command); this copy of the app has none.");
+      throw new Error(
+        "gs:// paths need the local server (the geomarmot command), which this copy of the app does not have; or sign in under Connect ▸ Google Cloud Storage.",
+      );
     }
     const path = text.slice("gs://".length).split("/").map(encodeURIComponent).join("/");
     return proxy(`proxy/gs/${path}`);

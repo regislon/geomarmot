@@ -1,7 +1,7 @@
 name: pages
 
 # The documentation site (README as its home page, docs/) and the static app under demo/, on GitHub Pages. It has no local server behind it: the app sees that ./healthz
-# does not answer and hides the bucket browser; the assistant works with a key typed in the page.
+# does not answer and reads buckets through a Google sign-in instead; the assistant works with a key typed in the page.
 on:
   push:
     branches: [main]
@@ -32,7 +32,11 @@ jobs:
           cache: npm
       - uses: astral-sh/setup-uv@v6
       - run: npm ci
+      # The OAuth client ID for "Sign in with Google" (not a secret: it names this site to Google).
+      # Set it as the repository variable GOOGLE_CLIENT_ID; without it, users paste one into the app.
       - run: npm run build
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
       # The documentation (Zensical, zensical.toml) with the README as its home page, the app under demo/.
       - run: node scripts/build-site.js
       - uses: actions/configure-pages@v5

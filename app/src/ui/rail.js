@@ -136,7 +136,7 @@ function placeReaders(loaded, at) {
   onGraphChange();
 }
 
-export async function loadFiles(files, dropAt = null) {
+export async function loadFiles(files, dropAt = null, { origin = "local" } = {}) {
   const loaded = [];
   for (const file of files) {
     if (!isSupportedFile(file)) {
@@ -146,7 +146,9 @@ export async function loadFiles(files, dropAt = null) {
     try {
       setStatus(`Reading ${file.name}…`);
       // A container such as a GeoPackage yields one source per layer.
-      const added = await withProgress(`Opening ${file.name}…`, () => addLocalFile(file, { chooseSheets: pickSheets }));
+      const added = await withProgress(`Opening ${file.name}…`, () =>
+        addLocalFile(file, { chooseSheets: pickSheets, origin }),
+      );
       loaded.push(...added);
       setStatus(
         !added.length
