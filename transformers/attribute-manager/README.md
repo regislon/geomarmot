@@ -17,7 +17,7 @@ A list of edits, applied top to bottom:
 Values use the same builder as AttributeCreator: a constant, an attribute, a formula or SQL. Order is
 kept — each edit is its own nested SELECT — because renaming a column and then setting the new name
 is a different result from the reverse. An edit that is not filled in, or names an attribute that is
-not there (yet), is skipped.
+not there (yet), is skipped. A renamed attribute keeps its place among the others.
 
 ## When to use it
 
@@ -35,7 +35,17 @@ not there (yet), is skipped.
 
 | Parameter | |
 |---|---|
-| Edits | The edits, top to bottom; each sees the attributes as the edits above left them. |
+| Edits | The edits, top to bottom; each sees the attributes as the edits above left them. Edited as a table (below); the assistant writes the list directly. |
+
+**Edit attributes…** opens a table with one row per input attribute: *Input attribute*, *Output
+attribute*, *Value*, *Type*, *Action*. Every row starts as *Do nothing*. Typing a new output name
+renames the attribute, *set a value* gives it a new value, and *Remove* drops it. **+ Add attribute**
+adds a row that creates a new attribute, or copies an existing one when you pick it as the input.
+Nothing changes until **OK**.
+
+The table saves the edits in a fixed order: copies, values, new attributes, renames, then removals.
+Values therefore read the input's attributes under their input names. If a list was written in
+another order, for example by the assistant, the table says so before OK rewrites it.
 
 ## Output ports
 

@@ -6,13 +6,10 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { openApp } from "./app-target.js";
+import { attr, load, openGraph, selectNode } from "./support/workbench.js";
 
 const CITIES = "city,lon,lat,pop\nBern,7.44,46.95,134000\nZug,8.52,47.17,30000\nLugano,8.95,46.0,63000\n";
 const SWISS = "city,E,N\nBern,2600000,1200000\nZug,2681000,1224000\n";
-const graphFile = (nodes, edges) =>
-  Buffer.from(JSON.stringify({ format: "geomarmot-graph", version: 1, nodes, edges }));
-const attr = (column) => ({ kind: "Attribute", column });
-
 let app;
 test.beforeEach(async ({ browser }) => {
   app = await openApp(browser);
@@ -21,42 +18,6 @@ test.afterEach(async () => {
   await app.context.close();
   app.server.close();
 });
-
-async function load(page, name, text) {
-  await page.setInputFiles("#file-input", { name, mimeType: "text/csv", buffer: Buffer.from(text) });
-  await expect(page.locator("#status")).toContainText("rows");
-}
-
-async function openGraph(page, nodes, edges) {
-  await page.setInputFiles("#graph-input", {
-    name: "g.flow.json",
-    mimeType: "application/json",
-    buffer: graphFile(nodes, edges),
-  });
-  await expect(page.locator("#status")).toContainText(/nodes ready|Opened|needs a connection|is not connected/);
-}
-
-/** Select a node. By position: selecting redraws the canvas, so an element handle would go stale mid-click. */
-async function selectNode(page, id) {
-  const title = page.locator(`[data-node="${id}"] .node-title`);
-  const type = await title.textContent();
-  // A click can land while the canvas redraws: confirm it took, and click again if not.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    // The canvas redraws on every change: wait for the node to be there, and try again if it moved on.
-    await title.waitFor();
-    const box = await title.boundingBox();
-    if (!box) continue;
-    // Near the left edge: a node far right can run under the inspector, which then takes the click.
-    await page.mouse.click(box.x + Math.min(12, box.width / 2), box.y + box.height / 2);
-    try {
-      await expect(page.locator("#inspector h3")).toHaveText(type, { timeout: 2000 });
-      return;
-    } catch {
-      /* try again */
-    }
-  }
-  throw new Error(`Could not select ${id}`);
-}
 
 async function drag(page, from, to) {
   const a = await page.locator(from).boundingBox();

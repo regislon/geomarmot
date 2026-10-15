@@ -4,6 +4,7 @@
 @import "./rail.css";
 @import "./canvas.css";
 @import "./inspector.css";
+@import "./attribute-table.css";
 @import "./dock.css";
 @import "./browser.css";
 @import "./zarr.css";

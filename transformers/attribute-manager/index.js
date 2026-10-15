@@ -21,9 +21,11 @@ function attributeEdit(action, columns) {
     }
     case "Rename":
       if (!action.column || !has(action.column) || !action.target) return null;
-      // `* RENAME` is a parser error on this DuckDB, so exclude and re-add.
+      // Every column named, so the renamed one keeps its place (`* RENAME` is a parser error on this DuckDB).
       return {
-        selection: `* EXCLUDE (${qid(action.column)}), ${qid(action.column)} AS ${qid(action.target)}`,
+        selection: columns
+          .map((name) => (name === action.column ? `${qid(name)} AS ${qid(action.target)}` : qid(name)))
+          .join(", "),
         columns: columns.map((name) => (name === action.column ? action.target : name)),
       };
     case "Copy to":

@@ -47,18 +47,18 @@
         "output": {
           "columns": [
             { "name": "id", "type": "INTEGER" },
+            { "name": "who", "type": "VARCHAR" },
             { "name": "v", "type": "INTEGER" },
             { "name": "geometry", "type": "GEOMETRY" },
-            { "name": "who", "type": "VARCHAR" },
             { "name": "who_copy", "type": "VARCHAR" },
             { "name": "twice", "type": "INTEGER" }
           ],
           "rows": [
-            [1, 0, "POINT (0 0)", "Ada", "Ada", 2],
-            [2, 0, "POINT (1 1)", "Bo", "Bo", 4],
-            [3, 0, "POINT (2 2)", "Cy", "Cy", 6],
-            [4, 0, null, "Di", "Di", 8],
-            [5, 0, "POINT (3 3)", "Eve", "Eve", 10]
+            [1, "Ada", 0, "POINT (0 0)", "Ada", 2],
+            [2, "Bo", 0, "POINT (1 1)", "Bo", 4],
+            [3, "Cy", 0, "POINT (2 2)", "Cy", 6],
+            [4, "Di", 0, null, "Di", 8],
+            [5, "Eve", 0, "POINT (3 3)", "Eve", 10]
           ]
         }
       }
@@ -99,15 +99,15 @@
             { "name": "id", "type": "INTEGER" },
             { "name": "name", "type": "VARCHAR" },
             { "name": "cat", "type": "VARCHAR" },
-            { "name": "geometry", "type": "GEOMETRY" },
-            { "name": "w", "type": "INTEGER" }
+            { "name": "w", "type": "INTEGER" },
+            { "name": "geometry", "type": "GEOMETRY" }
           ],
           "rows": [
-            [1, "Ada", "a", "POINT (0 0)", 100],
-            [2, "Bo", "b", "POINT (1 1)", 200],
-            [3, "Cy", "a", "POINT (2 2)", 300],
-            [4, "Di", null, null, 400],
-            [5, "Eve", "c", "POINT (3 3)", 500]
+            [1, "Ada", "a", 100, "POINT (0 0)"],
+            [2, "Bo", "b", 200, "POINT (1 1)"],
+            [3, "Cy", "a", 300, "POINT (2 2)"],
+            [4, "Di", null, 400, null],
+            [5, "Eve", "c", 500, "POINT (3 3)"]
           ]
         }
       }

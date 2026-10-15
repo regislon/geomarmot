@@ -6,6 +6,7 @@
 import { AGGREGATE_FUNCTIONS, OPERATORS } from "../../../../transformers/index.js";
 import { blankValue } from "../../core/valuespec.js";
 import { renderValueSpec } from "./kinds-value.js";
+import { openAttributeTable } from "./attribute-table.js";
 import {
   NUMERIC_TYPE,
   columnNames,
@@ -191,50 +192,35 @@ export function renderChoicesParam(param, node, commit) {
  * value is a different result from doing it the other way round — so the rows
  * stay a list rather than becoming a set of independent settings.
  */
+/**
+ * AttributeManager's edits: a short summary here, and the whole table in a
+ * window (attribute-table.js), where every attribute is one row.
+ */
 export function renderActionsParam(param, node, columns, commit) {
-  const rows = node.params[param.id] || (node.params[param.id] = []);
-  const ACTIONS = ["Set value", "Rename", "Copy to", "Create", "Remove"];
-  return repeatable(
-    rows,
-    (row) => {
-      const fields = [
-        select(ACTIONS, row.action || "Set value", (value) => {
-          row.action = value;
-          commit();
-        }),
-      ];
-      // "Create" invents a column, so it has no existing one to point at.
-      if (row.action !== "Create") {
-        fields.push(
-          columnSelect(columnNames(columns), row.column, (value) => {
-            row.column = value;
-            commit({ rerender: false });
-          }),
-        );
-      }
-      if (row.action === "Rename" || row.action === "Copy to" || row.action === "Create") {
-        fields.push(
-          textInput(
-            row.target,
-            (value) => {
-              row.target = value;
-              commit({ rerender: false });
-            },
-            "new name",
-          ),
-        );
-      }
-      if (row.action === "Set value" || row.action === "Create") {
-        // The same editor AttributeCreator's builder uses: a constant, another
-        // attribute, a small formula, or SQL when none of those reach.
-        if (!row.spec) row.spec = blankValue();
-        fields.push(renderValueSpec(row.spec, columns, commit));
-      }
-      return fields;
-    },
-    () => ({ action: "Set value", column: "", target: "", value: "" }),
-    commit,
-  );
+  const actions = node.params[param.id] || [];
+  const line = (action) =>
+    ({
+      "Set value": `Set ${action.column}`,
+      Rename: `Rename ${action.column} → ${action.target}`,
+      "Copy to": `Copy ${action.column} → ${action.target}`,
+      Create: `Create ${action.target}`,
+      Remove: `Remove ${action.column}`,
+    })[action.action] || action.action;
+  const shown = actions.slice(0, 8).map((action) => h("li", { text: line(action), title: line(action) }));
+  if (actions.length > shown.length)
+    shown.push(h("li", { class: "muted", text: `and ${actions.length - shown.length} more` }));
+  return h("div", { class: "attribute-summary" }, [
+    actions.length
+      ? h("ul", {}, shown)
+      : h("p", { class: "muted", text: "No edits yet: every attribute passes through." }),
+    h("button", {
+      class: "primary wide-btn",
+      text: "Edit attributes…",
+      disabled: columns.length ? undefined : "",
+      title: columns.length ? "Open the attribute table" : "Connect an input first",
+      onclick: () => openAttributeTable({ node, param, columns, commit, title: node.type }),
+    }),
+  ]);
 }
 
 export function renderCreatesParam(param, node, columns, commit) {

@@ -1,0 +1,168 @@
+/* ---------- AttributeManager: the summary, and the table in its window ---------- */
+
+.attribute-summary ul {
+  margin: 0 0 var(--sp-2);
+  padding-left: 1.1em;
+  font-size: 12px;
+}
+
+.attribute-summary li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-panel.attribute-table-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 100%);
+  height: min(85vh, 860px);
+  max-height: none;
+}
+
+.attribute-table-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.attribute-table-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 12px;
+}
+
+.attribute-table-filter {
+  width: 240px;
+}
+
+.attribute-table-warning,
+.attribute-table-problem {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-2);
+  font-size: 12px;
+}
+
+.attribute-table-warning {
+  background: var(--paper-2);
+}
+
+.attribute-table-problem {
+  color: var(--err);
+  border: 1px solid var(--err);
+}
+
+.attribute-table-problem[hidden] {
+  display: none;
+}
+
+.attribute-table-scroll {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+}
+
+.attribute-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.attribute-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--paper-2);
+  text-align: left;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.attribute-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--paper-2);
+  vertical-align: middle;
+}
+
+.attribute-table td:nth-child(1) {
+  width: 22%;
+}
+
+.attribute-table td:nth-child(2) {
+  width: 22%;
+}
+
+.attribute-table td:nth-child(4) {
+  width: 10%;
+}
+
+.attribute-table td:nth-child(5) {
+  width: 15%;
+}
+
+.attribute-input {
+  display: block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attribute-output {
+  width: 100%;
+}
+
+.attribute-output.clash {
+  border-color: var(--err);
+  color: var(--err);
+}
+
+.attribute-type {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.attribute-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.attribute-value .value-spec {
+  flex: 1;
+}
+
+.attribute-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Rows that change nothing stay quiet; a removed one is struck through. */
+.attribute-row.action-do-nothing .attribute-input,
+.attribute-row.action-do-nothing .attribute-output {
+  color: var(--muted);
+}
+
+.attribute-row.action-remove .attribute-input,
+.attribute-row.action-remove .attribute-output {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.attribute-row:not(.action-do-nothing) td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent-soft);
+}
+
+.attribute-table-foot {
+  display: flex;
+  gap: var(--sp-1);
+  align-items: center;
+}
+
+.attribute-table-foot .spacer {
+  flex: 1;
+}
