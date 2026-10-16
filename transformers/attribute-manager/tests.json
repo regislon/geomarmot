@@ -113,6 +113,44 @@
       }
     },
     {
+      "name": "convert changes a type; a value that does not convert becomes empty",
+      "params": {
+        "actions": [
+          { "action": "Convert", "column": "v", "to": "Integer" },
+          { "action": "Convert", "column": "cat", "to": "Decimal" },
+          { "action": "Convert", "column": "id", "to": "Text" }
+        ]
+      },
+      "inputs": {
+        "input": {
+          "columns": [
+            { "name": "id", "type": "INTEGER" },
+            { "name": "cat", "type": "VARCHAR" },
+            { "name": "v", "type": "DOUBLE" }
+          ],
+          "rows": [
+            [1, "2.5", 10.4],
+            [2, "x", 3],
+            [3, null, null]
+          ]
+        }
+      },
+      "expect": {
+        "output": {
+          "columns": [
+            { "name": "id", "type": "VARCHAR" },
+            { "name": "cat", "type": "DOUBLE" },
+            { "name": "v", "type": "BIGINT" }
+          ],
+          "rows": [
+            ["1", 2.5, "10"],
+            ["2", null, "3"],
+            ["3", null, null]
+          ]
+        }
+      }
+    },
+    {
       "name": "an edit on a column that does not exist is skipped",
       "params": {
         "actions": [

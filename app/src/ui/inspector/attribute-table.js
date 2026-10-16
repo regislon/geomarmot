@@ -11,8 +11,12 @@ import { blankValue } from "../../core/valuespec.js";
 import { duplicateOutputs, rowAction, toActions, toRows } from "./attribute-table-model.js";
 import { renderValueSpec } from "./kinds-value.js";
 import { h, select } from "./widgets.js";
+import { CONVERT_TYPES } from "../../../../transformers/_kit/value-schemas.js";
 
-const INPUT_ACTIONS = ["Do nothing", "Rename", "Set value", "Rename and set value", "Remove"];
+const INPUT_ACTIONS = ["Do nothing", "Rename", "Set value", "Rename and set value", "Convert", "Remove"];
+/** Types that are not converted: geometry, binary and nested values keep theirs. */
+const FIXED_TYPE = /^(GEOMETRY|BLOB|WKB_BLOB|STRUCT|MAP|UNION)|\[\]$/i;
+const AS_IS = "as is";
 const NEW = "(new attribute)";
 
 let modal = null;
@@ -115,7 +119,22 @@ export function openAttributeTable({ node, param, columns, commit, title = "Attr
       });
     }
 
-    const type = h("span", { class: "attribute-type", text: row.type || "" });
+    // The type, or what to convert it to. A copy converts the copy; the original keeps its type.
+    const type =
+      row.remove || FIXED_TYPE.test(row.type || "")
+        ? h("span", { class: "attribute-type", text: row.type || "" })
+        : select(
+            [`${row.type || ""} ${AS_IS}`.trim(), ...CONVERT_TYPES.map((name) => `→ ${name}`)],
+            row.convert ? `→ ${row.convert}` : `${row.type || ""} ${AS_IS}`.trim(),
+            (choice) => {
+              row.convert = choice.startsWith("→ ") ? choice.slice(2) : null;
+              redraw();
+            },
+          );
+    if (type.tagName === "SELECT") {
+      type.classList.add("attribute-type-select");
+      type.setAttribute("aria-label", `Type of ${row.output || "the new attribute"}`);
+    }
 
     const actionCell = () => {
       if (row.added) {
@@ -136,8 +155,10 @@ export function openAttributeTable({ node, param, columns, commit, title = "Attr
       }
       return select(INPUT_ACTIONS, rowAction(row), (choice) => {
         row.remove = choice === "Remove";
-        if (choice === "Do nothing" || choice === "Set value" || choice === "Remove") row.output = row.input;
-        if (choice === "Do nothing" || choice === "Rename" || choice === "Remove") row.spec = null;
+        if (choice === "Do nothing" || choice === "Remove") row.convert = null;
+        if (choice === "Convert") row.convert ||= "Text";
+        if (["Do nothing", "Set value", "Convert", "Remove"].includes(choice)) row.output = row.input;
+        if (["Do nothing", "Rename", "Convert", "Remove"].includes(choice)) row.spec = null;
         if (/set value/i.test(choice)) row.spec ||= blankValue();
         const fresh = redraw();
         if (choice.startsWith("Rename")) fresh.querySelector(".attribute-output")?.focus();
@@ -190,7 +211,7 @@ export function openAttributeTable({ node, param, columns, commit, title = "Attr
     commit();
   };
   const add = () => {
-    rows.push({ input: null, output: "", spec: blankValue(), remove: false, added: true, type: "" });
+    rows.push({ input: null, output: "", spec: blankValue(), convert: null, remove: false, added: true, type: "" });
     body.appendChild(renderRow(rows.at(-1)));
     body.lastElementChild?.querySelector(".attribute-output")?.focus();
   };
@@ -211,7 +232,7 @@ export function openAttributeTable({ node, param, columns, commit, title = "Attr
         : [
             h("p", {
               class: "attribute-table-warning",
-              text: "These edits were written in an order the table cannot show exactly. OK rewrites them in table order: copies, values, new attributes, renames, then removals; values read the input's attribute names.",
+              text: "These edits were written in an order the table cannot show exactly. OK rewrites them in table order: copies, values, new attributes, conversions, renames, then removals; values read the input's attribute names.",
             }),
           ]),
       h("div", { class: "attribute-table-scroll" }, [

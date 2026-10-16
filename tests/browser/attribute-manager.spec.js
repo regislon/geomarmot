@@ -46,10 +46,18 @@ test("AttributeManager edits every attribute in one table, applied on OK", async
   await page.getByRole("button", { name: "Edit attributes…" }).click();
   await table.nth(2).locator("select").last().selectOption("Remove");
   await table.nth(1).locator(".attribute-output").fill("code");
+  // The Type column converts: fid to text.
+  await table.nth(3).locator(".attribute-type-select").selectOption("→ Text");
+  await expect(table.nth(3).locator("select").last()).toHaveValue("Convert");
   await page.getByRole("button", { name: "OK" }).click();
   await expect(page.locator(".attribute-table-modal")).toBeHidden();
   await expect(page.locator("#table-head th")).toHaveText(["gez_name", "code", "fid"]);
+  await selectNode(page, "n2");
+  await page.getByRole("button", { name: "Edit attributes…" }).click();
+  await expect(table.nth(3).locator(".attribute-type-select")).toHaveValue("→ Text");
+  await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.locator("#inspector .attribute-summary li")).toHaveText([
+    "Convert fid → Text",
     "Rename gez_code → code",
     "Remove gez_abbrev",
   ]);

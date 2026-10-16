@@ -23,7 +23,9 @@ const LIST = 200;
 const object = (properties) => ({ type: "object", additionalProperties: false, properties });
 const rows = (item) => ({ type: "array", maxItems: LIST, items: item });
 
-export const ACTION_KINDS = ["Set value", "Rename", "Copy to", "Create", "Remove"];
+export const ACTION_KINDS = ["Set value", "Rename", "Copy to", "Create", "Convert", "Remove"];
+/** The types Convert can change an attribute to; attribute-manager/index.js maps each to SQL. */
+export const CONVERT_TYPES = ["Text", "Integer", "Decimal", "Boolean", "Date", "Date and time"];
 export const SORT_DIRECTIONS = ["ASC", "DESC"];
 /** Kept in step with aggregator/index.js by a test, not imported: the kit must not import a transformer. */
 export const AGGREGATE_KINDS = ["count", "sum", "min", "max", "mean", "median", "count distinct"];
@@ -72,6 +74,7 @@ const BY_KIND = {
         action: { enum: ACTION_KINDS },
         column: TEXT,
         target: TEXT,
+        to: { enum: CONVERT_TYPES },
         value: TEXT,
         spec: { $ref: "#/$defs/valuespec" },
       }),

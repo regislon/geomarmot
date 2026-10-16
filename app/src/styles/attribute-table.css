@@ -166,3 +166,9 @@
 .attribute-table-foot .spacer {
   flex: 1;
 }
+
+.attribute-type-select {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  max-width: 100%;
+}

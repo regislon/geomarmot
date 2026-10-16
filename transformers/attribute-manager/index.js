@@ -1,6 +1,19 @@
 // @ts-check
 import { defineTransformer, API_VERSION, param, SINGLE_IN, qid, valueSql, spliceExpression } from "../_kit/index.js";
 
+/**
+ * Convert's target types, as SQL. TRY_CAST: a value that does not convert
+ * becomes empty (NULL) instead of failing the whole node.
+ */
+const CONVERT_SQL = {
+  Text: "VARCHAR",
+  Integer: "BIGINT",
+  Decimal: "DOUBLE",
+  Boolean: "BOOLEAN",
+  Date: "DATE",
+  "Date and time": "TIMESTAMP",
+};
+
 /** An edit's value, from its value spec, or from the older raw-SQL `value` field. */
 function editValueSql(action) {
   if (action.spec) return valueSql(action.spec);
@@ -36,6 +49,11 @@ function attributeEdit(action, columns) {
       if (!action.target || !value) return null;
       return { selection: `*, (${value}) AS ${qid(action.target)}`, columns: [...columns, action.target] };
     }
+    case "Convert": {
+      const type = CONVERT_SQL[action.to];
+      if (!action.column || !has(action.column) || !type) return null;
+      return { selection: `* REPLACE (TRY_CAST(${qid(action.column)} AS ${type}) AS ${qid(action.column)})`, columns };
+    }
     case "Remove":
       if (!action.column || !has(action.column)) return null;
       return {
@@ -51,11 +69,12 @@ export default defineTransformer({
   apiVersion: API_VERSION,
   id: "AttributeManager",
   group: "Attributes",
-  summary: "Sets, renames, copies, creates and removes attributes — in order, in one node.",
+  summary: "Sets, renames, copies, creates, converts and removes attributes — in order, in one node.",
   description:
     "AttributeManager applies a list of attribute edits in order: Set value overwrites an attribute, " +
-    "Rename changes its name, Copy to duplicates it under a new name, Create adds a new one, and Remove " +
-    "drops it. Order matters and is kept — renaming a column and then setting the new name's value differs " +
+    "Rename changes its name, Copy to duplicates it under a new name, Create adds a new one, Convert changes its " +
+    "type (Text, Integer, Decimal, Boolean, Date, Date and time; a value that does not convert becomes empty), " +
+    "and Remove drops it. Order matters and is kept — renaming a column and then setting the new name's value differs " +
     "from the reverse — so each edit is its own nested SELECT. Values use the same builder as " +
     "AttributeCreator: a constant, an attribute, a formula or SQL. An edit that is not filled in, or that " +
     "names an attribute that is not there, is skipped. It does not filter or reorder rows.",
@@ -68,7 +87,17 @@ export default defineTransformer({
     "one kind of edit on a few columns — AttributeKeeper, AttributeRemover or AttributeRenamer read better on the canvas",
     "adding computed columns with a full SELECT — use AttributeCreator's SQL mode",
   ],
-  keywords: ["edit attributes", "modify fields", "set value", "rename", "copy", "remove", "attribute manager"],
+  keywords: [
+    "edit attributes",
+    "modify fields",
+    "set value",
+    "rename",
+    "copy",
+    "remove",
+    "convert type",
+    "cast",
+    "attribute manager",
+  ],
   examples: [
     {
       input: "id, name, v",

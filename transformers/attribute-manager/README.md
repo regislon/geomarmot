@@ -1,6 +1,6 @@
 # AttributeManager
 
-Sets, renames, copies, creates and removes attributes — in order, in one node.
+Sets, renames, copies, creates, converts and removes attributes — in order, in one node.
 
 ## What it does
 
@@ -12,6 +12,7 @@ A list of edits, applied top to bottom:
 | Rename | give an attribute a new name |
 | Copy to | duplicate an attribute under a new name |
 | Create | add a new attribute with a value |
+| Convert | change an attribute's type: Text, Integer, Decimal, Boolean, Date, Date and time; a value that does not convert becomes empty |
 | Remove | drop an attribute |
 
 Values use the same builder as AttributeCreator: a constant, an attribute, a formula or SQL. Order is
@@ -39,11 +40,13 @@ not there (yet), is skipped. A renamed attribute keeps its place among the other
 
 **Edit attributes…** opens a table with one row per input attribute: *Input attribute*, *Output
 attribute*, *Value*, *Type*, *Action*. Every row starts as *Do nothing*. Typing a new output name
-renames the attribute, *set a value* gives it a new value, and *Remove* drops it. **+ Add attribute**
+renames the attribute, *set a value* gives it a new value, the *Type* column converts it to another
+type, and *Remove* drops it. Geometry and nested values keep their type. **+ Add attribute**
 adds a row that creates a new attribute, or copies an existing one when you pick it as the input.
 Nothing changes until **OK**.
 
-The table saves the edits in a fixed order: copies, values, new attributes, renames, then removals.
+The table saves the edits in a fixed order: copies, values, new attributes, conversions, renames,
+then removals.
 Values therefore read the input's attributes under their input names. If a list was written in
 another order, for example by the assistant, the table says so before OK rewrites it.
 

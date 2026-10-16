@@ -204,6 +204,7 @@ export function renderActionsParam(param, node, columns, commit) {
       Rename: `Rename ${action.column} → ${action.target}`,
       "Copy to": `Copy ${action.column} → ${action.target}`,
       Create: `Create ${action.target}`,
+      Convert: `Convert ${action.column} → ${action.to}`,
       Remove: `Remove ${action.column}`,
     })[action.action] || action.action;
   const shown = actions.slice(0, 8).map((action) => h("li", { text: line(action), title: line(action) }));

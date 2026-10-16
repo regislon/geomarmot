@@ -321,6 +321,7 @@
                   "Rename",
                   "Copy to",
                   "Create",
+                  "Convert",
                   "Remove"
                 ]
               },
@@ -331,6 +332,16 @@
               "target": {
                 "type": "string",
                 "maxLength": 1000
+              },
+              "to": {
+                "enum": [
+                  "Text",
+                  "Integer",
+                  "Decimal",
+                  "Boolean",
+                  "Date",
+                  "Date and time"
+                ]
               },
               "value": {
                 "type": "string",

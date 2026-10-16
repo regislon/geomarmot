@@ -49,6 +49,33 @@ describe("AttributeManager's table", () => {
     ]);
   });
 
+  test("a conversion sits on its row, and is saved under the input name before a rename", () => {
+    const actions = [
+      { action: "Convert", column: "v", to: "Integer" },
+      { action: "Rename", column: "v", target: "w" },
+    ];
+    const { rows, exact } = toRows(actions, COLUMNS);
+    expect(exact).toBe(true);
+    expect(rows[2].convert).toBe("Integer");
+    expect(rowAction(rows[2])).toBe("Rename");
+    rows[0].convert = "Text";
+    expect(rowAction(rows[0])).toBe("Convert");
+    expect(toActions(rows)).toEqual([
+      { action: "Convert", column: "id", to: "Text" },
+      { action: "Convert", column: "v", to: "Integer" },
+      { action: "Rename", column: "v", target: "w" },
+    ]);
+  });
+
+  test("a copy is converted under its new name; the original keeps its type", () => {
+    const { rows } = toRows([{ action: "Copy to", column: "v", target: "v_int" }], COLUMNS);
+    rows[3].convert = "Integer";
+    expect(toActions(rows)).toEqual([
+      { action: "Copy to", column: "v", target: "v_int" },
+      { action: "Convert", column: "v_int", to: "Integer" },
+    ]);
+  });
+
   test("the old raw-SQL value field reads as a SQL value", () => {
     const { rows } = toRows([{ action: "Set value", column: "v", value: "v * 2" }], COLUMNS);
     expect(rows[2].spec).toEqual({ kind: "SQL", sql: "v * 2" });

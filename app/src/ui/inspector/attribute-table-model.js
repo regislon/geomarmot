@@ -3,13 +3,14 @@
  * AttributeManager's edits as a table, and back.
  *
  * The node stores an ordered list of edits (Set value, Rename, Copy to,
- * Create, Remove). The table shows one row per attribute instead: every input
+ * Create, Convert, Remove). The table shows one row per attribute instead: every input
  * attribute, then the attributes the edits add. A row says what becomes of
- * its attribute — its output name, a new value, or removal.
+ * its attribute — its output name, a new value, a new type, or removal.
  *
  * Saved back, the rows become edits in a fixed order, so that every value
  * reads the input's attributes under their input names:
- *   copies, then values set, then created attributes, then renames, then removals.
+ *   copies, then values set, then created attributes, then conversions, then renames,
+ *   then removals.
  * A list written in another order (by hand, or by the assistant) may not come
  * back exactly; `exact` says so, and the table warns before it rewrites it.
  */
@@ -20,6 +21,7 @@
  * @property {string|null} input   the input attribute, or null for a created one
  * @property {string} output       its name on the way out
  * @property {ValueSpec|null} spec a new value, or null to keep it
+ * @property {string|null} convert  a type to convert to (one of CONVERT_TYPES), or null to keep it
  * @property {boolean} remove
  * @property {boolean} added       a row the table added (copy or create), not an input attribute
  * @property {string} type         the input attribute's type, for display
@@ -33,6 +35,7 @@ export function rowAction(row) {
   if (row.spec && renamed) return "Rename and set value";
   if (row.spec) return "Set value";
   if (renamed) return "Rename";
+  if (row.convert) return "Convert";
   return "Do nothing";
 }
 
@@ -49,6 +52,7 @@ export function toRows(actions, columns) {
     input: column.name,
     output: column.name,
     spec: null,
+    convert: null,
     remove: false,
     added: false,
     type: column.type || "",
@@ -73,6 +77,7 @@ export function toRows(actions, columns) {
             input: row.input,
             output: action.target,
             spec: null,
+            convert: null,
             remove: false,
             added: true,
             type: row.type,
@@ -81,8 +86,12 @@ export function toRows(actions, columns) {
         break;
       case "Create":
         if (action.target && spec) {
-          rows.push({ input: null, output: action.target, spec, remove: false, added: true, type: "" });
+          rows.push({ input: null, output: action.target, spec, convert: null, remove: false, added: true, type: "" });
         } else exact = false;
+        break;
+      case "Convert":
+        if (row && action.to) row.convert = action.to;
+        else exact = false;
         break;
       case "Remove":
         if (row) row.remove = true;
@@ -101,6 +110,7 @@ function normalise(action) {
   const out = { action: action.action };
   if (action.action !== "Create") out.column = action.column || "";
   if (["Rename", "Copy to", "Create"].includes(action.action)) out.target = action.target || "";
+  if (action.action === "Convert") out.to = action.to || "";
   if (["Set value", "Create"].includes(action.action)) {
     out.spec = action.spec || (action.value ? { kind: "SQL", sql: action.value } : null);
   }
@@ -112,23 +122,29 @@ export function toActions(rows) {
   const copies = [];
   const values = [];
   const creates = [];
+  const converts = [];
   const renames = [];
   const removals = [];
   for (const row of rows) {
     const output = row.output.trim();
-    if (row.added && row.input && output) copies.push({ action: "Copy to", column: row.input, target: output });
-    else if (row.added && !row.input && output && row.spec) {
+    if (row.added && row.input && output) {
+      copies.push({ action: "Copy to", column: row.input, target: output });
+      if (row.convert) converts.push({ action: "Convert", column: output, to: row.convert });
+    } else if (row.added && !row.input && output && row.spec) {
       creates.push({ action: "Create", target: output, spec: clone(row.spec) });
+      if (row.convert) converts.push({ action: "Convert", column: output, to: row.convert });
     } else if (!row.added && row.input) {
       if (row.remove) {
         removals.push({ action: "Remove", column: row.input });
         continue;
       }
       if (row.spec) values.push({ action: "Set value", column: row.input, spec: clone(row.spec) });
+      // Under the input name: the rename comes after.
+      if (row.convert) converts.push({ action: "Convert", column: row.input, to: row.convert });
       if (output && output !== row.input) renames.push({ action: "Rename", column: row.input, target: output });
     }
   }
-  return [...copies, ...values, ...creates, ...renames, ...removals];
+  return [...copies, ...values, ...creates, ...converts, ...renames, ...removals];
 }
 
 /** Output names used twice, which would make the node fail: shown on the rows before OK. */
