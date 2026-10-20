@@ -198,6 +198,30 @@
           "description": "The text placed between accumulated values, which are sorted so repeated runs give the same string.",
           "type": "string",
           "maxLength": 1000
+        },
+        "idAttribute": {
+          "description": "The attribute identifying each feature. When set, Memberships lists the features covering every face, and features with no ID, or an ID used twice in the same layer, go to Rejected.",
+          "type": "string",
+          "maxLength": 1000
+        },
+        "layerAttribute": {
+          "description": "The attribute saying which layer a feature belongs to, when several layers were combined upstream. IDs need only be unique within a layer.",
+          "type": "string",
+          "maxLength": 1000
+        },
+        "ambiguous": {
+          "description": "Faces so thin that no interior point lies clear of their boundary, so which polygons cover them cannot be certified. They are typically slivers between nearly coincident boundaries.",
+          "enum": [
+            "Drop and report",
+            "Fail"
+          ]
+        },
+        "invalid": {
+          "description": "What to do with input polygons that are self-intersecting or otherwise invalid geometry.",
+          "enum": [
+            "Reject",
+            "Repair"
+          ]
         }
       }
     },

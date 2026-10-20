@@ -45,6 +45,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "0.129.0",
     "@duckdb/duckdb-wasm": "1.29.0",
+    "geos-wasm": "3.1.1",
     "h3-js": "4.2.1",
     "jsts": "2.12.1",
     "maplibre-gl": "4.7.1",

@@ -14,3 +14,4 @@ A record is not edited after it is accepted; a later record supersedes it instea
 | [0007](0007-graph-format.md) | Saved-graph format and compatibility |
 | [0008](0008-offline-promise.md) | What "works offline" means for v0.1 |
 | [0009](0009-ai-relay.md) | The assistant reaches a model directly or through the local server's relay, which forwards native requests |
+| [0010](0010-geos-wasm-overlay.md) | AreaOnAreaOverlayer runs on GEOS (WebAssembly) in workers, not on JSTS |
