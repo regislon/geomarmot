@@ -25,7 +25,6 @@ import * as specValidate from "../src/ai/spec/validate.js";
 import * as intake from "../src/ai/intake.js";
 import initGeosJs from "geos-wasm";
 import { overlayInWorker } from "../src/engines/geos/index.js";
-import { createFaceTable } from "../src/engines/jsts.js";
 import { compareToExpected, wktToWkb } from "../../tests/harness/geos-parity.js";
 
 window.__geomarmotHarness = createHarness({
@@ -55,5 +54,5 @@ window.__geomarmotInternals = {
   spec: { ...specInstall, ...specValidate },
   intake,
   // The GEOS overlay engine and its parity check; a main-thread GEOS for building inputs and comparing.
-  geos: { overlayInWorker, init: () => initGeosJs(), compareToExpected, wktToWkb, createFaceTable },
+  geos: { overlayInWorker, init: () => initGeosJs(), compareToExpected, wktToWkb },
 };

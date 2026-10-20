@@ -4,6 +4,8 @@
  * resolved the inputs and filled the `needs` fields; it creates the views.
  */
 
+import { MAX_MATERIALISED_CELLS, MAX_OVERLAY_FEATURES } from "../limits.js";
+
 /**
  * @param {any} transformer
  * @param {any} ctx          the context the compiler built; completed here
@@ -30,7 +32,7 @@ export async function runNode(transformer, ctx, { prefix, owned, outputs, limits
   ctx.adoptTable = (name) => {
     if (!owned.tables.includes(name)) owned.tables.push(name);
   };
-  ctx.limits = limits || { overlayFeatures: 20_000, materialisedCells: 2_000_000 };
+  ctx.limits = limits || { overlayFeatures: MAX_OVERLAY_FEATURES, materialisedCells: MAX_MATERIALISED_CELLS };
 
   if (transformer.prepare) {
     inPrepare = true;

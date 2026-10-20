@@ -14,7 +14,8 @@ import { memoryLimit } from "./core/memory.js";
 import { initMemoryMeter } from "./ui/memory-meter.js";
 import { clear as clearGraph, graph } from "./core/graph/index.js";
 import { setProgressReporter } from "./engines/h3/index.js";
-import { setOverlayProgress } from "./engines/jsts.js";
+import { setShapeProgress } from "./engines/jsts.js";
+import { setOverlayProgress } from "./engines/geos/index.js";
 import { setProgressReporter as setZarrProgress } from "./io/zarr/index.js";
 import { initConnectors, openConnect } from "./ui/connectors/index.js";
 import { arrange, initCanvas, render as renderCanvas, select as selectNode, setInspected } from "./ui/canvas/index.js";
@@ -180,6 +181,7 @@ async function main() {
   initAssistant();
   // Building hexagons, noding polygons and reading Zarr chunks take long enough to need a bar.
   setProgressReporter(reportProgress);
+  setShapeProgress(reportProgress);
   setOverlayProgress(reportProgress);
   setZarrProgress(reportProgress);
 

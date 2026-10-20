@@ -54,19 +54,37 @@ Wasm build of GDAL cannot *write* GeoPackage (its SQLite cannot write to the Was
 GeoMarmot writes GeoPackage itself, with sql.js — a WebAssembly SQLite, loaded on the first
 GeoPackage export — following the OGC GeoPackage 1.3 tables and geometry encoding.
 
+## GEOS (WebAssembly)
+
+GEOS 3.13, as `geos-wasm` 3.1.1, does the overlay behind AreaOnAreaOverlayer: noding (OverlayNG),
+polygonizing, and finding which polygons cover each face ([ADR 0010](decisions/0010-geos-wasm-overlay.md)).
+
+- **Where it runs.** In module workers, never on the page's thread, and it's loaded only when an
+  overlay first runs. Parts are clustered by envelope; a part alone in its cluster is its own face,
+  the rest go in batches of about 4 MB of WKB to a pool of up to four workers.
+- **Interior points.** A face's covering polygons are found from an interior point certified to lie
+  more than `tau` (the data extent × 1e-9) from the face's boundary. Faces where no such point exists
+  are reported, not guessed.
+- **Memory.** Each worker has its own 32-bit WebAssembly heap, 4 GB at most, which never shrinks. A
+  worker whose heap passes 1.5 GB is replaced before its next task. A single task past 10 minutes
+  stops the overlay with an error, and Cancel terminates every worker.
+- **Limits.** An overlay refuses more than 200,000 features (`MAX_OVERLAY_FEATURES`,
+  `app/src/core/limits.js`). Detail counts more than the number of features: a real pair of boundary
+  layers with 2.1 million vertices peaked at 1.35 GB in one worker and took 37 s.
+- **Results** come back to DuckDB as hex WKB, so coordinates are exact.
+
 ## JSTS
 
-JSTS 2.12.1 (a JavaScript port of the JTS topology suite) does the geometry DuckDB's spatial
-extension cannot: the minimum rotated bounding box and the minimum bounding circle, densifying,
-smoothing, and the noding and polygonizing behind AreaOnAreaOverlayer. Everything else geometric —
-centroids, hulls, simplifying, merging lines, buffers, dissolves — is spatial-extension SQL. JSTS is
-loaded on first use.
+JSTS 2.12.1 (a JavaScript port of the JTS topology suite) does the per-feature geometry DuckDB's
+spatial extension cannot: the minimum rotated bounding box and the minimum bounding circle,
+densifying and smoothing. Everything else geometric (centroids, hulls, simplifying, merging lines,
+buffers, dissolves) is spatial-extension SQL, and the overlay is GEOS (above). JSTS is loaded on
+first use.
 
 It runs on the page's main thread in v0.1. Features go through it one by one, in chunks of 5,000
 with a yield between, so the page keeps responding, and a superseded compile stops between chunks.
-An overlay refuses more than 20,000 features (`MAX_OVERLAY_FEATURES`). This is responsiveness, not
-isolation: a single enormous geometry still blocks the page while it is processed. Moving JSTS into
-a worker is on the list in [debt.md](debt.md).
+This is responsiveness, not isolation: a single enormous geometry still blocks the page while it is
+processed. Moving JSTS into a worker is on the list in [debt.md](debt.md).
 
 ## h3-js
 

@@ -4,6 +4,7 @@
  */
 
 import { mainEngine, qlit } from "../../core/duck.js";
+import { MAX_MATERIALISED_CELLS } from "../../core/limits.js";
 // h3-js 4.2 rather than 4.1: polygonToCellsExperimental — and with it every fill
 // mode other than "centroid inside" — does not exist before it.
 import { POLYGON_TO_CELLS_FLAGS, cellToBoundary, polygonToCellsExperimental } from "h3-js";
@@ -51,7 +52,7 @@ export const FILL_MODES = {
   CoversBoundingBox: POLYGON_TO_CELLS_FLAGS.containmentOverlappingBbox,
 };
 
-export const MAX_MATERIALISED_CELLS = 2_000_000;
+export { MAX_MATERIALISED_CELLS };
 
 /** Cells per insert. ~3 MB of hex in flight per batch, and a yield between each. */
 const CELL_CHUNK = 25_000;

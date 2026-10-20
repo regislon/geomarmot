@@ -29,6 +29,7 @@ const F64_BYTES = 8;
  * @typedef {object} OverlayResult
  * @property {Uint8Array[]} faces   WKB of each face
  * @property {Float64Array} areas   planar area of each face
+ * @property {Float64Array} bounds  minx, miny, maxx, maxy of each face, flattened
  * @property {Int32Array} offsets   CSR offsets into `members`, one more than the number of faces
  * @property {Int32Array} members   indices of the parts covering each face (empty for ambiguous faces)
  * @property {Float64Array} clearance  distance from each face's interior point to its boundary
@@ -62,6 +63,7 @@ export function overlayParts(geos, partsWkb, tau) {
       return {
         faces: faceGeoms.map(io.write),
         areas: Float64Array.from(faceGeoms, (g) => scalar(geos, "GEOSArea", g)),
+        bounds: Float64Array.from(faceGeoms.flatMap((g) => envelope(geos, g))),
         offsets,
         members,
         clearance,
@@ -257,9 +259,7 @@ function containment(geos, parts, points, ambiguous) {
   /** @type {number[][]} */
   const byFace = points.map(() => []);
   parts.forEach((part, k) => {
-    const [xmin, ymin, xmax, ymax] = ["getXMin", "getYMin", "getXMax", "getYMax"].map((f) =>
-      scalar(geos, `GEOSGeom_${f}`, part),
-    );
+    const [xmin, ymin, xmax, ymax] = envelope(geos, part);
     const prepared = geos.GEOSPrepare(part);
     try {
       for (let s = lowerBound(xs, xmin); s < xs.length && xs[s] <= xmax; s++) {
@@ -274,6 +274,11 @@ function containment(geos, parts, points, ambiguous) {
   const offsets = new Int32Array(points.length + 1);
   byFace.forEach((m, i) => (offsets[i + 1] = offsets[i] + m.length));
   return { offsets, members: Int32Array.from(byFace.flat()) };
+}
+
+/** minx, miny, maxx, maxy of a geometry. */
+function envelope(geos, g) {
+  return ["getXMin", "getYMin", "getXMax", "getYMax"].map((f) => scalar(geos, `GEOSGeom_${f}`, g));
 }
 
 /** First index whose value is >= x in a sorted array. */

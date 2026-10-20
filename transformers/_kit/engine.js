@@ -5,7 +5,8 @@
  * engine too (docs/transformer-api.md).
  */
 
-export { createFaceTable, createShapeTable, MAX_OVERLAY_FEATURES } from "../../app/src/engines/jsts.js";
+export { createShapeTable } from "../../app/src/engines/jsts.js";
+export { overlayFaces, MAX_OVERLAY_FEATURES } from "../../app/src/engines/geos/index.js";
 export {
   FILL_MODES,
   H3_INDEX_COLUMN,

@@ -1,10 +1,9 @@
 /*
- * Overlay benchmark: the GEOS worker against today's JSTS path, in Chromium. Reported, not asserted.
+ * Overlay benchmark: the GEOS worker in Chromium. Reported, not asserted. (The JSTS path it replaced did not
+ * finish 20,000 sparse boxes in 20 minutes; the worker takes under a second.)
  *
  * Runs only when GEOS_BENCH=1. Optional: GEOS_BENCH_DATA=<dir> holding parts.bin (concatenated WKB) and
  * parts.json ({ tau, offsets }) for a real workload; GEOS_BENCH_OUT=<file> to write the results as JSON;
- * GEOS_BENCH_JSTS=1 to also time today's JSTS path, on workloads of at most JSTS_MAX_FEATURES only: it
- * unions boundaries one by one on the main thread, and did not finish 20,000 sparse boxes in 20 minutes.
  */
 
 import { test } from "@playwright/test";
@@ -16,8 +15,6 @@ test.skip(!process.env.GEOS_BENCH, "set GEOS_BENCH=1 to run the overlay benchmar
 test.setTimeout(1_800_000);
 
 const DATA = process.env.GEOS_BENCH_DATA;
-const JSTS = Boolean(process.env.GEOS_BENCH_JSTS);
-const JSTS_MAX_FEATURES = 2_000;
 const SYNTHETIC = [
   // name, boxes, min/max side, extent: sparse is mostly isolated boxes, dense is heavily overlapping.
   { name: "sparse-20k", n: 20_000, min: 0.01, max: 0.05, extent: 20 },
@@ -41,44 +38,36 @@ test.afterAll(async () => {
 });
 
 for (const spec of SYNTHETIC) {
-  test(`synthetic ${spec.name}: GEOS worker${JSTS && spec.n <= JSTS_MAX_FEATURES ? " vs JSTS" : ""}`, async () => {
+  test(`synthetic ${spec.name}: GEOS worker`, async () => {
     results.push(
-      await h.page.evaluate(
-        async ({ spec, withJsts }) => {
-          const { geos: api } = window.__geomarmotInternals;
-          const geos = await api.init();
-          let seed = 42;
-          const rand = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
-          const wkts = Array.from({ length: spec.n }, () => {
-            const [x, y] = [rand() * spec.extent, rand() * spec.extent];
-            const [w, hgt] = [spec.min + rand() * (spec.max - spec.min), spec.min + rand() * (spec.max - spec.min)];
-            return `POLYGON((${x} ${y},${x + w} ${y},${x + w} ${y + hgt},${x} ${y + hgt},${x} ${y}))`;
-          });
-          const parts = wkts.map((wkt) => api.wktToWkb(geos, wkt));
-          const heap = () => performance.memory?.usedJSHeapSize ?? null;
-          let t0 = performance.now();
-          const run = await api.overlayInWorker(parts, spec.extent * 1e-9);
-          const geosMs = performance.now() - t0;
-          const result = {
-            workload: spec.name,
-            features: spec.n,
-            geos: {
-              ms: geosMs,
-              faces: run.faces.length,
-              ambiguous: run.ambiguous.reduce((a, b) => a + b, 0),
-              ...run.stats,
-            },
-            pageHeapBytes: heap(),
-          };
-          if (withJsts) {
-            t0 = performance.now();
-            const faces = await api.createFaceTable(wkts, `bench_faces_${spec.name.replace(/\W/g, "_")}`);
-            result.jsts = { ms: performance.now() - t0, faces, note: "includes writing the faces into DuckDB" };
-          }
-          return result;
-        },
-        { spec, withJsts: JSTS && spec.n <= JSTS_MAX_FEATURES },
-      ),
+      await h.page.evaluate(async (spec) => {
+        const { geos: api } = window.__geomarmotInternals;
+        const geos = await api.init();
+        let seed = 42;
+        const rand = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+        const wkts = Array.from({ length: spec.n }, () => {
+          const [x, y] = [rand() * spec.extent, rand() * spec.extent];
+          const [w, hgt] = [spec.min + rand() * (spec.max - spec.min), spec.min + rand() * (spec.max - spec.min)];
+          return `POLYGON((${x} ${y},${x + w} ${y},${x + w} ${y + hgt},${x} ${y + hgt},${x} ${y}))`;
+        });
+        const parts = wkts.map((wkt) => api.wktToWkb(geos, wkt));
+        const heap = () => performance.memory?.usedJSHeapSize ?? null;
+        const t0 = performance.now();
+        const run = await api.overlayInWorker(parts, spec.extent * 1e-9);
+        const geosMs = performance.now() - t0;
+        const result = {
+          workload: spec.name,
+          features: spec.n,
+          geos: {
+            ms: geosMs,
+            faces: run.faces.length,
+            ambiguous: run.ambiguous.reduce((a, b) => a + b, 0),
+            ...run.stats,
+          },
+          pageHeapBytes: heap(),
+        };
+        return result;
+      }, spec),
     );
   });
 }
