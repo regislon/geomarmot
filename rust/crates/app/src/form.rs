@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 
 use egui::{RichText, Ui};
-use geomarmot_core::{Kind, Param};
+use geomarmot_core::{Cell, Kind, Param};
 use serde_json::{Value, json};
 
 use crate::canvas::colour;
@@ -367,6 +367,61 @@ pub fn show(ui: &mut Ui, node: usize, params: &[Param], values: &mut Value, colu
                             .map(|(l, r)| json!({ "left": l, "right": r }))
                             .collect(),
                     );
+                    out.changed = true;
+                }
+            }
+            Kind::Rows(fields) => {
+                let mut rows: Vec<Value> = value.as_array().cloned().unwrap_or_default();
+                let mut changed = false;
+                let mut remove = None;
+                for (i, row) in rows.iter_mut().enumerate() {
+                    ui.horizontal_wrapped(|ui| {
+                        for (key, cell) in fields {
+                            let mut s = text(&row[*key], "");
+                            let edited = match cell {
+                                Cell::Column => match columns.get("input") {
+                                    Some(names) => column_picker(ui, (id, i, *key), &mut s, names),
+                                    None => ui
+                                        .add(egui::TextEdit::singleline(&mut s).hint_text(*key).desired_width(90.0))
+                                        .changed(),
+                                },
+                                Cell::Pick(options) => {
+                                    let before = s.clone();
+                                    egui::ComboBox::from_id_salt((id, i, *key))
+                                        .selected_text(if s.is_empty() { "—" } else { s.as_str() })
+                                        .show_ui(ui, |ui| {
+                                            for o in *options {
+                                                ui.selectable_value(&mut s, o.to_string(), *o);
+                                            }
+                                        });
+                                    s != before
+                                }
+                                Cell::Text => ui
+                                    .add(egui::TextEdit::singleline(&mut s).hint_text(*key).desired_width(90.0))
+                                    .changed(),
+                            };
+                            if edited {
+                                row[*key] = Value::String(s);
+                                changed = true;
+                            }
+                        }
+                        if ui.small_button("×").on_hover_text("Remove").clicked() {
+                            remove = Some(i);
+                        }
+                    });
+                }
+                if let Some(i) = remove {
+                    rows.remove(i);
+                    changed = true;
+                }
+                if ui.small_button("+ Add").clicked() {
+                    rows.push(Value::Object(
+                        fields.iter().map(|(k, _)| (k.to_string(), Value::from(""))).collect(),
+                    ));
+                    changed = true;
+                }
+                if changed {
+                    *value = Value::Array(rows);
                     out.changed = true;
                 }
             }

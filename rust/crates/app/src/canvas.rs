@@ -34,6 +34,15 @@ pub const PALETTE: &[&str] = &[
     "MinimumBoundingBox",
     "MinimumConvexHull",
     "RepresentativePointVector",
+    "DuplicateFilter",
+    "TestFilter",
+    "Tester",
+    "Aggregator",
+    "StatisticsCalculator",
+    "AttributeCorrelation",
+    "AttributeHistogram",
+    "ListUniqueValues",
+    "Unioner",
 ];
 
 /// Width of a node's title: every node is as wide.

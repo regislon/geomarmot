@@ -33,6 +33,15 @@ pub const GATE_1: &[&str] = &[
     "minimum-bounding-box",
     "minimum-convex-hull",
     "representative-point-vector",
+    "duplicate-filter",
+    "test-filter",
+    "tester",
+    "aggregator",
+    "statistics-calculator",
+    "attribute-correlation",
+    "attribute-histogram",
+    "list-unique-values",
+    "unioner",
 ];
 
 /// Run every case of `docs` ((folder, tests.json text)); returns (passed, failures).
