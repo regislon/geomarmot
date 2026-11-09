@@ -20,7 +20,7 @@ pub mod process;
 pub mod supervisor;
 
 /// Extensions loaded at boot. parquet and json are compiled into the bundled build.
-pub const EXTENSIONS: &[&str] = &["spatial"];
+pub const EXTENSIONS: &[&str] = &["spatial", "httpfs"];
 
 fn err(e: duckdb::Error) -> String {
     e.to_string()
@@ -76,7 +76,8 @@ impl Host {
         let mut boot = format!(
             "SET extension_directory = {};
              SET autoinstall_known_extensions = false;
-             SET autoload_known_extensions = false;",
+             SET autoload_known_extensions = false;
+             SET allow_persistent_secrets = false;",
             qlit(&config.extension_dir.to_string_lossy())
         );
         for name in EXTENSIONS {
@@ -130,6 +131,31 @@ impl Host {
         result
     }
 
+    /// Create `table` from Arrow batches (trusted I/O: terrio readers, kernel results). Uses the
+    /// appender, not DuckDB's `arrow()` table function, which would let SQL pass raw pointers.
+    pub fn create_from_arrow(
+        &self,
+        table: &str,
+        schema: &arrow::datatypes::Schema,
+        batches: &[RecordBatch],
+    ) -> Result<()> {
+        let columns: Vec<String> = schema
+            .fields()
+            .iter()
+            .map(|f| Ok(format!("{} {}", qid(f.name()), duckdb_type(f.data_type())?)))
+            .collect::<Result<_>>()?;
+        self.exec_now(&format!(
+            "CREATE OR REPLACE TABLE {} ({})",
+            qid(table),
+            columns.join(", ")
+        ))?;
+        let mut appender = self.conn.appender(table).map_err(err)?;
+        for batch in batches {
+            appender.append_record_batch(batch.clone()).map_err(err)?;
+        }
+        appender.flush().map_err(err)
+    }
+
     pub fn exec_now(&self, sql: &str) -> Result<()> {
         self.conn.execute_batch(sql).map_err(err)
     }
@@ -152,4 +178,28 @@ impl SqlEngine for Host {
     async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {
         self.overlay_now(request)
     }
+}
+
+/// The DuckDB column type for an Arrow type the readers produce.
+fn duckdb_type(t: &arrow::datatypes::DataType) -> Result<&'static str> {
+    use arrow::datatypes::DataType as D;
+    Ok(match t {
+        D::Boolean => "BOOLEAN",
+        D::Int8 => "TINYINT",
+        D::Int16 => "SMALLINT",
+        D::Int32 => "INTEGER",
+        D::Int64 => "BIGINT",
+        D::UInt8 => "UTINYINT",
+        D::UInt16 => "USMALLINT",
+        D::UInt32 => "UINTEGER",
+        D::UInt64 => "UBIGINT",
+        D::Float32 => "FLOAT",
+        D::Float64 => "DOUBLE",
+        D::Utf8 | D::LargeUtf8 | D::Utf8View => "VARCHAR",
+        D::Binary | D::LargeBinary | D::BinaryView => "BLOB",
+        D::Date32 => "DATE",
+        D::Timestamp(_, None) => "TIMESTAMP",
+        D::Timestamp(_, Some(_)) => "TIMESTAMPTZ",
+        other => return Err(format!("no DuckDB column type for Arrow {other}")),
+    })
 }
