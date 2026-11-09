@@ -55,7 +55,7 @@ impl Worker {
 }
 
 fn scan(name: &str) -> String {
-    let file = qlit(name);
+    let file = qlit(&bridge::path(name));
     match name.rsplit('.').next().unwrap_or_default().to_lowercase().as_str() {
         "csv" | "tsv" => format!("read_csv({file})"),
         "parquet" | "pq" => format!("read_parquet({file})"),
@@ -104,7 +104,7 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
             } else {
                 "(FORMAT PARQUET)"
             };
-            let copy = format!("COPY (SELECT * FROM {view}) TO {} {format}", qlit(&name));
+            let copy = format!("COPY (SELECT * FROM {view}) TO {} {format}", qlit(&bridge::path(&name)));
             Reply::Status(match bridge::download(&copy, &name).await {
                 Ok(()) => format!("Exported {name}"),
                 Err(e) => format!("Export failed: {e}"),

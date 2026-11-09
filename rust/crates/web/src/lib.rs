@@ -29,6 +29,8 @@ pub mod bridge {
         async fn add_source_js(name: &str, bytes: &[u8], sql: &str) -> Result<JsValue, JsValue>;
         #[wasm_bindgen(js_namespace = gmBridge, js_name = cancel, catch)]
         async fn cancel_js() -> Result<JsValue, JsValue>;
+        #[wasm_bindgen(js_namespace = gmBridge, js_name = path)]
+        fn path_js(name: &str) -> String;
         #[wasm_bindgen(js_namespace = gmBridge, js_name = download, catch)]
         async fn download_js(copy: &str, name: &str) -> Result<JsValue, JsValue>;
     }
@@ -49,7 +51,12 @@ pub mod bridge {
             .map_err(super::message)
     }
 
-    /// Run `copy` (a COPY … TO `name`) and hand the file to the browser as a download.
+    /// Where the page keeps a file it registered under `name` (the locked engine's only directory).
+    pub fn path(name: &str) -> String {
+        path_js(name)
+    }
+
+    /// Run `copy` (a COPY … TO `path(name)`) and hand the file to the browser as a download.
     pub async fn download(copy: &str, name: &str) -> Result<(), String> {
         download_js(copy, name).await.map(|_| ()).map_err(super::message)
     }
@@ -104,4 +111,14 @@ pub async fn run_fixtures(docs: String) -> String {
     let docs: Vec<(String, String)> = serde_json::from_str(&docs).unwrap_or_default();
     let (passed, failures) = geomarmot_conformance::run_all(&WasmEngine, &docs).await;
     serde_json::json!({ "passed": passed, "failures": failures }).to_string()
+}
+
+/// The SQL guard in the browser: "" when a restricted query fragment may run, else the refusal.
+#[wasm_bindgen]
+pub async fn validate_sql(sql: String) -> String {
+    use geomarmot_core::sqlguard::{Context, validate};
+    match validate(&WasmEngine, &sql, Context::Query).await {
+        Ok(()) => String::new(),
+        Err(r) => r.message,
+    }
 }

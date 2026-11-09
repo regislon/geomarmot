@@ -52,14 +52,36 @@ export async function boot() {
     await conn.query(`LOAD ${name}`);
   }
   for (const source of sources) {
-    await db.registerFileBuffer(source.name, source.bytes.slice());
+    await db.registerFileBuffer(file(source.name), source.bytes.slice());
     await conn.query(source.sql);
   }
+  await lock();
   const [v] = (await conn.query("SELECT version() AS v")).toArray();
   return v.toJSON().v;
 }
 
+/** The only directory the locked engine may touch: every file the page registers lives here. */
+const FILES = "/gm/";
+const file = (name) => FILES + name.replace(/[/\\]/g, "_");
+
+/**
+ * Lock the engine as the desktop one is (docs/rust-migration-plan.md, Security): the page's own
+ * files (registered buffers, exports) stay reachable, the network does not, and no setting,
+ * extension or secret can change afterwards. URLs the user opens would be listed in allowed_paths.
+ */
+async function lock() {
+  for (const sql of [
+    `SET allowed_directories = ['${FILES}']`,
+    "SET enable_external_access = false",
+    "SET lock_configuration = true",
+  ]) {
+    await conn.query(sql);
+  }
+}
+
 const plain = (v) => (typeof v === "bigint" ? Number(v) : v);
+
+const adapterFiles = new Set();
 
 /** The engine interface the app's GEOS overlay expects (ctx.engine). */
 const overlayEngine = {
@@ -67,9 +89,12 @@ const overlayEngine = {
     (await conn.query(sql))
       .toArray()
       .map((r) => Object.fromEntries(Object.entries(r.toJSON()).map(([k, v]) => [k, plain(v)]))),
-  exec: async (sql) => void (await conn.query(sql)),
-  registerFileBuffer: (name, bytes) => db.registerFileBuffer(name, bytes),
-  dropFile: (name) => db.dropFile(name),
+  exec: async (sql) => {
+    for (const name of adapterFiles) sql = sql.replaceAll(`'${name}'`, `'${file(name)}'`);
+    await conn.query(sql);
+  },
+  registerFileBuffer: (name, bytes) => (adapterFiles.add(name), db.registerFileBuffer(file(name), bytes)),
+  dropFile: (name) => (adapterFiles.delete(name), db.dropFile(file(name))),
 };
 
 const STOP_GRACE_MS = 2000;
@@ -86,6 +111,8 @@ async function stream(sql) {
 }
 
 globalThis.gmBridge = {
+  /** Where a file the page registered under `name` is, for SQL that reads or writes it. */
+  path: file,
   // Several statements (a compile's BEGIN … COMMIT) cannot stream; they are DDL and finish quickly.
   exec: (sql) =>
     run(async () => void (/;\s*\S/.test(sql.trim().replace(/;\s*$/, "")) ? await conn.query(sql) : await stream(sql))),
@@ -93,7 +120,7 @@ globalThis.gmBridge = {
   insertArrow: (table, ipc) => run(() => conn.insertArrowFromIPCStream(ipc.slice(), { name: table, create: true })),
   addSource: (name, bytes, sql) =>
     run(async () => {
-      await db.registerFileBuffer(name, bytes.slice());
+      await db.registerFileBuffer(file(name), bytes.slice());
       await conn.query(sql);
       sources.push({ name, bytes, sql });
     }),
@@ -111,8 +138,8 @@ globalThis.gmBridge = {
   download: (copy, name) =>
     run(async () => {
       await conn.query(copy);
-      const bytes = await db.copyFileToBuffer(name);
-      await db.dropFile(name);
+      const bytes = await db.copyFileToBuffer(file(name));
+      await db.dropFile(file(name));
       const a = Object.assign(document.createElement("a"), {
         href: URL.createObjectURL(new Blob([bytes])),
         download: name,
