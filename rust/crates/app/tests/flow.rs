@@ -190,4 +190,27 @@ fn open_chain_read_export() {
     h.run_steps(2);
     assert_eq!(h.state().viewer.tabs, vec![(dissolve.0, 0)]);
     assert_eq!(h.state().viewer.selected, Some((dissolve.0, 0)));
+
+    // Typing a transformer's name with an output selected adds it, already linked to that output.
+    let wires = h.state().snarl.wires().count();
+    h.event(egui::Event::PointerMoved(egui::pos2(900.0, 440.0)));
+    h.event(egui::Event::Text("Sorter".into()));
+    h.run_steps(2);
+    h.event(egui::Event::Key {
+        key: egui::Key::Enter,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    });
+    h.run_steps(2);
+    let app = h.state();
+    let sorter = app
+        .snarl
+        .node_ids()
+        .find(|(_, d)| d.node.kind == "Sorter")
+        .expect("a Sorter")
+        .0;
+    assert_eq!(app.snarl.wires().count(), wires + 1);
+    assert!(app.snarl.wires().any(|(o, i)| o.node == dissolve && i.node == sorter));
 }

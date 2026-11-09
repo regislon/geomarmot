@@ -4,9 +4,11 @@
 pub mod app;
 pub mod canvas;
 pub mod form;
+mod form_manager;
 mod form_rows;
 #[cfg(target_arch = "wasm32")]
 pub mod hooks;
+mod links;
 pub mod map;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod probe;

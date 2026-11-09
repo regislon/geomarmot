@@ -1,26 +1,11 @@
 // Spike gate 1 in the browser: the Rust fixture runner (wasm) over DuckDB-Wasm.
 import init, { run_fixtures, validate_sql } from "./pkg/geomarmot_web.js";
 import { boot } from "./bridge.js";
-import attributeFilter from "../../transformers/attribute-filter/tests.json";
-import featureJoiner from "../../transformers/feature-joiner/tests.json";
-import dissolver from "../../transformers/dissolver/tests.json";
-import reprojector from "../../transformers/reprojector/tests.json";
-import bufferer from "../../transformers/bufferer/tests.json";
-import overlayer from "../../transformers/area-on-area-overlayer/tests.json";
-import boundingCircle from "../../transformers/minimum-bounding-circle/tests.json";
-import h3Geometry from "../../transformers/h3-geometry-from-index/tests.json";
-
 const report = document.getElementById("report");
-const docs = Object.entries({
-  attributeFilter,
-  featureJoiner,
-  dissolver,
-  reprojector,
-  bufferer,
-  overlayer,
-  boundingCircle,
-  h3Geometry,
-}).map(([name, doc]) => [name, JSON.stringify(doc)]);
+// Every transformer's fixtures; the runner keeps the gate-1 folders (the ported transformers).
+const docs = Object.entries(
+  import.meta.glob("../../transformers/*/tests.json", { eager: true, import: "default" }),
+).map(([path, doc]) => [path.split("/").at(-2), JSON.stringify(doc)]);
 
 const t0 = performance.now();
 const version = await boot();

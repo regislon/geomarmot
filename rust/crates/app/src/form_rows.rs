@@ -2,7 +2,7 @@
 //! AttributeManager's edits, as the JavaScript inspector's `renames`/`sorts`/`valuerows`/`actions`.
 
 use egui::Ui;
-use geomarmot_core::Kind;
+use geomarmot_core::{Cell, Kind};
 use serde_json::{Value, json};
 
 use crate::form::column_picker;
@@ -33,7 +33,13 @@ fn column(
         return text(ui, row, key, "attribute", 110.0);
     };
     let mut s = row[key].as_str().unwrap_or_default().to_string();
-    let changed = column_picker(ui, id, &mut s, names);
+    // Narrower than the inspector's picker: it sits in a row beside other fields.
+    let changed = ui
+        .scope(|ui| {
+            ui.set_max_width(120.0);
+            column_picker(ui, id, &mut s, names)
+        })
+        .inner;
     if changed {
         row[key] = Value::String(s);
     }
@@ -41,7 +47,7 @@ fn column(
 }
 
 /// One of `options` bound to `row[key]`, `default` when unset.
-fn choice(
+pub(crate) fn choice(
     ui: &mut Ui,
     id: impl std::hash::Hash + std::fmt::Debug,
     row: &mut Value,
@@ -84,7 +90,7 @@ fn literal(ui: &mut Ui, id: impl std::hash::Hash + Copy + std::fmt::Debug, v: &m
 }
 
 /// A value spec (valuespec.js): a constant, an attribute, a formula or SQL.
-fn spec(
+pub(crate) fn spec(
     ui: &mut Ui,
     id: impl std::hash::Hash + Copy + std::fmt::Debug,
     v: &mut Value,
@@ -127,7 +133,7 @@ fn spec(
 }
 
 const ACTIONS: &[&str] = &["Set value", "Rename", "Copy to", "Create", "Convert", "Remove"];
-const CONVERT: &[&str] = &["Text", "Integer", "Decimal", "Boolean", "Date", "Date and time"];
+pub(crate) const CONVERT: &[&str] = &["Text", "Integer", "Decimal", "Boolean", "Date", "Date and time"];
 
 /// One row of a list kind; true when it changed.
 fn row(ui: &mut Ui, kind: Kind, id: (Id, usize), r: &mut Value, names: Option<&Vec<String>>) -> bool {
@@ -191,6 +197,106 @@ pub fn show(ui: &mut Ui, id: Id, kind: Kind, value: &mut Value, names: Option<&V
     }
     if names.is_none() {
         ui.label(egui::RichText::new("Run the input to pick from its attributes.").small());
+    }
+    if changed {
+        *value = Value::Array(rows);
+    }
+    changed
+}
+
+/// Column title of a row field.
+fn title(key: &str) -> &str {
+    match key {
+        "label" => "Output port",
+        "column" => "Attribute",
+        "operator" => "Operator",
+        "value" => "Value",
+        "func" => "Function",
+        "alias" => "Result name",
+        other => other,
+    }
+}
+
+/// A list of rows as a table: a header, then one line per row (conditions, rules, aggregates).
+pub fn table(
+    ui: &mut Ui,
+    id: Id,
+    fields: &[(&'static str, Cell)],
+    value: &mut Value,
+    names: Option<&Vec<String>>,
+) -> bool {
+    const WIDTH: f32 = 104.0;
+    let mut rows: Vec<Value> = value.as_array().cloned().unwrap_or_default();
+    let (mut changed, mut remove) = (false, None);
+    let pick = |ui: &mut Ui, salt, s: &mut String, options: &mut dyn Iterator<Item = &str>| {
+        let before = s.clone();
+        egui::ComboBox::from_id_salt(salt)
+            .width(WIDTH)
+            .selected_text(if s.is_empty() { "—" } else { s.as_str() })
+            .show_ui(ui, |ui| {
+                for o in options {
+                    ui.selectable_value(s, o.to_string(), o);
+                }
+            });
+        *s != before
+    };
+    egui::Grid::new(("rows", id))
+        .num_columns(fields.len() + 1)
+        .spacing([6.0, 4.0])
+        .striped(true)
+        .show(ui, |ui| {
+            for (key, _) in fields {
+                ui.label(egui::RichText::new(title(key)).small().strong());
+            }
+            ui.end_row();
+            for (i, row) in rows.iter_mut().enumerate() {
+                for (key, cell) in fields {
+                    let mut s = row[*key]
+                        .as_str()
+                        .map(String::from)
+                        .unwrap_or_else(|| match &row[*key] {
+                            Value::Null => String::new(),
+                            v => v.to_string(),
+                        });
+                    let edited = match (cell, names) {
+                        (Cell::Column, Some(names)) => pick(
+                            ui,
+                            (id, i, *key),
+                            &mut s,
+                            &mut std::iter::once("").chain(names.iter().map(String::as_str)),
+                        ),
+                        (Cell::Pick(options), _) => pick(ui, (id, i, *key), &mut s, &mut options.iter().copied()),
+                        // An empty rule label leaves the port its default name, R0, R1, …
+                        _ => {
+                            let hint = if *key == "label" {
+                                format!("R{i}")
+                            } else {
+                                title(key).to_lowercase()
+                            };
+                            ui.add_sized([WIDTH, 20.0], egui::TextEdit::singleline(&mut s).hint_text(hint))
+                                .changed()
+                        }
+                    };
+                    if edited {
+                        row[*key] = Value::String(s);
+                        changed = true;
+                    }
+                }
+                if ui.small_button("×").on_hover_text("Remove").clicked() {
+                    remove = Some(i);
+                }
+                ui.end_row();
+            }
+        });
+    if let Some(i) = remove {
+        rows.remove(i);
+        changed = true;
+    }
+    if ui.small_button("+ Add").clicked() {
+        rows.push(Value::Object(
+            fields.iter().map(|(k, _)| (k.to_string(), Value::from(""))).collect(),
+        ));
+        changed = true;
     }
     if changed {
         *value = Value::Array(rows);

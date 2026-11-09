@@ -172,7 +172,8 @@ pub fn style() -> egui_snarl::ui::SnarlStyle {
     style.centering = Some(false);
     style.collapsible = Some(false);
     style.header_drag_space = Some(egui::Vec2::ZERO);
-    style.pin_size = Some(10.0);
+    // Larger ports are easier to drop a link on (links.rs also snaps to a nearby port).
+    style.pin_size = Some(14.0);
     // Ports sit on the node's edge, half outside, as in the JavaScript canvas.
     style.pin_placement = Some(egui_snarl::ui::PinPlacement::Edge);
     style.crisp_magnified_text = Some(true);
@@ -276,6 +277,12 @@ pub struct Viewer {
     /// Row count of each run output, by view.
     pub counts: std::collections::BTreeMap<String, u64>,
     started: bool,
+    /// Row of each port as drawn, in graph coordinates: (is output, node, port) → y.
+    pub pin_y: std::collections::BTreeMap<(bool, usize, usize), f32>,
+    /// The pointer on screen, as of the last node drawn.
+    pub pointer: Option<egui::Pos2>,
+    /// × clicked on this node: remove it.
+    pub delete: Option<usize>,
 }
 
 impl Viewer {
@@ -409,12 +416,13 @@ impl SnarlViewer<NodeData> for Viewer {
     ) {
         self.node_rects.retain(|(n, _)| *n != node.0);
         self.node_rects.push((node.0, rect));
+        self.pointer = ui.ctx().pointer_latest_pos();
         let selected = self.selected.map(|(n, _)| n) == Some(node.0);
         let run = egui::Rect::from_min_size(
             rect.right_top() + Z * egui::vec2(-30.0, -28.0),
             Z * egui::vec2(30.0, 24.0),
         );
-        let hovered = ui.rect_contains_pointer(rect.union(run));
+        let hovered = ui.rect_contains_pointer(rect.union(run.translate(Z * egui::vec2(-34.0, 0.0))).union(run));
         if matches!(snarl[node].state, Some(NodeState::Error(_))) {
             let r = rect.expand(2.0 * Z);
             let corners = [
@@ -446,6 +454,12 @@ impl SnarlViewer<NodeData> for Viewer {
                 .clicked()
             {
                 self.run_to = Some(node.0);
+            }
+            let cross = run.translate(Z * egui::vec2(-34.0, 0.0));
+            let button = egui::Button::new(egui::RichText::new("×").size(24.0 * Z).strong().color(colour::ERR))
+                .corner_radius(12.0 * Z);
+            if ui.put(cross, button).on_hover_text("Delete this node").clicked() {
+                self.delete = Some(node.0);
             }
         }
     }
@@ -522,7 +536,9 @@ impl SnarlViewer<NodeData> for Viewer {
             .get(pin.id.input)
             .cloned()
             .unwrap_or_default();
-        ui.label(egui::RichText::new(port_label(&name)).size(13.0 * Z).color(colour::INK));
+        let row = ui.label(egui::RichText::new(port_label(&name)).size(13.0 * Z).color(colour::INK));
+        self.pin_y
+            .insert((false, pin.id.node.0, pin.id.input), row.rect.center().y);
         PinInfo::circle()
             .with_fill(Color32::WHITE)
             .with_stroke(egui::Stroke::new(1.5 * Z, PORT))
@@ -540,7 +556,7 @@ impl SnarlViewer<NodeData> for Viewer {
         };
         // Output pins lay out right to left: added in reverse to read "Output 13,401 👁",
         // centred on one line (the eye is taller than the text).
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        let row = ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(4.0 * Z);
             let on = self.selected == here;
             let open = here.is_some_and(|h| self.tabs.contains(&h));
@@ -580,6 +596,8 @@ impl SnarlViewer<NodeData> for Viewer {
             }
             ui.label(egui::RichText::new(port_label(&name)).size(13.0 * Z).color(colour::INK));
         });
+        self.pin_y
+            .insert((true, pin.id.node.0, pin.id.output), row.response.rect.center().y);
         let fill = if view.is_some() { PORT } else { colour::BORDER };
         PinInfo::circle()
             .with_fill(fill)
@@ -618,6 +636,12 @@ impl SnarlViewer<NodeData> for Viewer {
             snarl.remove_node(node);
             ui.close();
         }
+    }
+
+    /// A link dropped on empty canvas: snap it to a port nearby, never a menu.
+    fn has_dropped_wire_menu(&mut self, src_pins: egui_snarl::ui::AnyPins, snarl: &mut Snarl<NodeData>) -> bool {
+        crate::links::snap(self, src_pins, snarl);
+        false
     }
 
     fn connect(&mut self, from: &OutPin, to: &InPin, snarl: &mut Snarl<NodeData>) {

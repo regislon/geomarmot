@@ -52,6 +52,8 @@ export default defineTransformer({
         );
       }
     }
-    return { output: `SELECT * FROM (${pairs.join(" UNION ALL ")}) ORDER BY abs(r) DESC NULLS LAST, attribute_a, attribute_b` };
+    return {
+      output: `SELECT * FROM (${pairs.join(" UNION ALL ")}) ORDER BY abs(r) DESC NULLS LAST, attribute_a, attribute_b`,
+    };
   },
 });

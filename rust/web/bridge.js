@@ -2,7 +2,7 @@
 // exec(sql), query(sql) → Arrow IPC stream bytes, overlay(request) → the GEOS worker pool of
 // the JavaScript app (app/src/engines/geos), reused as the browser's overlay kernel.
 import * as duckdb from "@duckdb/duckdb-wasm";
-import { RecordBatchStreamWriter } from "apache-arrow";
+import { DataType, RecordBatchStreamWriter, tableToIPC } from "apache-arrow";
 import mvpWasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
 import mvpWorker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";
 import ehWasm from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
@@ -103,9 +103,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** Run a statement as a streaming query (the only kind cancelSent can stop); its result as Arrow IPC. */
 async function stream(sql) {
   const reader = await conn.send(sql);
+  const batches = [];
+  for await (const batch of reader) batches.push(batch);
+  // DuckDB-Wasm streams ENUM (dictionary) columns with empty dictionaries: such a result is read
+  // again whole, which cannot be cancelled but is correct.
+  if (batches[0]?.schema.fields.some((f) => DataType.isDictionary(f.type))) {
+    return tableToIPC(await conn.query(sql), "stream");
+  }
   const writer = new RecordBatchStreamWriter();
   writer.reset(undefined, reader.schema);
-  for await (const batch of reader) writer.write(batch);
+  for (const batch of batches) writer.write(batch);
   writer.finish();
   return writer.toUint8Array(true);
 }

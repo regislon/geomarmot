@@ -104,11 +104,12 @@ impl SqlEngine for WasmEngine {
     }
 }
 
-/// Spike gate 1 in the browser: run the fixtures (`[[folder, tests.json text], …]`) on DuckDB-Wasm.
-/// Returns `{ passed, failures }` as JSON.
+/// Spike gate 1 in the browser: run the fixtures (`[[folder, tests.json text], …]`) of the gate-1
+/// folders on DuckDB-Wasm. Returns `{ passed, failures }` as JSON.
 #[wasm_bindgen]
 pub async fn run_fixtures(docs: String) -> String {
-    let docs: Vec<(String, String)> = serde_json::from_str(&docs).unwrap_or_default();
+    let mut docs: Vec<(String, String)> = serde_json::from_str(&docs).unwrap_or_default();
+    docs.retain(|(folder, _)| geomarmot_conformance::GATE_1.contains(&folder.as_str()));
     let (passed, failures) = geomarmot_conformance::run_all(&WasmEngine, &docs).await;
     serde_json::json!({ "passed": passed, "failures": failures }).to_string()
 }

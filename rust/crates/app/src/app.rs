@@ -25,6 +25,8 @@ pub struct App {
     layers: Vec<(String, String)>,
     styled: bool,
     quick: Option<crate::quickadd::QuickAdd>,
+    /// The link under the pointer when the search opened: the new node goes into it.
+    quick_link: Option<(egui_snarl::OutPinId, egui_snarl::InPinId)>,
     map: crate::map::MapView,
     /// The page being shown (first row) and the (view, offset) last asked for.
     offset: usize,
@@ -65,6 +67,7 @@ impl App {
             layers: Vec::new(),
             styled: false,
             quick: None,
+            quick_link: None,
             map: crate::map::MapView::default(),
             last_press: None,
             now: 0.0,
@@ -757,6 +760,16 @@ impl App {
         });
         let busy = self.quick.is_some() || self.form_open.is_some() || self.info.is_some();
         for (button, time, pos) in presses {
+            // A click on empty canvas (no node, its buttons or ports) clears the selection, so a
+            // node added next stands alone.
+            let on_node = self.viewer.node_rects.iter().any(|(n, r)| {
+                (self.viewer.to_global * *r).expand(30.0).contains(pos)
+                    && self.snarl.get_node(egui_snarl::NodeId(*n)).is_some()
+            });
+            if button == egui::PointerButton::Primary && !busy && !on_node {
+                self.viewer.selected = None;
+                self.viewer.tabs.clear();
+            }
             match self.last_press {
                 Some((b, t, p)) if b == button && time - t < 0.4 && p.distance(pos) < 6.0 => {
                     self.last_press = None;
@@ -769,7 +782,10 @@ impl App {
                         });
                         match hit {
                             Some((n, _)) => self.viewer.open_form = Some(*n),
-                            None => self.quick = Some(crate::quickadd::QuickAdd::new("", pos)),
+                            None => {
+                                self.quick_link = crate::links::wire_at(&self.viewer, &self.snarl, pos);
+                                self.quick = Some(crate::quickadd::QuickAdd::new("", pos));
+                            }
                         }
                     }
                     ctx.request_repaint();
@@ -784,9 +800,12 @@ impl App {
                 {
                     let pos = self.viewer.to_global.inverse() * quick.at;
                     let node = self.snarl.insert_node(pos, from_palette(kind));
+                    let from = self.viewer.selected.take();
+                    self.link_new(node, from);
                     self.viewer.selected = Some((node.0, 0));
                 }
                 self.quick = None;
+                self.quick_link = None;
             }
             return;
         }
@@ -803,13 +822,49 @@ impl App {
             (typed, delete)
         });
         if let (Some(t), Some(at)) = (typed, pointer) {
+            self.quick_link = crate::links::wire_at(&self.viewer, &self.snarl, at);
             self.quick = Some(crate::quickadd::QuickAdd::new(&t, at));
-        } else if delete && let Some((node, _)) = self.viewer.selected.take() {
-            let id = egui_snarl::NodeId(node);
-            if self.snarl.get_node(id).is_some() {
-                self.viewer.stale.extend(crate::canvas::downstream(&self.snarl, node));
-                self.snarl.remove_node(id);
+        } else if delete && let Some((node, _)) = self.viewer.selected {
+            self.remove_node(node);
+        }
+    }
+
+    /// Remove a node; what it fed loses its results.
+    fn remove_node(&mut self, node: usize) {
+        let id = egui_snarl::NodeId(node);
+        if self.snarl.get_node(id).is_some() {
+            self.viewer.stale.extend(crate::canvas::downstream(&self.snarl, node));
+            self.snarl.remove_node(id);
+        }
+        if self.viewer.selected.is_some_and(|(n, _)| n == node) {
+            self.viewer.selected = None;
+        }
+    }
+
+    /// A node added by typing: into the link under the pointer, else after the selected output.
+    fn link_new(&mut self, node: egui_snarl::NodeId, from: Option<(usize, usize)>) {
+        use egui_snarl::ui::SnarlViewer;
+        use egui_snarl::{InPinId, OutPinId};
+        let (inputs, outputs) = geomarmot_core::graph::ports(&self.snarl[node].node);
+        if inputs.is_empty() {
+            return;
+        }
+        let input = self.snarl.in_pin(InPinId { node, input: 0 });
+        if let Some((o, i)) = self.quick_link.take() {
+            if !outputs.is_empty() {
+                self.snarl.disconnect(o, i);
+                let out = self.snarl.out_pin(OutPinId { node, output: 0 });
+                self.viewer.connect(&out, &self.snarl.in_pin(i), &mut self.snarl);
             }
+            self.viewer.connect(&self.snarl.out_pin(o), &input, &mut self.snarl);
+        } else if let Some((n, output)) = from
+            && self.snarl.get_node(egui_snarl::NodeId(n)).is_some()
+        {
+            let out = self.snarl.out_pin(OutPinId {
+                node: egui_snarl::NodeId(n),
+                output,
+            });
+            self.viewer.connect(&out, &input, &mut self.snarl);
         }
     }
 
@@ -1138,6 +1193,9 @@ impl eframe::App for App {
         }
         if let Some(node) = self.viewer.run_to.take() {
             self.run(Some(vec![node]));
+        }
+        if let Some(node) = self.viewer.delete.take() {
+            self.remove_node(node);
         }
     }
 }
