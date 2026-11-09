@@ -1998,6 +1998,7 @@ name = "geomarmot-core"
 version = "0.0.0"
 dependencies = [
  "geomarmot-sql",
+ "h3o",
  "serde_json",
 ]
 
@@ -2287,6 +2288,8 @@ dependencies = [
  "ahash",
  "either",
  "float_eq",
+ "geo",
+ "geo-traits",
  "h3o-bit",
  "libm",
  "ordered-float 5.5.1",

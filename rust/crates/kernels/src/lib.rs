@@ -4,3 +4,6 @@
 pub mod features;
 #[cfg(feature = "geos")]
 pub mod overlay;
+mod polyfill;
+mod shapes;
+mod wkb;

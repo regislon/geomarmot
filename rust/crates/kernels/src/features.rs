@@ -6,9 +6,12 @@
 use std::sync::Arc;
 
 use geo::{ConvexHull, Coord, CoordsIter, Geometry, LineString, Point, Polygon};
-use geomarmot_sql::arrow::array::{Array, ArrayRef, AsArray, BinaryArray, RecordBatch};
+use geomarmot_sql::arrow::array::{Array, ArrayRef, AsArray, BinaryArray, RecordBatch, StringArray, UInt32Array};
+use geomarmot_sql::arrow::compute::take;
 use geomarmot_sql::arrow::datatypes::{DataType, Field, Schema};
 use geomarmot_sql::{KernelRequest, Result, SqlEngine, qid};
+
+use crate::{polyfill, shapes, wkb};
 
 /// The kernels by name.
 pub const OPS: &[&str] = &[
@@ -16,6 +19,9 @@ pub const OPS: &[&str] = &[
     "h3_cell_boundary",
     "aeqd_forward",
     "aeqd_inverse",
+    "densify",
+    "smooth",
+    "h3_polyfill",
 ];
 
 /// Segments per quadrant of a circle, as JTS buffers a point (MinimumBoundingCircle.getCircle).
@@ -94,7 +100,10 @@ pub fn minimum_bounding_circle(g: &Geometry<f64>) -> Option<Geometry<f64>> {
 
 /// An H3 cell's hexagon (or pentagon), longitude/latitude, closed.
 pub fn h3_cell_boundary(cell: &str) -> Option<Geometry<f64>> {
-    let index: h3o::CellIndex = cell.trim().parse().ok()?;
+    cell.trim().parse().ok().and_then(cell_polygon)
+}
+
+fn cell_polygon(index: h3o::CellIndex) -> Option<Geometry<f64>> {
     let mut ring: Vec<Coord<f64>> = index
         .boundary()
         .iter()
@@ -211,55 +220,54 @@ fn about_centre(bytes: &[u8], f: fn(f64, f64, f64, f64) -> (f64, f64)) -> Result
     Ok(geometry)
 }
 
-fn wkb(g: &Geometry<f64>) -> Vec<u8> {
-    let mut out = Vec::new();
-    write_wkb(g, &mut out);
-    out
-}
+/// Cells one polygon fill may produce (`MAX_MATERIALISED_CELLS`, app/src/core/limits.js).
+const MAX_FILL_CELLS: usize = 2_000_000;
 
-/// Little-endian 2D WKB for points and polygons (what the kernels produce).
-fn write_wkb(g: &Geometry<f64>, out: &mut Vec<u8>) {
-    let coords = |out: &mut Vec<u8>, ring: &LineString<f64>| {
-        out.extend((ring.0.len() as u32).to_le_bytes());
-        for c in &ring.0 {
-            out.extend(c.x.to_le_bytes());
-            out.extend(c.y.to_le_bytes());
-        }
-    };
-    out.push(1);
-    match g {
-        Geometry::Point(p) => {
-            out.extend(1u32.to_le_bytes());
-            out.extend(p.x().to_le_bytes());
-            out.extend(p.y().to_le_bytes());
-        }
-        Geometry::Polygon(p) => {
-            out.extend(3u32.to_le_bytes());
-            out.extend((1 + p.interiors().len() as u32).to_le_bytes());
-            coords(out, p.exterior());
-            p.interiors().iter().for_each(|r| coords(out, r));
-        }
-        _ => unreachable!("kernels produce points and polygons"),
-    }
-}
+/// One output row: an optional label (the H3 cell of a fill) and the geometry.
+type Row = (Option<String>, Option<Vec<u8>>);
 
-fn apply(op: &str, values: &dyn Array, i: usize) -> Result<Option<Vec<u8>>> {
+/// The rows one value turns into: one for most kernels, one per cell for `h3_polyfill`.
+/// `op` may carry arguments after colons: `densify:<tolerance>`, `smooth:<passes>`,
+/// `h3_polyfill:<resolution>:<mode>`.
+fn apply(op: &str, values: &dyn Array, i: usize, filled: &mut usize) -> Result<Vec<Row>> {
     if values.is_null(i) {
-        return Ok(None);
+        return Ok(vec![(None, None)]);
     }
-    let g = match op {
-        "minimum_bounding_circle" => {
-            let bytes = values.as_binary::<i32>().value(i);
-            minimum_bounding_circle(&read_wkb(bytes)?)
+    let mut args = op.split(':');
+    let name = args.next().unwrap_or_default();
+    let mut arg = || args.next().unwrap_or_default();
+    let bytes = || values.as_binary::<i32>().value(i);
+    let g = match name {
+        "minimum_bounding_circle" => minimum_bounding_circle(&wkb::read(bytes())?),
+        "densify" => Some(shapes::densify(
+            &wkb::read(bytes())?,
+            arg().parse().map_err(|_| "bad tolerance")?,
+        )),
+        "smooth" => Some(shapes::chaikin(
+            &wkb::read(bytes())?,
+            arg().parse().map_err(|_| "bad passes")?,
+        )),
+        "h3_polyfill" => {
+            let resolution: u8 = arg().parse().map_err(|_| "bad resolution")?;
+            let cells = polyfill::fill(&wkb::read(bytes())?, resolution, arg())?;
+            *filled += cells.len();
+            if *filled > MAX_FILL_CELLS {
+                return Err(format!(
+                    "Over 2,000,000 cells at resolution {resolution}. Use a coarser resolution, or filter upstream."
+                ));
+            }
+            return Ok(cells
+                .into_iter()
+                .map(|c| (Some(c.to_string()), cell_polygon(c).map(|g| wkb::write(&g))))
+                .collect());
         }
         "aeqd_forward" | "aeqd_inverse" => {
-            let bytes = values.as_binary::<i32>().value(i);
-            let f = if op == "aeqd_forward" {
+            let f = if name == "aeqd_forward" {
                 aeqd_forward
             } else {
                 aeqd_inverse
             };
-            return about_centre(bytes, f).map(Some);
+            return Ok(vec![(None, Some(about_centre(bytes(), f)?))]);
         }
         "h3_cell_boundary" => {
             let text = match values.data_type() {
@@ -270,113 +278,43 @@ fn apply(op: &str, values: &dyn Array, i: usize) -> Result<Option<Vec<u8>>> {
         }
         other => return Err(format!("unknown kernel {other}")),
     };
-    Ok(g.as_ref().map(wkb))
+    Ok(vec![(None, g.as_ref().map(wkb::write))])
 }
 
-/// Read (key, value) rows, apply `op`, write (key, geometry) to `output`.
+/// Read (key, value) rows, apply `op`, write (key, cell, geometry) to `output`.
 pub async fn drive(engine: &impl SqlEngine, r: &KernelRequest) -> Result<()> {
     let input = engine.query_arrow(&r.input_sql).await?;
     let mut out = Vec::with_capacity(input.len());
+    let mut filled = 0;
     for b in &input {
-        let shapes: Vec<Option<Vec<u8>>> = (0..b.num_rows())
-            .map(|i| apply(&r.op, b.column(1).as_ref(), i))
-            .collect::<Result<_>>()?;
-        let key: ArrayRef = b.column(0).clone();
+        let mut from = Vec::with_capacity(b.num_rows());
+        let mut rows = Vec::with_capacity(b.num_rows());
+        for i in 0..b.num_rows() {
+            for row in apply(&r.op, b.column(1).as_ref(), i, &mut filled)? {
+                from.push(i as u32);
+                rows.push(row);
+            }
+        }
+        let key = take(b.column(0).as_ref(), &UInt32Array::from(from), None).map_err(|e| e.to_string())?;
         let schema = Arc::new(Schema::new(vec![
             Field::new("key", key.data_type().clone(), true),
+            Field::new("cell", DataType::Utf8, true),
             Field::new("wkb", DataType::Binary, true),
         ]));
+        let (cells, shapes): (Vec<_>, Vec<_>) = rows.into_iter().unzip();
+        let cell: ArrayRef = Arc::new(StringArray::from(cells));
         let wkb: ArrayRef = Arc::new(BinaryArray::from_iter(shapes));
-        out.push(RecordBatch::try_new(schema, vec![key, wkb]).map_err(|e| e.to_string())?);
+        out.push(RecordBatch::try_new(schema, vec![key, cell, wkb]).map_err(|e| e.to_string())?);
     }
     let raw = format!("{}__raw", r.output);
     engine.insert_arrow(&raw, &out).await?;
     engine
         .exec(&format!(
-            "CREATE OR REPLACE TABLE {o} AS SELECT key, ST_GeomFromWKB(wkb) AS geometry FROM {raw}; DROP TABLE {raw};",
+            "CREATE OR REPLACE TABLE {o} AS SELECT key, cell, ST_GeomFromWKB(wkb) AS geometry FROM {raw}; DROP TABLE {raw};",
             o = qid(&r.output),
             raw = qid(&raw)
         ))
         .await
-}
-
-/// A 2D WKB geometry (any type) as `geo`, through its coordinates.
-fn read_wkb(bytes: &[u8]) -> Result<Geometry<f64>> {
-    let mut r = Reader { b: bytes, i: 0 };
-    r.geometry()
-}
-
-struct Reader<'a> {
-    b: &'a [u8],
-    i: usize,
-}
-
-impl Reader<'_> {
-    fn take<const N: usize>(&mut self, little: bool) -> Result<[u8; N]> {
-        let s: [u8; N] = self
-            .b
-            .get(self.i..self.i + N)
-            .ok_or("WKB: truncated")?
-            .try_into()
-            .unwrap();
-        self.i += N;
-        Ok(if little {
-            s
-        } else {
-            let mut s = s;
-            s.reverse();
-            s
-        })
-    }
-    fn u32(&mut self, little: bool) -> Result<u32> {
-        Ok(u32::from_le_bytes(self.take(little)?))
-    }
-    fn coord(&mut self, little: bool, dims: usize) -> Result<Coord<f64>> {
-        let x = f64::from_le_bytes(self.take(little)?);
-        let y = f64::from_le_bytes(self.take(little)?);
-        for _ in 2..dims {
-            self.take::<8>(little)?;
-        }
-        Ok(Coord { x, y })
-    }
-    fn line(&mut self, little: bool, dims: usize) -> Result<LineString<f64>> {
-        let n = self.u32(little)?;
-        Ok(LineString(
-            (0..n).map(|_| self.coord(little, dims)).collect::<Result<_>>()?,
-        ))
-    }
-    fn geometry(&mut self) -> Result<Geometry<f64>> {
-        let little = *self.b.get(self.i).ok_or("WKB: empty")? == 1;
-        self.i += 1;
-        let raw = self.u32(little)?;
-        // ISO (1000s) and EWKB (high bits) Z/M flags: only the extra ordinates matter here.
-        let base = raw & 0xffff;
-        let (kind, iso) = (base % 1000, base / 1000);
-        let dims = 2
-            + usize::from(iso == 1 || iso == 2)
-            + 2 * usize::from(iso == 3)
-            + usize::from(raw & 0x8000_0000 != 0)
-            + usize::from(raw & 0x4000_0000 != 0);
-        Ok(match kind {
-            1 => Point(self.coord(little, dims)?).into(),
-            2 => self.line(little, dims)?.into(),
-            3 => {
-                let n = self.u32(little)?;
-                let mut rings: Vec<LineString<f64>> = (0..n).map(|_| self.line(little, dims)).collect::<Result<_>>()?;
-                if rings.is_empty() {
-                    rings.push(LineString(vec![]));
-                }
-                let exterior = rings.remove(0);
-                Polygon::new(exterior, rings).into()
-            }
-            4..=7 => {
-                let n = self.u32(little)?;
-                let parts: Vec<Geometry<f64>> = (0..n).map(|_| self.geometry()).collect::<Result<_>>()?;
-                Geometry::GeometryCollection(geo::GeometryCollection(parts))
-            }
-            other => return Err(format!("WKB: unsupported type {other}")),
-        })
-    }
 }
 
 #[cfg(test)]
@@ -403,7 +341,7 @@ mod aeqd_tests {
         b.extend(point(3.0, 4.0));
         let out = about_centre(&b, |cx, cy, x, y| (x - cx, y - cy)).unwrap();
         assert_eq!(&out[..9], &[1, 4, 0, 0, 0, 2, 0, 0, 0], "still a MULTIPOINT of 2");
-        let g = read_wkb(&out).unwrap();
+        let g = wkb::read(&out).unwrap();
         let coords: Vec<_> = g.coords_iter().map(|c| (c.x, c.y)).collect();
         assert_eq!(coords, vec![(0.0, 0.0), (2.0, 2.0)]);
     }

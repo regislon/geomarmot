@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use geomarmot_core::{LONLAT, SqlEngine, compile_node, qid, qlit, transformers};
+use geomarmot_core::{LONLAT, SqlEngine, compile_node_from, h3, qid, qlit, transformers};
 use serde_json::Value;
 
 use crate::compare::{GeomOpts, Table, compare_table};
@@ -39,6 +39,36 @@ pub async fn create_table(engine: &impl SqlEngine, name: &str, input: &Value) ->
     engine
         .exec(&format!("INSERT INTO {} VALUES {}", qid(name), rows.join(", ")))
         .await
+}
+
+/// A case's `source` as the Reader of a Parquet file presents it: its rows, plus `file_row_number`
+/// when the Reader's Row number is Yes, or Auto on a dense positional H3 tile (`rowNumberWanted`).
+fn reader_table(source: &Value, file_name: &str) -> Value {
+    let mut table = source.clone();
+    let rows = source["rows"].as_array().cloned().unwrap_or_default();
+    let positional =
+        h3::parse_parent_cell(file_name).is_some_and(|p| h3::child_resolution_for(&p, rows.len() as u64).is_some());
+    let wanted = match source["readerParams"]["rowNumber"].as_str().unwrap_or("Auto") {
+        "Yes" => true,
+        "No" => false,
+        _ => positional,
+    };
+    if wanted {
+        if let Some(columns) = table["columns"].as_array_mut() {
+            columns.push(serde_json::json!({ "name": h3::ROW_NUMBER_COLUMN, "type": "BIGINT" }));
+        }
+        table["rows"] = rows
+            .into_iter()
+            .enumerate()
+            .map(|(i, mut r)| {
+                if let Some(cells) = r.as_array_mut() {
+                    cells.push(i.into());
+                }
+                r
+            })
+            .collect();
+    }
+    table
 }
 
 /// The harness's `readableColumn`.
@@ -99,8 +129,16 @@ pub async fn run_case_recording(
         let crs = input.get("crs").and_then(Value::as_str).unwrap_or(LONLAT);
         inputs.insert(port.clone(), (qid(&table), crs.to_string()));
     }
+    let file_name = case["source"]["fileName"].as_str().map(String::from);
+    if let Some(name) = &file_name {
+        let table = reader_table(&case["source"], name);
+        if let Err(e) = create_table(engine, "fx_src", &table).await {
+            return vec![format!("could not build the source: {e}")];
+        }
+        inputs.insert("input".into(), (qid("fx_src"), LONLAT.to_string()));
+    }
     let params = case.get("params").cloned().unwrap_or(Value::Object(Default::default()));
-    let compiled = compile_node(engine, t, &params, &inputs, "subject").await;
+    let compiled = compile_node_from(engine, t, &params, &inputs, "subject", file_name).await;
     let expect = &case["expect"];
 
     if let Some(want) = expect.get("error").and_then(Value::as_str) {

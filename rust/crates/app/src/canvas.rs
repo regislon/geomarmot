@@ -17,6 +17,14 @@ pub const PALETTE: &[&str] = &[
     "AreaOnAreaOverlayer",
     "MinimumBoundingCircle",
     "H3GeometryFromIndex",
+    "DensifyFeatures",
+    "MergeLineSegments",
+    "SimplifyFeatures",
+    "SmoothVectors",
+    "VertexCreator",
+    "H3GeometryFromPosition",
+    "PolygonToH3",
+    "PositionalH3Index",
 ];
 
 /// Width of a node's title: every node is as wide.

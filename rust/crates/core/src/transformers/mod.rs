@@ -3,12 +3,21 @@
 mod area_on_area_overlayer;
 mod attribute_filter;
 mod bufferer;
+mod densify_features;
 mod dissolver;
 mod feature_joiner;
 mod h3_geometry_from_index;
+mod h3_geometry_from_position;
+mod merge_line_segments;
 mod minimum_bounding_circle;
 mod per_feature;
+mod polygon_to_h3;
+mod positional_h3_index;
 mod reprojector;
+mod simplify_features;
+mod smooth_vectors;
+mod vertex_creator;
+mod vertex_creator_sql;
 
 use crate::Transformer;
 
@@ -21,6 +30,14 @@ pub static ALL: &[&dyn Transformer] = &[
     &h3_geometry_from_index::H3GeometryFromIndex,
     &minimum_bounding_circle::MinimumBoundingCircle,
     &reprojector::Reprojector,
+    &densify_features::DensifyFeatures,
+    &merge_line_segments::MergeLineSegments,
+    &simplify_features::SimplifyFeatures,
+    &smooth_vectors::SmoothVectors,
+    &vertex_creator::VertexCreator,
+    &h3_geometry_from_position::H3GeometryFromPosition,
+    &polygon_to_h3::PolygonToH3,
+    &positional_h3_index::PositionalH3Index,
 ];
 
 pub fn by_id(id: &str) -> Option<&'static dyn Transformer> {

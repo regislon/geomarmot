@@ -49,6 +49,74 @@ fn column_picker(
     *current != before
 }
 
+/// A small dropdown over fixed choices.
+fn choice(ui: &mut Ui, id: impl std::hash::Hash + std::fmt::Debug, current: &mut String, options: &[&str]) -> bool {
+    let before = current.clone();
+    egui::ComboBox::from_id_salt(id)
+        .selected_text(current.as_str())
+        .show_ui(ui, |ui| {
+            for o in options {
+                ui.selectable_value(current, o.to_string(), *o);
+            }
+        });
+    *current != before
+}
+
+/// Edit `spec[key]` as a string with `f`; true when it changed.
+fn edit(spec: &mut Value, key: &str, f: impl FnOnce(&mut String) -> bool) -> bool {
+    let mut s = text(&spec[key], "");
+    let changed = f(&mut s);
+    if changed {
+        spec[key] = Value::String(s);
+    }
+    changed
+}
+
+/// A value spec (app/src/core/valuespec.js): a constant, an attribute, a formula or SQL.
+fn value_spec(ui: &mut Ui, id: (usize, &str), spec: &mut Value, names: &[String]) -> bool {
+    let attribute = |ui: &mut Ui, salt: &str, s: &mut String| {
+        if names.is_empty() {
+            ui.text_edit_singleline(s).changed()
+        } else {
+            column_picker(ui, (id, salt), s, names)
+        }
+    };
+    let kinds = ["Value", "Attribute", "Formula", "SQL"];
+    let mut changed = edit(spec, "kind", |s| choice(ui, (id, "kind"), s, &kinds));
+    match spec["kind"].as_str().unwrap_or("Value") {
+        "Attribute" => changed |= edit(spec, "column", |s| attribute(ui, "column", s)),
+        "SQL" => changed |= edit(spec, "sql", |s| ui.text_edit_multiline(s).changed()),
+        "Formula" => {
+            for side in ["left", "right"] {
+                if !spec[side].is_object() {
+                    spec[side] = json!({ "kind": "Attribute", "type": "Number", "column": "", "value": "" });
+                }
+                let operand = &mut spec[side];
+                ui.horizontal(|ui| {
+                    changed |= edit(operand, "kind", |s| choice(ui, (id, side), s, &["Attribute", "Value"]));
+                    changed |= if operand["kind"] == "Attribute" {
+                        edit(operand, "column", |s| attribute(ui, side, s))
+                    } else {
+                        edit(operand, "value", |s| ui.text_edit_singleline(s).changed())
+                    };
+                });
+                if side == "left" {
+                    let operators = ["+", "-", "×", "÷", "join text"];
+                    changed |= edit(spec, "operator", |s| choice(ui, (id, "op"), s, &operators));
+                }
+            }
+        }
+        _ => {
+            ui.horizontal(|ui| {
+                let types = ["Text", "Number", "Boolean", "Null"];
+                changed |= edit(spec, "type", |s| choice(ui, (id, "type"), s, &types));
+                changed |= edit(spec, "value", |s| ui.text_edit_singleline(s).changed());
+            });
+        }
+    }
+    changed
+}
+
 pub fn show(ui: &mut Ui, node: usize, params: &[Param], values: &mut Value, columns: &Columns) -> Outcome {
     let mut out = Outcome::default();
     if !values.is_object() {
@@ -225,6 +293,13 @@ pub fn show(ui: &mut Ui, node: usize, params: &[Param], values: &mut Value, colu
                 {
                     out.fill = Some((p.id, column));
                 }
+            }
+            Kind::ValueSpec => {
+                if !value.is_object() {
+                    *value = json!({ "kind": "Value", "type": "Number", "value": "" });
+                }
+                let names = columns.get("input").map(Vec::as_slice).unwrap_or_default();
+                out.changed |= value_spec(ui, id, value, names);
             }
             Kind::JoinKeys => {
                 let mut rows: Vec<(String, String)> = value

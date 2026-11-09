@@ -7,4 +7,5 @@ publish.workspace = true
 
 [dependencies]
 geomarmot-sql = { path = "../sql" }
+h3o = "0.11"
 serde_json.workspace = true

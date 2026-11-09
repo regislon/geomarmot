@@ -17,7 +17,7 @@ fn column(ctx: &Ctx) -> String {
 }
 
 /// Take every Nth cell: what the user chose, or enough to keep Auto near 50,000 (`sampleStep`).
-fn sample_step(ctx: &Ctx) -> u64 {
+pub(super) fn sample_step(ctx: &Ctx) -> u64 {
     match Some(ctx.str("sample")).filter(|s| !s.is_empty()).unwrap_or("Auto") {
         "All" => 1,
         "Auto" => {
@@ -36,12 +36,35 @@ fn sample_step(ctx: &Ctx) -> u64 {
 }
 
 /// The sampling filter, used identically when collecting cells and when joining back (`sampleWhere`).
-fn sample_where(step: u64, expression: &str) -> String {
+pub(super) fn sample_where(step: u64, expression: &str) -> String {
     if step <= 1 {
         String::new()
     } else {
         format!(" WHERE {expression} % {step} = 0")
     }
+}
+
+/// Materialise the hexagons of `cells` (a query with a `cell` column) into the `cells` table,
+/// keyed by cell (`buildCellTable`).
+pub(super) fn cell_steps(ctx: &Ctx, cells: &str) -> Vec<Step> {
+    vec![
+        Step::Cap {
+            count_sql: format!("SELECT count(*) FROM ({cells})"),
+            cap: MAX_MATERIALISED_CELLS,
+            message: Box::new(|_| {
+                format!(
+                    "{} cells is the ceiling. Sample, or filter upstream.",
+                    thousands(MAX_MATERIALISED_CELLS)
+                )
+            }),
+        },
+        // ponytail: VARCHAR indexes, as the fixtures; integer indexes (the JS engine accepts both) come with phase 3.
+        Step::Kernel(KernelRequest {
+            op: "h3_cell_boundary".into(),
+            input_sql: format!("SELECT cell::VARCHAR, cell::VARCHAR FROM ({cells})"),
+            output: ctx.table_name("cells"),
+        }),
+    ]
 }
 
 impl Transformer for H3GeometryFromIndex {
@@ -106,24 +129,7 @@ impl Transformer for H3GeometryFromIndex {
             format!("{filter} AND {c} IS NOT NULL")
         };
         let cells = format!("SELECT DISTINCT {c} AS cell FROM {}{not_null}", ctx.input("input"));
-        Ok(vec![
-            Step::Cap {
-                count_sql: format!("SELECT count(*) FROM ({cells})"),
-                cap: MAX_MATERIALISED_CELLS,
-                message: Box::new(|_| {
-                    format!(
-                        "{} cells is the ceiling. Sample, or filter upstream.",
-                        thousands(MAX_MATERIALISED_CELLS)
-                    )
-                }),
-            },
-            // ponytail: VARCHAR indexes, as the fixtures; integer indexes (the JS engine accepts both) come with phase 3.
-            Step::Kernel(KernelRequest {
-                op: "h3_cell_boundary".into(),
-                input_sql: format!("SELECT cell::VARCHAR, cell::VARCHAR FROM ({cells})"),
-                output: ctx.table_name("cells"),
-            }),
-        ])
+        Ok(cell_steps(ctx, &cells))
     }
 
     fn sql(&self, ctx: &Ctx) -> Result<Ports> {

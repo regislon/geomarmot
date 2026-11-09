@@ -16,6 +16,14 @@ pub const GATE_1: &[&str] = &[
     "area-on-area-overlayer",
     "minimum-bounding-circle",
     "h3-geometry-from-index",
+    "densify-features",
+    "merge-line-segments",
+    "simplify-features",
+    "smooth-vectors",
+    "vertex-creator",
+    "h3-geometry-from-position",
+    "polygon-to-h3",
+    "positional-h3-index",
 ];
 
 /// Run every case of `docs` ((folder, tests.json text)); returns (passed, failures).

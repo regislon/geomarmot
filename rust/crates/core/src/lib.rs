@@ -10,10 +10,12 @@ use serde_json::Value;
 
 mod compile;
 pub mod graph;
+pub mod h3;
 pub mod sqlguard;
 pub mod transformers;
+pub mod valuespec;
 
-pub use compile::{NodeOutput, Probe, Step, compile_node};
+pub use compile::{NodeOutput, Probe, Step, compile_node, compile_node_from};
 
 /// SQL per output port.
 pub type Ports = BTreeMap<String, String>;
@@ -31,6 +33,8 @@ pub struct Ctx {
     pub row_count: Option<u64>,
     /// Names the node's own tables (`table_name`).
     pub prefix: String,
+    /// The file name of the source upstream, when a Reader feeds this node (`ctx.source.name`).
+    pub source: Option<String>,
 }
 
 impl Ctx {
@@ -86,6 +90,8 @@ pub enum Kind {
     Values,
     /// Pairs of attributes, `left` = `right`, from the `left` and `right` ports.
     JoinKeys,
+    /// A constant, an attribute, a formula or SQL (`param.valuespec`, `valuespec::value_sql`).
+    ValueSpec,
 }
 
 /// One parameter of a transformer: what the inspector draws, and its default.
@@ -122,6 +128,7 @@ pub fn default_params(t: &dyn Transformer) -> Value {
         let v = match p.kind {
             Kind::Columns { .. } | Kind::Values => Value::Array(vec![]),
             Kind::JoinKeys => serde_json::json!([{ "left": "", "right": "" }]),
+            Kind::ValueSpec => Value::Null,
             _ => Value::String(p.default.into()),
         };
         out.insert(p.id.into(), v);

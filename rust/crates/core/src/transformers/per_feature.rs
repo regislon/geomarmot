@@ -38,3 +38,17 @@ pub fn sql(ctx: &Ctx, id: &str) -> Result<Ports> {
         ),
     )]))
 }
+
+/// `sqlGeometryTool`: each geometry replaced by `build(its geometry expression)`, in SQL.
+pub fn replace(ctx: &Ctx, id: &str, build: impl Fn(&str) -> String) -> Result<Ports> {
+    let g = find_geometry_column(ctx.schema("input")).ok_or_else(|| format!("{id} needs a geometry column."))?;
+    let column = qid(&g.name);
+    Ok(Ports::from([(
+        "output".into(),
+        format!(
+            "SELECT * EXCLUDE ({column}), {} AS {column} FROM {}",
+            build(&geometry_expression(&g)),
+            ctx.input("input")
+        ),
+    )]))
+}
