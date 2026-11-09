@@ -20,7 +20,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -32,6 +32,17 @@ jobs:
           cache: npm
       - uses: astral-sh/setup-uv@v6
       - run: npm ci
+      # The Rust app (egui on DuckDB-Wasm), served at demo/; the JavaScript app moves to demo/classic/.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo install wasm-bindgen-cli --version "=0.2.130" --locked
+      - run: npm ci
+        working-directory: rust/web
+      - run: npm --prefix rust/web run build:wasm && npm --prefix rust/web run build
       # The OAuth client ID for "Sign in with Google" (not a secret: it names this site to Google).
       # Set it as the repository variable GOOGLE_CLIENT_ID; without it, users paste one into the app.
       - run: npm run build
