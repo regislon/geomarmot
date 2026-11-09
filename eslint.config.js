@@ -9,6 +9,7 @@ export default [
       "rust/web/pkg/",
       "rust/web/node_modules/",
       "rust/web/public/",
+      "rust/web/dist/",
       "dist/",
       "dist-test/",
       "_site/",

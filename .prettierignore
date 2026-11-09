@@ -20,3 +20,4 @@ rust/target/
 rust/web/pkg/
 rust/web/public/extensions/
 rust/web/node_modules/
+rust/web/dist/
