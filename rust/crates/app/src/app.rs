@@ -19,6 +19,8 @@ pub struct App {
     shown: Option<(String, Result<Table, String>)>,
     pub tab_map: bool,
     status: String,
+    #[cfg(not(target_arch = "wasm32"))]
+    pub probe: Option<crate::probe::Probe>,
 }
 
 impl App {
@@ -32,6 +34,8 @@ impl App {
             shown: None,
             tab_map: false,
             status: "Open a file to start.".into(),
+            #[cfg(not(target_arch = "wasm32"))]
+            probe: None,
         }
     }
 
@@ -247,6 +251,12 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.poll();
+        #[cfg(target_arch = "wasm32")]
+        crate::hooks::run(self, &ui.ctx().clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(probe) = &mut self.probe {
+            probe.frame(ui.ctx(), &self.worker);
+        }
         egui::Panel::top("bar").show(ui, |ui| self.top_bar(ui));
         egui::Panel::right("inspector")
             .default_size(300.0)

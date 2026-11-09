@@ -112,6 +112,10 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
             Ok(()) => format!("Exported to {}", to.display()),
             Err(e) => format!("Export failed: {e}"),
         }),
+        Job::Exec(sql) => Reply::Status(match pollster::block_on(engine.exec(&sql)) {
+            Ok(()) => "Done.".into(),
+            Err(e) => e,
+        }),
         Job::OpenBytes { name, .. } => Reply::Status(format!("{name}: open files from disk on the desktop")),
     }
 }

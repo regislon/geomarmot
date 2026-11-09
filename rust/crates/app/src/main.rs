@@ -19,6 +19,7 @@ fn main() {}
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
+    let started = std::time::Instant::now();
     let extension_dir = std::env::var_os("GEOMARMOT_EXTENSIONS")
         .map(PathBuf::from)
         .unwrap_or_else(|| beside_exe("duckdb-extensions"));
@@ -42,7 +43,9 @@ fn main() -> eframe::Result {
         Box::new(move |cc| {
             let ctx = cc.egui_ctx.clone();
             let worker = worker::Worker::start(supervisor, staging, move || ctx.request_repaint());
-            Ok(Box::new(app::App::new(worker)))
+            let mut app = app::App::new(worker);
+            app.probe = geomarmot_app::probe::Probe::from_env(started);
+            Ok(Box::new(app))
         }),
     )
 }

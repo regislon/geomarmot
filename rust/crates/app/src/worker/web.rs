@@ -110,6 +110,10 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
                 Err(e) => format!("Export failed: {e}"),
             })
         }
+        Job::Exec(sql) => Reply::Status(match geomarmot_core::SqlEngine::exec(&engine, &sql).await {
+            Ok(()) => "Done.".into(),
+            Err(e) => e,
+        }),
         Job::Open(path) => Reply::Status(format!("{}: pick files with the Open button", path.display())),
     }
 }

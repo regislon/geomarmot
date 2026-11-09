@@ -27,6 +27,8 @@ pub enum Job {
         view: String,
         to: PathBuf,
     },
+    /// Run a statement for its effect (the probe's workload).
+    Exec(String),
     /// The browser: a file the user picked, as bytes.
     OpenBytes {
         name: String,
