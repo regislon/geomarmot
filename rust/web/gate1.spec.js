@@ -10,5 +10,5 @@ test("every gate-1 fixture passes on DuckDB-Wasm", async ({ page }) => {
   const result = await page.evaluate(() => window.__gate1);
   console.log(`DuckDB ${result.version}: boot ${result.bootMs} ms, fixtures ${result.runMs} ms`);
   expect(result.failures).toEqual([]);
-  expect(result.passed).toBe(33);
+  expect(result.passed).toBe(37);
 });

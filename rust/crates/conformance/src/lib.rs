@@ -14,6 +14,8 @@ pub const GATE_1: &[&str] = &[
     "reprojector",
     "bufferer",
     "area-on-area-overlayer",
+    "minimum-bounding-circle",
+    "h3-geometry-from-index",
 ];
 
 /// Run every case of `docs` ((folder, tests.json text)); returns (passed, failures).

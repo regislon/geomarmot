@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-pub use geomarmot_sql::{Column, OverlayRequest, Result, SqlEngine, qid, qlit};
+pub use geomarmot_sql::{Column, KernelRequest, OverlayRequest, Result, SqlEngine, qid, qlit};
 use serde_json::Value;
 
 mod compile;
@@ -27,6 +27,8 @@ pub struct Ctx {
     pub inputs: BTreeMap<String, String>,
     pub schemas: BTreeMap<String, Vec<Column>>,
     pub incoming_crs: String,
+    /// Rows of the first input, when the transformer asks (`needs.rowCount`).
+    pub row_count: Option<u64>,
     /// Names the node's own tables (`table_name`).
     pub prefix: String,
 }
@@ -76,6 +78,10 @@ pub trait Transformer: Sync {
     }
     /// Whether the compiler must DESCRIBE the inputs first (`needs.schema`).
     fn needs_schema(&self) -> bool {
+        false
+    }
+    /// The compiler counts the first input's rows first (`needs.rowCount`).
+    fn needs_row_count(&self) -> bool {
         false
     }
     /// Inputs must be in longitude/latitude (`needs.lonLat`).

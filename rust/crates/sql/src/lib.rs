@@ -94,11 +94,51 @@ impl OverlayStats {
     }
 }
 
+/// A per-feature kernel: `input_sql` returns (key, value) rows; the kernel turns each value into a
+/// geometry, and `output` becomes a table (key, geometry). `op` names the kernel
+/// (`geomarmot_kernels::features`).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct KernelRequest {
+    pub op: String,
+    pub input_sql: String,
+    pub output: String,
+}
+
+impl KernelRequest {
+    pub fn encode(&self) -> String {
+        [&self.op, &self.output, &self.input_sql]
+            .map(|s| s.replace('\n', " "))
+            .join("\n")
+    }
+
+    pub fn decode(text: &str) -> Result<Self> {
+        let mut f = text.splitn(3, '\n');
+        match (f.next(), f.next(), f.next()) {
+            (Some(op), Some(output), Some(input_sql)) => Ok(Self {
+                op: op.into(),
+                output: output.into(),
+                input_sql: input_sql.into(),
+            }),
+            _ => Err("malformed kernel request".into()),
+        }
+    }
+}
+
 /// What the compiler needs from an engine. Async because the browser's engine is.
 #[allow(async_fn_in_trait)]
 pub trait SqlEngine {
     async fn exec(&self, sql: &str) -> Result<()>;
     async fn query_arrow(&self, sql: &str) -> Result<Vec<RecordBatch>>;
+
+    /// Create `table` from Arrow batches (trusted: kernel results).
+    async fn insert_arrow(&self, _table: &str, _batches: &[RecordBatch]) -> Result<()> {
+        Err("This engine cannot take Arrow data.".into())
+    }
+
+    /// Run a per-feature kernel next to the data.
+    async fn kernel(&self, _request: &KernelRequest) -> Result<()> {
+        Err("This engine has no kernels.".into())
+    }
 
     /// Run the overlay kernel next to the data.
     async fn overlay(&self, _request: &OverlayRequest) -> Result<OverlayStats> {

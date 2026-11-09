@@ -5,6 +5,9 @@ mod attribute_filter;
 mod bufferer;
 mod dissolver;
 mod feature_joiner;
+mod h3_geometry_from_index;
+mod minimum_bounding_circle;
+mod per_feature;
 mod reprojector;
 
 use crate::Transformer;
@@ -15,6 +18,8 @@ pub static ALL: &[&dyn Transformer] = &[
     &bufferer::Bufferer,
     &dissolver::Dissolver,
     &feature_joiner::FeatureJoiner,
+    &h3_geometry_from_index::H3GeometryFromIndex,
+    &minimum_bounding_circle::MinimumBoundingCircle,
     &reprojector::Reprojector,
 ];
 

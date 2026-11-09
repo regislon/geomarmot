@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use duckdb::{Connection, InterruptHandle};
 use geomarmot_sql::arrow::array::RecordBatch;
-pub use geomarmot_sql::{Column, OverlayRequest, OverlayStats, Result, SqlEngine, arrow, qid, qlit};
+pub use geomarmot_sql::{Column, KernelRequest, OverlayRequest, OverlayStats, Result, SqlEngine, arrow, qid, qlit};
 
 pub mod io;
 mod kernels;
@@ -202,6 +202,15 @@ impl SqlEngine for Host {
 
     async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {
         self.overlay_now(request)
+    }
+
+    async fn insert_arrow(&self, table: &str, batches: &[RecordBatch]) -> Result<()> {
+        let schema = batches.first().map(|b| b.schema()).ok_or("no batches")?;
+        self.create_from_arrow(table, &schema, batches)
+    }
+
+    async fn kernel(&self, request: &KernelRequest) -> Result<()> {
+        geomarmot_kernels::features::drive(self, request).await
     }
 }
 

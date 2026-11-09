@@ -7,11 +7,20 @@ import dissolver from "../../transformers/dissolver/tests.json";
 import reprojector from "../../transformers/reprojector/tests.json";
 import bufferer from "../../transformers/bufferer/tests.json";
 import overlayer from "../../transformers/area-on-area-overlayer/tests.json";
+import boundingCircle from "../../transformers/minimum-bounding-circle/tests.json";
+import h3Geometry from "../../transformers/h3-geometry-from-index/tests.json";
 
 const report = document.getElementById("report");
-const docs = Object.entries({ attributeFilter, featureJoiner, dissolver, reprojector, bufferer, overlayer }).map(
-  ([name, doc]) => [name, JSON.stringify(doc)],
-);
+const docs = Object.entries({
+  attributeFilter,
+  featureJoiner,
+  dissolver,
+  reprojector,
+  bufferer,
+  overlayer,
+  boundingCircle,
+  h3Geometry,
+}).map(([name, doc]) => [name, JSON.stringify(doc)]);
 
 const t0 = performance.now();
 const version = await boot();

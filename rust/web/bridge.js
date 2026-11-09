@@ -90,6 +90,7 @@ globalThis.gmBridge = {
   exec: (sql) =>
     run(async () => void (/;\s*\S/.test(sql.trim().replace(/;\s*$/, "")) ? await conn.query(sql) : await stream(sql))),
   query: (sql) => run(() => stream(sql)),
+  insertArrow: (table, ipc) => run(() => conn.insertArrowFromIPCStream(ipc.slice(), { name: table, create: true })),
   addSource: (name, bytes, sql) =>
     run(async () => {
       await db.registerFileBuffer(name, bytes.slice());

@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{Config, Host, Result, SqlEngine};
 use geomarmot_sql::arrow::array::RecordBatch;
-use geomarmot_sql::{OverlayRequest, OverlayStats, from_ipc, to_ipc};
+use geomarmot_sql::{KernelRequest, OverlayRequest, OverlayStats, from_ipc, to_ipc};
 
 const EXEC: u8 = 1;
 const QUERY: u8 = 2;
@@ -25,6 +25,7 @@ const INTERRUPT: u8 = 3;
 const STUCK: u8 = 4;
 const OVERLAY: u8 = 5;
 const IMPORT: u8 = 6;
+const KERNEL: u8 = 7;
 const STATS: u8 = 3;
 const DONE: u8 = 0;
 const BATCHES: u8 = 1;
@@ -89,6 +90,9 @@ pub fn serve(host: Host, test_hooks: bool) -> std::io::Result<()> {
             OVERLAY => OverlayRequest::decode(&sql)
                 .and_then(|r| host.overlay_now(&r))
                 .map(|stats| (STATS, stats.encode().into_bytes())),
+            KERNEL => KernelRequest::decode(&sql)
+                .and_then(|r| pollster::block_on(host.kernel(&r)))
+                .map(|_| (DONE, vec![])),
             IMPORT => match sql.split_once('\n') {
                 Some((table, path)) => host
                     .import_now(table, path)
@@ -205,6 +209,10 @@ impl SqlEngine for ProcessEngine {
     async fn query_arrow(&self, sql: &str) -> Result<Vec<RecordBatch>> {
         let (_, bytes) = self.request(QUERY, sql)?;
         from_ipc(&bytes)
+    }
+
+    async fn kernel(&self, request: &KernelRequest) -> Result<()> {
+        self.request(KERNEL, &request.encode()).map(|_| ())
     }
 
     async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {

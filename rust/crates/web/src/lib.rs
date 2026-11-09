@@ -4,7 +4,7 @@
 //! (exec, query → Arrow IPC bytes, overlay → the GEOS worker pool). Results cross as Arrow IPC.
 
 use geomarmot_sql::arrow::array::RecordBatch;
-use geomarmot_sql::{OverlayRequest, OverlayStats, Result, SqlEngine, from_ipc};
+use geomarmot_sql::{KernelRequest, OverlayRequest, OverlayStats, Result, SqlEngine, from_ipc, to_ipc};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -13,6 +13,8 @@ extern "C" {
     async fn bridge_exec(sql: &str) -> std::result::Result<JsValue, JsValue>;
     #[wasm_bindgen(js_namespace = gmBridge, js_name = query, catch)]
     async fn bridge_query(sql: &str) -> std::result::Result<JsValue, JsValue>;
+    #[wasm_bindgen(js_namespace = gmBridge, js_name = insertArrow, catch)]
+    async fn bridge_insert_arrow(table: &str, ipc: &[u8]) -> std::result::Result<JsValue, JsValue>;
     #[wasm_bindgen(js_namespace = gmBridge, js_name = overlay, catch)]
     async fn bridge_overlay(request: &str) -> std::result::Result<JsValue, JsValue>;
 }
@@ -74,6 +76,19 @@ impl SqlEngine for WasmEngine {
     async fn query_arrow(&self, sql: &str) -> Result<Vec<RecordBatch>> {
         let bytes = bridge_query(sql).await.map_err(message)?;
         from_ipc(&js_sys::Uint8Array::new(&bytes).to_vec())
+    }
+
+    async fn insert_arrow(&self, table: &str, batches: &[RecordBatch]) -> Result<()> {
+        bridge_insert_arrow(table, &to_ipc(batches)?)
+            .await
+            .map(|_| ())
+            .map_err(message)
+    }
+
+    // ponytail: kernels run in the page's wasm, on the main thread; move them to a kernel worker
+    // (docs/rust-migration-plan.md, Browser) before large H3 or per-feature work reaches the UI.
+    async fn kernel(&self, request: &KernelRequest) -> Result<()> {
+        geomarmot_kernels::features::drive(self, request).await
     }
 
     async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {

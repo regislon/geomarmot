@@ -30,6 +30,8 @@ pub enum Step {
         cap: u64,
         message: Box<dyn Fn(u64) -> String + Send>,
     },
+    /// Run a per-feature kernel (geomarmot_kernels::features).
+    Kernel(crate::KernelRequest),
     /// Run the overlay kernel; with `fail_if_ambiguous`, any ambiguous face is an error.
     Overlay {
         request: OverlayRequest,
@@ -49,6 +51,7 @@ async fn run_step(engine: &impl SqlEngine, step: Step) -> Result<()> {
             let n = rows.first().and_then(|r| r[0].as_u64()).unwrap_or(0);
             if n > cap { Err(message(n)) } else { Ok(()) }
         }
+        Step::Kernel(request) => engine.kernel(&request).await,
         Step::Overlay {
             request,
             fail_if_ambiguous,
@@ -106,8 +109,16 @@ pub async fn compile_node(
         inputs: relations,
         schemas,
         incoming_crs,
+        row_count: None,
         prefix: prefix.to_string(),
     };
+    let mut ctx = ctx;
+    if t.needs_row_count()
+        && let Some(first) = t.inputs().first().and_then(|p| ctx.inputs.get(*p))
+    {
+        let rows = engine.query(&format!("SELECT count(*) FROM {first}")).await?;
+        ctx.row_count = rows.first().and_then(|r| r[0].as_u64());
+    }
     for step in t.prepare(&ctx)? {
         run_step(engine, step).await?;
     }
