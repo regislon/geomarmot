@@ -1,7 +1,7 @@
 //! Port of `transformers/h3-geometry-from-index/index.js`: hexagons from an H3 index column,
 //! built by the `h3_cell_boundary` kernel (h3o) instead of h3-js.
 
-use crate::{Ctx, KernelRequest, LONLAT, Ports, Result, Step, Transformer, qid, thousands};
+use crate::{Ctx, KernelRequest, Kind, LONLAT, Param, Ports, Result, Step, Transformer, qid, thousands};
 
 pub struct H3GeometryFromIndex;
 
@@ -47,6 +47,46 @@ fn sample_where(step: u64, expression: &str) -> String {
 impl Transformer for H3GeometryFromIndex {
     fn id(&self) -> &'static str {
         "H3GeometryFromIndex"
+    }
+
+    fn summary(&self) -> &'static str {
+        "Builds hexagon geometry from an existing H3 index column."
+    }
+
+    fn params(&self) -> &'static [Param] {
+        const P: &[Param] = &[
+            Param::new(
+                "indexColumn",
+                "Index attribute",
+                Kind::Column { port: "input" },
+                "The attribute holding the H3 cell indexes, as text or as integers.",
+            ),
+            Param::new(
+                "sample",
+                "Sample every Nth",
+                Kind::Select(&[
+                    ("Auto", "Aim for about 50,000 cells."),
+                    ("All", "Every cell."),
+                    ("10", "One cell in 10."),
+                    ("100", "One cell in 100."),
+                    ("1000", "One cell in 1000."),
+                    ("10000", "One cell in 10000."),
+                ]),
+                "How many cells to build hexagons for: all, one in N, or enough for about 50,000.",
+            )
+            .default("Auto"),
+            Param::new(
+                "geometryColumn",
+                "Geometry attribute",
+                Kind::String {
+                    placeholder: "",
+                    units: "",
+                },
+                "The name of the new geometry attribute holding each row's hexagon.",
+            )
+            .default("geometry"),
+        ];
+        P
     }
 
     fn needs_row_count(&self) -> bool {

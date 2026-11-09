@@ -3,11 +3,13 @@
 
 pub mod app;
 pub mod canvas;
+pub mod form;
 #[cfg(target_arch = "wasm32")]
 pub mod hooks;
 pub mod map;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod probe;
+pub mod quickadd;
 pub mod worker;
 
 /// Browser entry: run the app on `canvas` once the page's bridge has booted DuckDB-Wasm.

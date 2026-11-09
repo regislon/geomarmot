@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{Ctx, Ports, Result, Transformer, qid};
+use crate::{Ctx, Kind, Param, Ports, Result, Transformer, qid};
 use serde_json::Value;
 
 pub struct FeatureJoiner;
@@ -8,6 +8,43 @@ pub struct FeatureJoiner;
 impl Transformer for FeatureJoiner {
     fn id(&self) -> &'static str {
         "FeatureJoiner"
+    }
+
+    fn summary(&self) -> &'static str {
+        "Joins two streams on matching attributes, with the unmatched rows on their own ports."
+    }
+
+    fn params(&self) -> &'static [Param] {
+        const P: &[Param] = &[
+            Param::new(
+                "joinType",
+                "Join",
+                Kind::Select(&[
+                    ("Inner", "Joined holds matched rows only."),
+                    ("Left", "Joined keeps every left row, with NULLs where nothing matched."),
+                    ("Full", "Joined keeps every row of both sides."),
+                ]),
+                "Which rows the Joined port keeps when a row finds no partner on the other side.",
+            )
+            .default("Inner"),
+            Param::new(
+                "keys",
+                "Join on",
+                Kind::JoinKeys,
+                "Pairs of left and right attributes that must be equal for two rows to match.",
+            ),
+            Param::new(
+                "suffix",
+                "Suffix for clashing right attributes",
+                Kind::String {
+                    placeholder: "",
+                    units: "",
+                },
+                "Appended to a right attribute whose name the left side already has, so both can be kept.",
+            )
+            .default("_right"),
+        ];
+        P
     }
 
     fn inputs(&self) -> &'static [&'static str] {

@@ -1,4 +1,6 @@
-use crate::{Ctx, Ports, Probe, Result, Transformer, find_geometry_column, geometry_expression, qid, to_crs};
+use crate::{
+    Ctx, Kind, Param, Ports, Probe, Result, Transformer, find_geometry_column, geometry_expression, qid, to_crs,
+};
 
 pub struct Reprojector;
 
@@ -9,6 +11,23 @@ fn destination(ctx: &Ctx) -> &str {
 impl Transformer for Reprojector {
     fn id(&self) -> &'static str {
         "Reprojector"
+    }
+
+    fn summary(&self) -> &'static str {
+        "Moves geometry from the stream's coordinate system into another one."
+    }
+
+    fn params(&self) -> &'static [Param] {
+        const P: &[Param] = &[Param::new(
+            "to",
+            "Destination CRS",
+            Kind::String {
+                placeholder: "EPSG:2056, ESRI:54009, +proj=moll",
+                units: "",
+            },
+            "The coordinate system to move the geometry into, as an EPSG or ESRI code or a PROJ string.",
+        )];
+        P
     }
 
     fn needs_schema(&self) -> bool {

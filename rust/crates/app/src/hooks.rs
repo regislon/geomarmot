@@ -49,7 +49,7 @@ pub fn run(app: &mut App, ctx: &egui::Context) {
                     InPinId { node, input: 0 },
                 );
             }
-            app.viewer.changed = true;
+            app.run(None);
         }
         if let (Some(n), Some(p)) = (c["select"][0].as_u64(), c["select"][1].as_u64()) {
             app.viewer.selected = Some((n as usize, p as usize));

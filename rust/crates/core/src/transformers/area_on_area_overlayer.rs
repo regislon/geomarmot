@@ -1,8 +1,8 @@
 //! Port of `transformers/area-on-area-overlayer/index.js`.
 
 use crate::{
-    Ctx, GeometryColumn, OverlayRequest, Ports, Result, Step, Transformer, find_geometry_column, geometry_expression,
-    qid, qlit, thousands,
+    Ctx, GeometryColumn, Kind, OverlayRequest, Param, Ports, Result, Step, Transformer, find_geometry_column,
+    geometry_expression, qid, qlit, thousands,
 };
 use serde_json::Value;
 
@@ -99,6 +99,29 @@ fn work_sql(t: &Tables, ctx: &Ctx, g: &GeometryColumn) -> String {
 impl Transformer for AreaOnAreaOverlayer {
     fn id(&self) -> &'static str {
         "AreaOnAreaOverlayer"
+    }
+
+    fn summary(&self) -> &'static str {
+        "Splits overlapping polygons into faces, counting and listing the polygons over each."
+    }
+
+    fn params(&self) -> &'static [Param] {
+        const P: &[Param] = &[
+            Param::new("countAttribute", "Overlap count", Kind::String { placeholder: "", units: "" }, "The name of the attribute that holds how many input polygons cover each face.").default("_overlaps"),
+            Param::new("accumulate", "Accumulate attributes", Kind::Columns { port: "input" }, "Attributes whose distinct values, from every polygon covering a face, are joined onto that face."),
+            Param::new("separator", "List separator", Kind::String { placeholder: "", units: "" }, "The text placed between accumulated values, which are sorted so repeated runs give the same string.").default(";"),
+            Param::new("idAttribute", "ID attribute", Kind::Column { port: "input" }, "The attribute identifying each feature. When set, Memberships lists the features covering every face, and features with no ID, or an ID used twice in the same layer, go to Rejected."),
+            Param::new("layerAttribute", "Layer attribute", Kind::Column { port: "input" }, "The attribute saying which layer a feature belongs to, when several layers were combined upstream. IDs need only be unique within a layer."),
+            Param::new("ambiguous", "Uncertain faces", Kind::Select(&[
+                ("Drop and report", "Leave them out of the output and list them in Rejected."),
+                ("Fail", "Stop with an error if there is any."),
+            ]), "Faces so thin that no interior point lies clear of their boundary, so which polygons cover them cannot be certified. They are typically slivers between nearly coincident boundaries.").default("Drop and report"),
+            Param::new("invalid", "Invalid polygons", Kind::Select(&[
+                ("Reject", "Send them to Rejected."),
+                ("Repair", "Repair them (ST_MakeValid) and overlay the result."),
+            ]), "What to do with input polygons that are self-intersecting or otherwise invalid geometry.").default("Reject"),
+        ];
+        P
     }
 
     fn outputs(&self, _params: &Value) -> Vec<String> {

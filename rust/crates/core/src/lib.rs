@@ -68,8 +68,77 @@ impl Ctx {
     }
 }
 
+/// How a parameter is edited (the JavaScript `param.*` kinds the ported transformers use).
+#[derive(Debug, Clone, Copy)]
+pub enum Kind {
+    /// Free text; `units` shown after the field.
+    String {
+        placeholder: &'static str,
+        units: &'static str,
+    },
+    /// One of these (value, description).
+    Select(&'static [(&'static str, &'static str)]),
+    /// One attribute of the input port.
+    Column { port: &'static str },
+    /// Several attributes of the input port, in the input's order.
+    Columns { port: &'static str },
+    /// A list of literal values, with "Fill from data" from the `column` parameter.
+    Values,
+    /// Pairs of attributes, `left` = `right`, from the `left` and `right` ports.
+    JoinKeys,
+}
+
+/// One parameter of a transformer: what the inspector draws, and its default.
+#[derive(Debug, Clone, Copy)]
+pub struct Param {
+    pub id: &'static str,
+    pub label: &'static str,
+    pub kind: Kind,
+    pub default: &'static str,
+    pub description: &'static str,
+}
+
+impl Param {
+    pub const fn new(id: &'static str, label: &'static str, kind: Kind, description: &'static str) -> Self {
+        Self {
+            id,
+            label,
+            kind,
+            default: "",
+            description,
+        }
+    }
+
+    pub const fn default(mut self, default: &'static str) -> Self {
+        self.default = default;
+        self
+    }
+}
+
+/// Params with every default filled in, as a new node starts.
+pub fn default_params(t: &dyn Transformer) -> Value {
+    let mut out = serde_json::Map::new();
+    for p in t.params() {
+        let v = match p.kind {
+            Kind::Columns { .. } | Kind::Values => Value::Array(vec![]),
+            Kind::JoinKeys => serde_json::json!([{ "left": "", "right": "" }]),
+            _ => Value::String(p.default.into()),
+        };
+        out.insert(p.id.into(), v);
+    }
+    Value::Object(out)
+}
+
 pub trait Transformer: Sync {
     fn id(&self) -> &'static str;
+    /// One line on what it does (the inspector's hint).
+    fn summary(&self) -> &'static str {
+        ""
+    }
+    /// Its parameters, in the inspector's order.
+    fn params(&self) -> &'static [Param] {
+        &[]
+    }
     fn inputs(&self) -> &'static [&'static str] {
         &["input"]
     }

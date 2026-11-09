@@ -34,3 +34,21 @@ fn no_geometry(verb: &str) -> String {
          or add an H3GeometryFromIndex before this node."
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn new_nodes_start_from_the_javascript_defaults() {
+        let bufferer = crate::default_params(by_id("Bufferer").unwrap());
+        assert_eq!(bufferer, json!({"distance": "1000", "crs": "azimuthal_equidistant"}));
+        let joiner = crate::default_params(by_id("FeatureJoiner").unwrap());
+        assert_eq!(joiner["keys"], json!([{"left": "", "right": ""}]));
+        assert_eq!(joiner["suffix"], "_right");
+        for t in ALL {
+            assert!(!t.summary().is_empty(), "{} has no summary", t.id());
+        }
+    }
+}

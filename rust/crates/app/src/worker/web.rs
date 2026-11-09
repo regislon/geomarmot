@@ -6,8 +6,8 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 
 use futures::StreamExt;
 use futures::channel::mpsc::{UnboundedSender, unbounded};
-use geomarmot_core::graph::{compile_graph, drop_generation};
-use geomarmot_core::{qid, qlit};
+use geomarmot_core::graph::{drop_generation, run_graph};
+use geomarmot_core::{SqlEngine, qid, qlit};
 use geomarmot_web::{WasmEngine, bridge};
 
 use super::{Job, Reply};
@@ -79,9 +79,9 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
                 Err(e) => Reply::Status(format!("Could not open {name}: {e}")),
             }
         }
-        Job::Compile(graph) => {
+        Job::Run(graph) => {
             *generation += 1;
-            let states = compile_graph(&engine, &graph, *generation).await;
+            let states = run_graph(&engine, &graph, *generation).await;
             if *generation > 1 {
                 drop_generation(&engine, *generation - 1).await;
             }
@@ -90,8 +90,12 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
                 states,
             }
         }
-        Job::Read { view } => Reply::Read {
-            table: super::read(&engine, &view).await,
+        Job::Rows { key, sql } => Reply::Rows {
+            key,
+            rows: engine.query(&sql).await,
+        },
+        Job::Read { view, crs, offset } => Reply::Read {
+            table: super::read(&engine, &view, &crs, offset).await,
             view,
         },
         Job::Export { view, to } => {

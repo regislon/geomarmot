@@ -1,11 +1,25 @@
 use super::no_geometry;
-use crate::{Ctx, Ports, Result, Transformer, find_geometry_column, geometry_expression, qid};
+use crate::{Ctx, Kind, Param, Ports, Result, Transformer, find_geometry_column, geometry_expression, qid};
 
 pub struct Dissolver;
 
 impl Transformer for Dissolver {
     fn id(&self) -> &'static str {
         "Dissolver"
+    }
+
+    fn summary(&self) -> &'static str {
+        "Merges the geometry of every row in a group into one shape, counting the parts."
+    }
+
+    fn params(&self) -> &'static [Param] {
+        const P: &[Param] = &[Param::new(
+            "groupBy",
+            "Dissolve by",
+            Kind::Columns { port: "input" },
+            "The attributes whose values define the groups to merge; leave empty for one shape overall.",
+        )];
+        P
     }
 
     fn needs_schema(&self) -> bool {

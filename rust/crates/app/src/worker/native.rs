@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use geomarmot_core::graph::{compile_graph, drop_generation};
+use geomarmot_core::graph::{drop_generation, run_graph};
 use geomarmot_core::{SqlEngine, qid, qlit};
 
 use super::{Job, Reply};
@@ -93,9 +93,9 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
                 Err(e) => Reply::Status(format!("Could not open {}: {e}", path.display())),
             }
         }
-        Job::Compile(graph) => {
+        Job::Run(graph) => {
             *generation += 1;
-            let states = pollster::block_on(compile_graph(&*engine, &graph, *generation));
+            let states = pollster::block_on(run_graph(&*engine, &graph, *generation));
             if *generation > 1 {
                 pollster::block_on(drop_generation(&*engine, *generation - 1));
             }
@@ -104,8 +104,12 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
                 states,
             }
         }
-        Job::Read { view } => Reply::Read {
-            table: pollster::block_on(super::read(&*engine, &view)),
+        Job::Rows { key, sql } => Reply::Rows {
+            key,
+            rows: pollster::block_on(engine.query(&sql)),
+        },
+        Job::Read { view, crs, offset } => Reply::Read {
+            table: pollster::block_on(super::read(&*engine, &view, &crs, offset)),
             view,
         },
         Job::Export { view, to } => Reply::Status(match export(&*engine, staging, &view, &to) {

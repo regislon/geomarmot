@@ -11,6 +11,10 @@ impl Transformer for MinimumBoundingCircle {
         "MinimumBoundingCircle"
     }
 
+    fn summary(&self) -> &'static str {
+        "The smallest circle enclosing each feature, as a polygon."
+    }
+
     fn needs_schema(&self) -> bool {
         true
     }

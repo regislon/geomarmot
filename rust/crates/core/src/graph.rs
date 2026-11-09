@@ -98,6 +98,50 @@ async fn reader(engine: &impl SqlEngine, node: &Node, prefix: &str) -> Result<No
 }
 
 pub async fn compile_graph(engine: &impl SqlEngine, graph: &Graph, generation: u64) -> BTreeMap<usize, NodeState> {
+    build(engine, graph, generation, false).await
+}
+
+/// Run a graph with output caching: compile each node, then keep its outputs
+/// as tables (`<view>_cache`) that downstream nodes and the table/map read, so nothing upstream
+/// is recomputed.
+pub async fn run_graph(engine: &impl SqlEngine, graph: &Graph, generation: u64) -> BTreeMap<usize, NodeState> {
+    build(engine, graph, generation, true).await
+}
+
+/// The part of `graph` that `targets` depend on, targets included.
+pub fn upstream(graph: &Graph, targets: &[usize]) -> Graph {
+    let mut keep: Vec<usize> = targets
+        .iter()
+        .copied()
+        .filter(|t| graph.nodes.contains_key(t))
+        .collect();
+    let mut i = 0;
+    while i < keep.len() {
+        let n = keep[i];
+        for e in graph.edges.iter().filter(|e| e.to == n) {
+            if !keep.contains(&e.from) {
+                keep.push(e.from);
+            }
+        }
+        i += 1;
+    }
+    Graph {
+        nodes: graph
+            .nodes
+            .iter()
+            .filter(|(id, _)| keep.contains(id))
+            .map(|(id, n)| (*id, n.clone()))
+            .collect(),
+        edges: graph
+            .edges
+            .iter()
+            .filter(|e| keep.contains(&e.from) && keep.contains(&e.to))
+            .copied()
+            .collect(),
+    }
+}
+
+async fn build(engine: &impl SqlEngine, graph: &Graph, generation: u64, cache: bool) -> BTreeMap<usize, NodeState> {
     let mut states = BTreeMap::new();
     for id in order(graph) {
         let node = &graph.nodes[&id];
@@ -131,19 +175,35 @@ pub async fn compile_graph(engine: &impl SqlEngine, graph: &Graph, generation: u
             }
         };
         let (_, outputs) = ports(node);
-        states.insert(
-            id,
-            match result {
-                Ok(out) => NodeState::Ready {
-                    ports: outputs
-                        .iter()
-                        .filter_map(|p| Some((p.clone(), out.views.get(p)?.clone())))
-                        .collect(),
-                    crs: out.crs,
-                },
-                Err(e) => NodeState::Error(e),
+        let mut state = match result {
+            Ok(out) => NodeState::Ready {
+                ports: outputs
+                    .iter()
+                    .filter_map(|p| Some((p.clone(), out.views.get(p)?.clone())))
+                    .collect(),
+                crs: out.crs,
             },
-        );
+            Err(e) => NodeState::Error(e),
+        };
+        let mut failed = None;
+        if cache && let NodeState::Ready { ports, .. } = &mut state {
+            for (_, view) in ports.iter_mut() {
+                // Views arrive quoted (`qid`); the cache sits beside them, same generation prefix.
+                let table = qid(&format!("{}_cache", view.trim_matches('"')));
+                let sql = format!("CREATE OR REPLACE TABLE {table} AS SELECT * FROM {view}");
+                match engine.exec(&sql).await {
+                    Ok(()) => *view = table,
+                    Err(e) => {
+                        failed = Some(e);
+                        break;
+                    }
+                }
+            }
+        }
+        if let Some(e) = failed {
+            state = NodeState::Error(e);
+        }
+        states.insert(id, state);
     }
     states
 }
@@ -163,5 +223,33 @@ pub async fn drop_generation(engine: &impl SqlEngine, generation: u64) {
         };
         let what = if kind == "VIEW" { "VIEW" } else { "TABLE" };
         let _ = engine.exec(&format!("DROP {what} IF EXISTS {}", qid(name))).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upstream_keeps_targets_and_their_ancestors_only() {
+        let node = || Node {
+            kind: "Reader".into(),
+            params: Value::Null,
+        };
+        let edge = |from, to| Edge {
+            from,
+            from_port: 0,
+            to,
+            to_port: 0,
+        };
+        // 0 → 1 → 2, and 3 → 2, and 1 → 4.
+        let graph = Graph {
+            nodes: (0..5).map(|i| (i, node())).collect(),
+            edges: vec![edge(0, 1), edge(1, 2), edge(3, 2), edge(1, 4)],
+        };
+        let sub = upstream(&graph, &[2]);
+        assert_eq!(sub.nodes.keys().copied().collect::<Vec<_>>(), vec![0, 1, 2, 3]);
+        assert_eq!(sub.edges.len(), 3);
+        assert_eq!(upstream(&graph, &[4]).nodes.len(), 3);
     }
 }

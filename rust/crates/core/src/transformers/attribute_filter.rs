@@ -1,4 +1,4 @@
-use crate::{Ctx, Ports, Result, Transformer, qid, qlit};
+use crate::{Ctx, Kind, Param, Ports, Result, Transformer, qid, qlit};
 use serde_json::Value;
 
 /// Ceiling on value-driven output ports (`MAX_FILTER_PORTS`).
@@ -22,6 +22,28 @@ fn values(params: &Value) -> Vec<String> {
 impl Transformer for AttributeFilter {
     fn id(&self) -> &'static str {
         "AttributeFilter"
+    }
+
+    fn summary(&self) -> &'static str {
+        "Routes rows to one output per value of an attribute, plus the rest."
+    }
+
+    fn params(&self) -> &'static [Param] {
+        const P: &[Param] = &[
+            Param::new(
+                "column",
+                "Attribute",
+                Kind::Column { port: "input" },
+                "The attribute whose value decides which output port a row goes to.",
+            ),
+            Param::new(
+                "values",
+                "Values",
+                Kind::Values,
+                "The values that each get their own output port, compared exactly with the attribute as text.",
+            ),
+        ];
+        P
     }
 
     fn outputs(&self, params: &Value) -> Vec<String> {
