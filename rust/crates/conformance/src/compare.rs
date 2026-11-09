@@ -280,6 +280,16 @@ pub fn compare_table(actual: &Table, expected: &Table, ordered: bool, o: &GeomOp
             .collect::<Vec<_>>()
             .join(", ")
     };
+    // DuckDB 1.29 typed a bare NULL constant `"NULL"`; DuckDB 1.5 types it INTEGER. Only a column
+    // holding nothing but NULLs may stand in for an expected `"NULL"` column.
+    let mut actual = std::borrow::Cow::Borrowed(actual);
+    for (i, (_, k)) in expected.columns.iter().enumerate() {
+        let all_null = actual.rows.iter().all(|r| r.get(i).is_none_or(Value::is_null));
+        if k == "\"NULL\"" && all_null && actual.columns.get(i).is_some_and(|(_, a)| a != k) {
+            actual.to_mut().columns[i].1 = k.clone();
+        }
+    }
+    let actual = actual.as_ref();
     if names(actual) != names(expected) {
         return vec![format!(
             "columns differ:\n    actual:   {}\n    expected: {}",

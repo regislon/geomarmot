@@ -152,6 +152,16 @@ pub async fn run_case_recording(
         Ok(out) => out,
         Err(e) => return vec![format!("unexpected error: {e}")],
     };
+    if let Some(a) = case.get("assert") {
+        let port = a["port"].as_str().unwrap_or("output");
+        let Some(view) = out.views.get(port) else {
+            return vec![format!("no \"{port}\" port")];
+        };
+        return match read_port(engine, view).await {
+            Ok(table) => check_assertions(&table, a, case["inputs"].get("input")),
+            Err(e) => vec![format!("{port}: could not read: {e}")],
+        };
+    }
     let opts = GeomOpts::from_case(case.get("geometry"));
     let ordered = case.get("ordered").and_then(Value::as_bool).unwrap_or(false);
     let mut problems = Vec::new();
@@ -194,4 +204,52 @@ pub async fn teardown(engine: &impl SqlEngine) {
         let what = if kind == "VIEW" { "VIEW" } else { "TABLE" };
         let _ = engine.exec(&format!("DROP {what} IF EXISTS {}", qid(&name))).await;
     }
+}
+
+/// Invariants for cases whose rows cannot be predicted exactly (`checkAssertions`).
+fn check_assertions(table: &Table, a: &Value, input: Option<&Value>) -> Vec<String> {
+    let mut problems = Vec::new();
+    let input = input.map(Table::from_json);
+    if let Some(count) = a.get("rowCount") {
+        let n = table.rows.len() as f64;
+        let (min, max) = (count["min"].as_f64(), count["max"].as_f64());
+        if min.is_some_and(|m| m > n) || max.is_some_and(|m| m < n) {
+            problems.push(format!(
+                "{n} rows, expected between {} and {}",
+                count["min"], count["max"]
+            ));
+        }
+    }
+    if let Some(input) = input.as_ref().filter(|_| a["columnsEqual"] == "input")
+        && table.columns != input.columns
+    {
+        problems.push(format!("columns {:?} ≠ input's {:?}", table.columns, input.columns));
+    }
+    if let Some(input) = input.as_ref().filter(|_| a["subsetOf"] == "input") {
+        let mut pool: Vec<String> = input.rows.iter().map(|r| Value::from(r.clone()).to_string()).collect();
+        for row in &table.rows {
+            let key = Value::from(row.clone()).to_string();
+            match pool.iter().position(|p| *p == key) {
+                Some(at) => {
+                    pool.remove(at);
+                }
+                None => problems.push(format!("row {key} is not an input row")),
+            }
+        }
+    }
+    if let Some(names) = a["unique"].as_array() {
+        let idx: Vec<Option<usize>> = names
+            .iter()
+            .map(|n| table.columns.iter().position(|(c, _)| Some(c.as_str()) == n.as_str()))
+            .collect();
+        let keys: std::collections::HashSet<String> = table
+            .rows
+            .iter()
+            .map(|r| format!("{:?}", idx.iter().map(|k| k.map(|k| &r[k])).collect::<Vec<_>>()))
+            .collect();
+        if keys.len() != table.rows.len() {
+            problems.push(format!("rows are not unique on {names:?}"));
+        }
+    }
+    problems
 }

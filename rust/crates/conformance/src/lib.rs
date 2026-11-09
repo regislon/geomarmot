@@ -42,6 +42,14 @@ pub const GATE_1: &[&str] = &[
     "attribute-histogram",
     "list-unique-values",
     "unioner",
+    "attribute-creator",
+    "attribute-keeper",
+    "attribute-manager",
+    "attribute-remover",
+    "attribute-renamer",
+    "sql-transformer",
+    "sorter",
+    "sampler",
 ];
 
 /// Run every case of `docs` ((folder, tests.json text)); returns (passed, failures).

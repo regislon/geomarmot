@@ -99,6 +99,16 @@ pub enum Kind {
     ValueSpec,
     /// A list of rows, each an object with these fields (`conditions`, `rules`, `aggregates`).
     Rows(&'static [(&'static str, Cell)]),
+    /// A query written by the user (`sqltext`/`sqlcreate`); the SQL guard checks it.
+    SqlText { placeholder: &'static str },
+    /// Rows `{from, to}`: an attribute of `input` and its new name.
+    Renames,
+    /// Rows `{column, direction}`: ASC or DESC.
+    Sorts,
+    /// Rows `{name, value}`, `value` a value spec (`valuerows`).
+    ValueRows,
+    /// AttributeManager's edits: rows `{action, column, target, to, spec}`.
+    Actions,
 }
 
 /// One field of a `Kind::Rows` row.
@@ -144,7 +154,13 @@ pub fn default_params(t: &dyn Transformer) -> Value {
     let mut out = serde_json::Map::new();
     for p in t.params() {
         let v = match p.kind {
-            Kind::Columns { .. } | Kind::Values | Kind::Rows(_) => Value::Array(vec![]),
+            Kind::Columns { .. }
+            | Kind::Values
+            | Kind::Rows(_)
+            | Kind::Renames
+            | Kind::Sorts
+            | Kind::ValueRows
+            | Kind::Actions => Value::Array(vec![]),
             Kind::JoinKeys => serde_json::json!([{ "left": "", "right": "" }]),
             Kind::ValueSpec => Value::Null,
             Kind::Choices { default, .. } => serde_json::json!(default),

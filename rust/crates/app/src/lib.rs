@@ -4,6 +4,7 @@
 pub mod app;
 pub mod canvas;
 pub mod form;
+mod form_rows;
 #[cfg(target_arch = "wasm32")]
 pub mod hooks;
 pub mod map;

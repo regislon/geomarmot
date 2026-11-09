@@ -20,6 +20,11 @@ fn matches(query: &str) -> (Vec<&'static str>, Vec<&'static str>) {
         if let Some(i) = hay.find(&q) {
             return Some(1000 - i as i32);
         }
+        // Initials: "aoa" → AreaOnAreaOverlayer.
+        let initials: String = name.chars().filter(char::is_ascii_uppercase).collect();
+        if initials.to_lowercase().starts_with(&q) {
+            return Some(500);
+        }
         let mut chars = hay.chars();
         q.chars().all(|c| chars.any(|h| h == c)).then_some(0)
     };
@@ -116,9 +121,9 @@ mod tests {
         let (ported, _) = matches("buf");
         assert_eq!(ported.first(), Some(&"Bufferer"));
         let (ported, _) = matches("aoa");
-        assert_eq!(ported, vec!["AreaOnAreaOverlayer"]);
+        assert_eq!(ported.first(), Some(&"AreaOnAreaOverlayer"));
         let (ported, unported) = matches("filter");
-        assert_eq!(ported, vec!["AttributeFilter"]);
-        assert!(unported.contains(&"DuplicateFilter"));
+        assert!(ported.contains(&"AttributeFilter") && ported.contains(&"DuplicateFilter"));
+        assert!(unported.iter().all(|id| !ported.contains(id)));
     }
 }

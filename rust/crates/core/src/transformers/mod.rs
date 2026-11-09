@@ -4,8 +4,13 @@ mod add_geometry_attributes;
 mod aggregator;
 mod area_on_area_overlayer;
 mod attribute_correlation;
+mod attribute_creator;
 mod attribute_filter;
 mod attribute_histogram;
+mod attribute_keeper;
+mod attribute_manager;
+mod attribute_remover;
+mod attribute_renamer;
 mod bounding_box_replacer;
 mod bufferer;
 mod centroid_vector;
@@ -28,8 +33,11 @@ mod polygon_to_h3;
 mod positional_h3_index;
 mod representative_point_vector;
 mod reprojector;
+mod sampler;
 mod simplify_features;
 mod smooth_vectors;
+mod sorter;
+mod sql_transformer;
 mod vertex_creator;
 mod vertex_creator_sql;
 
@@ -76,6 +84,14 @@ pub static ALL: &[&dyn Transformer] = &[
     &attribute_histogram::AttributeHistogram,
     &list_unique_values::ListUniqueValues,
     &unioner::Unioner,
+    &attribute_creator::AttributeCreator,
+    &attribute_keeper::AttributeKeeper,
+    &attribute_manager::AttributeManager,
+    &attribute_remover::AttributeRemover,
+    &attribute_renamer::AttributeRenamer,
+    &sql_transformer::SqlTransformer,
+    &sorter::Sorter,
+    &sampler::Sampler,
 ];
 
 pub fn by_id(id: &str) -> Option<&'static dyn Transformer> {

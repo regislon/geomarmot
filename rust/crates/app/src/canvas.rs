@@ -43,6 +43,14 @@ pub const PALETTE: &[&str] = &[
     "AttributeHistogram",
     "ListUniqueValues",
     "Unioner",
+    "AttributeCreator",
+    "AttributeKeeper",
+    "AttributeManager",
+    "AttributeRemover",
+    "AttributeRenamer",
+    "SQLTransformer",
+    "Sorter",
+    "Sampler",
 ];
 
 /// Width of a node's title: every node is as wide.

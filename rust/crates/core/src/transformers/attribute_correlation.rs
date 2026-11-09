@@ -42,7 +42,7 @@ impl Transformer for AttributeCorrelation {
         Ok(Ports::from([(
             "output".into(),
             format!(
-                "SELECT * FROM ({}) ORDER BY abs(r) DESC NULLS LAST",
+                "SELECT * FROM ({}) ORDER BY abs(r) DESC NULLS LAST, attribute_a, attribute_b",
                 pairs.join(" UNION ALL ")
             ),
         )]))

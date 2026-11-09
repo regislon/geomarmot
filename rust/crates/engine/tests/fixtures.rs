@@ -55,6 +55,13 @@ fn comparator_rejects_wrong_output() {
     );
     assert!(cmp(Some(&sq(1.0)), Some("POLYGON ((1 0, 1 1, 0 1, 0 0, 1 0))"), &topo).is_none());
     assert!(cmp(Some(&sq(1.0)), Some(&sq(1.001)), &topo).is_some(), "area");
+    // A NULL-only column stands in for DuckDB 1.29's `"NULL"` type; a column with values does not.
+    let typed = |kind: &str, rows: Value| {
+        Table::from_json(&serde_json::json!({"columns": [{"name": "n", "type": kind}], "rows": rows}))
+    };
+    let null_type = typed("\"NULL\"", serde_json::json!([[null]]));
+    assert!(compare_table(&typed("INTEGER", serde_json::json!([[null]])), &null_type, true, &exact).is_empty());
+    assert!(!compare_table(&typed("INTEGER", serde_json::json!([[1]])), &null_type, true, &exact).is_empty());
     let t = |rows: Value| {
         Table::from_json(&serde_json::json!({"columns": [{"name": "id", "type": "INTEGER"}], "rows": rows}))
     };

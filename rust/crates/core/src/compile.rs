@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Ctx, Kind, LONLAT, OverlayRequest, Result, SqlEngine, Transformer, is_lonlat, qid, sqlguard};
+use crate::{Ctx, LONLAT, OverlayRequest, Result, SqlEngine, Transformer, is_lonlat, qid, sqlguard};
 use serde_json::Value;
 
 pub struct NodeOutput {
@@ -87,16 +87,9 @@ pub async fn compile_node_from(
     source: Option<String>,
 ) -> Result<NodeOutput> {
     // Step 0: the SQL guard, before any hook or query (`guardNode`).
-    for p in t.params().iter().filter(|p| matches!(p.kind, Kind::ValueSpec)) {
-        let spec = &params[p.id];
-        if spec["kind"] == "SQL"
-            && let Some(sql) = spec["sql"].as_str().filter(|s| !s.trim().is_empty())
-        {
-            sqlguard::validate(engine, sql, sqlguard::Context::Expression)
-                .await
-                .map_err(|r| r.message)?;
-        }
-    }
+    sqlguard::guard_node(engine, t.params(), params)
+        .await
+        .map_err(|r| r.message)?;
     let mut relations = BTreeMap::new();
     let mut crs_seen = Vec::<String>::new();
     for port in t.inputs() {
