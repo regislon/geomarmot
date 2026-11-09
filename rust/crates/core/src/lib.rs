@@ -9,6 +9,7 @@ pub use geomarmot_sql::{Column, Result, SqlEngine, qid, qlit};
 use serde_json::Value;
 
 mod compile;
+pub mod sqlguard;
 pub mod transformers;
 
 pub use compile::{NodeOutput, Probe, compile_node};

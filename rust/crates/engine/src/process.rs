@@ -12,7 +12,7 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
 use std::sync::mpsc;
 
-use crate::{Host, Result, SqlEngine};
+use crate::{Config, Host, Result, SqlEngine};
 use geomarmot_sql::arrow::array::RecordBatch;
 use geomarmot_sql::{from_ipc, to_ipc};
 
@@ -79,11 +79,20 @@ pub struct ProcessEngine {
 }
 
 impl ProcessEngine {
-    /// Start `binary` with the extension directory it must load from.
-    pub fn spawn(binary: &Path, extension_dir: &Path) -> Result<Self> {
-        let mut child = Command::new(binary)
-            .arg("--extensions")
-            .arg(extension_dir)
+    /// Start `binary` with the engine configuration.
+    pub fn spawn(binary: &Path, config: &Config) -> Result<Self> {
+        let mut cmd = Command::new(binary);
+        cmd.arg("--extensions").arg(&config.extension_dir);
+        if let Some(dir) = &config.staging_dir {
+            cmd.arg("--staging").arg(dir);
+        }
+        if let Some(limit) = &config.memory_limit {
+            cmd.arg("--memory").arg(limit);
+        }
+        for path in &config.allowed_paths {
+            cmd.arg("--allow").arg(path);
+        }
+        let mut child = cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()

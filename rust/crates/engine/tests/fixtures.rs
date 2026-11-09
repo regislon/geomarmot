@@ -5,7 +5,7 @@
 mod support;
 
 use geomarmot_engine::process::ProcessEngine;
-use geomarmot_engine::{Host, SqlEngine};
+use geomarmot_engine::{Config, Host, SqlEngine};
 use serde_json::Value;
 use support::compare::{GeomOpts, Table, compare_table};
 use support::runner::{cases, extension_dir, run_case, teardown};
@@ -18,6 +18,14 @@ const GATE_1: &[&str] = &[
     "reprojector",
     "bufferer",
 ];
+
+/// A locked engine with nothing approved: fixtures only create and read tables.
+fn locked() -> Config {
+    Config {
+        extension_dir: extension_dir(),
+        ..Config::default()
+    }
+}
 
 async fn run_all(engine: &impl SqlEngine, label: &str) {
     let mut failures = Vec::new();
@@ -40,14 +48,14 @@ async fn run_all(engine: &impl SqlEngine, label: &str) {
 
 #[test]
 fn gate_1_in_process() {
-    let host = Host::open(&extension_dir()).expect("engine");
+    let host = Host::open(&locked()).expect("engine");
     pollster::block_on(run_all(&host, "in-process"));
 }
 
 #[test]
 fn gate_1_engine_process() {
     let binary = std::path::Path::new(env!("CARGO_BIN_EXE_geomarmot-engine"));
-    let engine = ProcessEngine::spawn(binary, &extension_dir()).expect("engine process");
+    let engine = ProcessEngine::spawn(binary, &locked()).expect("engine process");
     pollster::block_on(run_all(&engine, "engine process"));
 }
 

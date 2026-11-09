@@ -1,24 +1,31 @@
-//! The engine process. Usage: `geomarmot-engine --extensions <dir>`; speaks the
-//! protocol in `geomarmot_engine::process` on stdin/stdout.
+//! The engine process. Usage:
+//! `geomarmot-engine --extensions <dir> [--staging <dir>] [--memory <limit>] [--allow <path>]...`;
+//! speaks the protocol in `geomarmot_engine::process` on stdin/stdout. The allow list is
+//! fixed for the life of the process: approving a new source means a new process.
+
+use geomarmot_engine::{Config, Host, process};
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let Some(dir) = args
-        .iter()
-        .position(|a| a == "--extensions")
-        .and_then(|k| args.get(k + 1))
-    else {
-        eprintln!("usage: geomarmot-engine --extensions <dir>");
-        std::process::exit(2);
-    };
-    let host = match geomarmot_engine::Host::open(std::path::Path::new(dir)) {
-        Ok(h) => h,
-        Err(e) => {
-            eprintln!("{e}");
-            std::process::exit(1);
+    let mut config = Config::default();
+    let mut args = std::env::args().skip(1);
+    while let Some(flag) = args.next() {
+        let value = args.next().unwrap_or_default();
+        match flag.as_str() {
+            "--extensions" => config.extension_dir = value.into(),
+            "--staging" => config.staging_dir = Some(value.into()),
+            "--memory" => config.memory_limit = Some(value),
+            "--allow" => config.allowed_paths.push(value),
+            other => {
+                eprintln!("unknown argument {other}");
+                std::process::exit(2);
+            }
         }
-    };
-    if let Err(e) = geomarmot_engine::process::serve(host) {
+    }
+    let host = Host::open(&config).unwrap_or_else(|e| {
+        eprintln!("{e}");
+        std::process::exit(1);
+    });
+    if let Err(e) = process::serve(host) {
         eprintln!("engine process: {e}");
         std::process::exit(1);
     }

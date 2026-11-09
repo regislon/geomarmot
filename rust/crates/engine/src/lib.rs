@@ -6,13 +6,14 @@
 //! (`install_extensions`); an engine only LOADs them from there, so a running engine
 //! never fetches anything (docs/decisions/0002).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use duckdb::{Connection, InterruptHandle};
 use geomarmot_sql::arrow::array::RecordBatch;
 pub use geomarmot_sql::{Column, Result, SqlEngine, arrow, qid, qlit};
 
+pub mod io;
 pub mod process;
 
 /// Extensions loaded at boot. parquet and json are compiled into the bundled build.
@@ -33,7 +34,7 @@ pub fn version_and_platform() -> Result<(String, String)> {
 
 /// Download the extensions into `dir` (a build/setup step, never done by a running engine).
 pub fn install_extensions(dir: &Path) -> Result<()> {
-    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    io::ensure_dir(dir)?;
     let c = Connection::open_in_memory().map_err(err)?;
     c.execute_batch(&format!("SET extension_directory = {};", qlit(&dir.to_string_lossy())))
         .map_err(err)?;
@@ -43,30 +44,65 @@ pub fn install_extensions(dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// How an engine is allowed to touch the outside world (docs/rust-migration-plan.md, Security).
+#[derive(Debug, Clone, Default)]
+pub struct Config {
+    /// Where the bundled extensions are; nothing else is ever loaded.
+    pub extension_dir: PathBuf,
+    /// Exact files and URLs the engine may read (approved sources).
+    pub allowed_paths: Vec<String>,
+    /// The engine's own staging directory (exports, snapshots); readable and writable.
+    pub staging_dir: Option<PathBuf>,
+    /// DuckDB memory_limit, e.g. "4GB".
+    pub memory_limit: Option<String>,
+}
+
 /// The in-process engine.
 pub struct Host {
     conn: Connection,
 }
 
 impl Host {
-    /// Boot an engine that loads its extensions from `extension_dir` and nowhere else.
-    pub fn open(extension_dir: &Path) -> Result<Self> {
+    /// Boot a locked engine: extensions from `extension_dir` only, file and network access limited
+    /// to `allowed_paths` and the staging directory, and no setting can change afterwards.
+    pub fn open(config: &Config) -> Result<Self> {
         let conn = Connection::open_in_memory().map_err(err)?;
-        conn.execute_batch(&format!(
+        let list = |items: &[String]| items.iter().map(|p| qlit(p)).collect::<Vec<_>>().join(", ");
+        let mut boot = format!(
             "SET extension_directory = {};
              SET autoinstall_known_extensions = false;
              SET autoload_known_extensions = false;",
-            qlit(&extension_dir.to_string_lossy())
-        ))
-        .map_err(err)?;
+            qlit(&config.extension_dir.to_string_lossy())
+        );
         for name in EXTENSIONS {
-            conn.execute_batch(&format!("LOAD {name};")).map_err(|e| {
-                format!(
-                    "could not load the bundled {name} extension from {}: {e}",
-                    extension_dir.display()
-                )
-            })?;
+            boot.push_str(&format!("LOAD {name};"));
         }
+        conn.execute_batch(&boot).map_err(|e| {
+            format!(
+                "could not load the bundled extensions from {}: {e}",
+                config.extension_dir.display()
+            )
+        })?;
+        let mut lock = String::new();
+        if let Some(limit) = &config.memory_limit {
+            lock.push_str(&format!("SET memory_limit = {};", qlit(limit)));
+        }
+        if let Some(dir) = &config.staging_dir {
+            if !dir.is_dir() {
+                return Err(format!("staging directory {} does not exist", dir.display()));
+            }
+            let dir = format!("{}/", dir.to_string_lossy().trim_end_matches('/'));
+            lock.push_str(&format!(
+                "SET temp_directory = {}; SET allowed_directories = [{}];",
+                qlit(&dir),
+                qlit(&dir)
+            ));
+        }
+        if !config.allowed_paths.is_empty() {
+            lock.push_str(&format!("SET allowed_paths = [{}];", list(&config.allowed_paths)));
+        }
+        lock.push_str("SET enable_external_access = false; SET lock_configuration = true;");
+        conn.execute_batch(&lock).map_err(err)?;
         Ok(Self { conn })
     }
 
