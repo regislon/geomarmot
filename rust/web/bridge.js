@@ -29,7 +29,7 @@ async function run(call) {
   }
 }
 
-/** Start (or restart) the engine: bundled extensions only, from this page's own origin. */
+/** Start (or restart) the engine: bundled extensions only, served next to this page. */
 export async function boot() {
   const bundle = await duckdb.selectBundle({
     mvp: { mainModule: mvpWasm, mainWorker: mvpWorker },
@@ -44,7 +44,9 @@ export async function boot() {
   await db.instantiate(bundle.mainModule);
   await db.open({ path: ":memory:" });
   conn = await db.connect();
-  await conn.query(`SET custom_extension_repository = '${location.origin}/extensions'`);
+  // Next to the page, wherever it is served (a site's subfolder included).
+  const repository = new URL("extensions", document.baseURI).href;
+  await conn.query(`SET custom_extension_repository = '${repository}'`);
   await conn.query("SET autoinstall_known_extensions = false");
   await conn.query("SET autoload_known_extensions = false");
   for (const name of ["spatial", "json", "parquet"]) {

@@ -3,7 +3,8 @@
  *
  *   _site/        the documentation, built with Zensical (zensical.toml): README.md as the home
  *                 page, docs/ as its sections, CONTRIBUTING.md
- *   _site/demo/   the app (the Vite build in dist/)
+ *   _site/demo/   the app: the Rust build (rust/web/dist, its app.html as the index) when it is
+ *                 built, with the JavaScript app (dist/) under demo/classic/; else the JavaScript app
  *
  * The pages are staged into _site_src/ first, with their links fixed for the site: a link to
  * another page of the site becomes a link to its page, and a link to any other file of the
@@ -58,6 +59,15 @@ cpSync("docs/img", join(SRC, "img"), { recursive: true });
 cpSync("site", SRC, { recursive: true });
 
 execFileSync("uvx", [ZENSICAL, "build", "--clean"], { stdio: "inherit" });
-cpSync("dist", join(OUT, "demo"), { recursive: true });
+const RUST = "rust/web/dist";
+if (existsSync(join(RUST, "app.html"))) {
+  cpSync(RUST, join(OUT, "demo"), { recursive: true });
+  // The Rust build's index.html is its fixture page; the app is app.html.
+  cpSync(join(RUST, "app.html"), join(OUT, "demo", "index.html"));
+  rmSync(join(OUT, "demo", "app.html"));
+  cpSync("dist", join(OUT, "demo", "classic"), { recursive: true });
+} else {
+  cpSync("dist", join(OUT, "demo"), { recursive: true });
+}
 rmSync(SRC, { recursive: true, force: true });
 console.log(`Wrote ${OUT}/ (documentation) and ${OUT}/demo/ (the app)`);

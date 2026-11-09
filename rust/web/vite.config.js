@@ -5,6 +5,8 @@ import { dirname, resolve } from "node:path";
 const duckJs = fileURLToPath(new URL("../../app/src/core/duck.js", import.meta.url));
 
 export default defineConfig({
+  // Relative asset paths: the site serves the page under /geomarmot/demo/.
+  base: "./",
   server: { port: 5181, fs: { allow: [fileURLToPath(new URL("../..", import.meta.url))] } },
   optimizeDeps: { exclude: ["@duckdb/duckdb-wasm"] },
   worker: { format: "es" },
