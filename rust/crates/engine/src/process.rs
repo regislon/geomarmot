@@ -19,6 +19,9 @@ use geomarmot_sql::{from_ipc, to_ipc};
 const EXEC: u8 = 1;
 const QUERY: u8 = 2;
 const INTERRUPT: u8 = 3;
+/// Test-only (`--test-hooks`): block the engine for N seconds, ignoring interrupts —
+/// a stand-in for a kernel stuck inside one long synchronous operation.
+const STUCK: u8 = 4;
 const DONE: u8 = 0;
 const BATCHES: u8 = 1;
 const ERROR: u8 = 2;
@@ -40,7 +43,7 @@ fn read_frame(r: &mut impl Read) -> std::io::Result<(u8, Vec<u8>)> {
 }
 
 /// Serve `host` until stdin closes. Called by the `geomarmot-engine` binary.
-pub fn serve(host: Host) -> std::io::Result<()> {
+pub fn serve(host: Host, test_hooks: bool) -> std::io::Result<()> {
     let interrupt = host.interrupt_handle();
     let (tx, rx) = mpsc::channel::<(u8, String)>();
     std::thread::spawn(move || {
@@ -61,6 +64,10 @@ pub fn serve(host: Host) -> std::io::Result<()> {
                 .query_now(&sql)
                 .and_then(|b| to_ipc(&b))
                 .map(|bytes| (BATCHES, bytes)),
+            STUCK if test_hooks => {
+                std::thread::sleep(std::time::Duration::from_secs(sql.parse().unwrap_or(60)));
+                Ok((DONE, vec![]))
+            }
             other => Err(format!("unknown request kind {other}")),
         };
         match reply {
@@ -81,7 +88,15 @@ pub struct ProcessEngine {
 impl ProcessEngine {
     /// Start `binary` with the engine configuration.
     pub fn spawn(binary: &Path, config: &Config) -> Result<Self> {
+        Self::spawn_with(binary, config, false)
+    }
+
+    /// As `spawn`; `test_hooks` enables the test-only requests.
+    pub fn spawn_with(binary: &Path, config: &Config, test_hooks: bool) -> Result<Self> {
         let mut cmd = Command::new(binary);
+        if test_hooks {
+            cmd.arg("--test-hooks").arg("1");
+        }
         cmd.arg("--extensions").arg(&config.extension_dir);
         if let Some(dir) = &config.staging_dir {
             cmd.arg("--staging").arg(dir);
@@ -118,6 +133,11 @@ impl ProcessEngine {
             return Err(String::from_utf8_lossy(&payload).into_owned());
         }
         Ok((k, payload))
+    }
+
+    /// Test-only: occupy the engine for `seconds`, ignoring interrupts (needs `--test-hooks`).
+    pub fn stuck(&self, seconds: u64) -> Result<()> {
+        self.request(STUCK, &seconds.to_string()).map(|_| ())
     }
 
     /// Ask the running statement to stop (cooperative cancel).

@@ -15,6 +15,7 @@ pub use geomarmot_sql::{Column, Result, SqlEngine, arrow, qid, qlit};
 
 pub mod io;
 pub mod process;
+pub mod supervisor;
 
 /// Extensions loaded at boot. parquet and json are compiled into the bundled build.
 pub const EXTENSIONS: &[&str] = &["spatial"];

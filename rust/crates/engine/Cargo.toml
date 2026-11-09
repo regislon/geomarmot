@@ -9,8 +9,8 @@ publish.workspace = true
 duckdb.workspace = true
 geomarmot-sql = { path = "../sql" }
 serde_json.workspace = true
+pollster.workspace = true
 
 [dev-dependencies]
 geomarmot-core = { path = "../core" }
 geo = "0.31"
-pollster.workspace = true

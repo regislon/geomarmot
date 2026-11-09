@@ -61,3 +61,9 @@ pub fn clean_staging(dir: &Path) -> Result<()> {
 pub fn ensure_dir(dir: &Path) -> Result<()> {
     std::fs::create_dir_all(dir).map_err(|e| e.to_string())
 }
+
+/// What a local file looked like when it was loaded: size and modification time.
+pub fn fingerprint(path: &str) -> Option<(u64, std::time::SystemTime)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.len(), meta.modified().ok()?))
+}
