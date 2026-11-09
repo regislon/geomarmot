@@ -16,6 +16,15 @@ pub const GATE_1: &[&str] = &[
     "area-on-area-overlayer",
     "minimum-bounding-circle",
     "h3-geometry-from-index",
+    "duplicate-filter",
+    "test-filter",
+    "tester",
+    "aggregator",
+    "statistics-calculator",
+    "attribute-correlation",
+    "attribute-histogram",
+    "list-unique-values",
+    "unioner",
 ];
 
 /// Run every case of `docs` ((folder, tests.json text)); returns (passed, failures).

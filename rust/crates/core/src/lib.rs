@@ -86,6 +86,24 @@ pub enum Kind {
     Values,
     /// Pairs of attributes, `left` = `right`, from the `left` and `right` ports.
     JoinKeys,
+    /// Any of these names, ticked (`param.choices`); `default` is ticked on a new node.
+    Choices {
+        options: &'static [&'static str],
+        default: &'static [&'static str],
+    },
+    /// A list of rows, each an object with these fields (`conditions`, `rules`, `aggregates`).
+    Rows(&'static [(&'static str, Cell)]),
+}
+
+/// One field of a `Kind::Rows` row.
+#[derive(Debug, Clone, Copy)]
+pub enum Cell {
+    /// An attribute of the `input` port.
+    Column,
+    /// One of these values.
+    Pick(&'static [&'static str]),
+    /// Free text.
+    Text,
 }
 
 /// One parameter of a transformer: what the inspector draws, and its default.
@@ -120,7 +138,8 @@ pub fn default_params(t: &dyn Transformer) -> Value {
     let mut out = serde_json::Map::new();
     for p in t.params() {
         let v = match p.kind {
-            Kind::Columns { .. } | Kind::Values => Value::Array(vec![]),
+            Kind::Columns { .. } | Kind::Values | Kind::Rows(_) => Value::Array(vec![]),
+            Kind::Choices { default, .. } => serde_json::json!(default),
             Kind::JoinKeys => serde_json::json!([{ "left": "", "right": "" }]),
             _ => Value::String(p.default.into()),
         };
