@@ -1,30 +1,39 @@
 # Rust spike
 
-The feasibility spike from [docs/rust-migration-plan.md](../docs/rust-migration-plan.md). Not
-part of the app yet; the JavaScript app is unchanged.
+The feasibility spike of [docs/rust-migration-plan.md](../docs/rust-migration-plan.md). Its outcome
+and measurements are in [docs/decisions/0011-rust.md](../docs/decisions/0011-rust.md). The
+JavaScript app is unchanged.
 
 | Crate | What |
 |---|---|
-| `crates/engine` | the native engine host: bundled DuckDB, extensions loaded from a local directory only |
-| `crates/core` | node compilation and the ported transformers (`src/transformers/`, one file per transformer) |
+| `crates/sql` | the engine boundary: `SqlEngine`, Arrow IPC, overlay requests |
+| `crates/core` | graph and node compilation, the SQL guard, the ported transformers (`src/transformers/`) |
+| `crates/kernels` | the overlay kernel on native GEOS (and the rejected pure-Rust `geo` core) |
+| `crates/io` | the only crate that imports terrio: vector files to and from Arrow |
+| `crates/engine` | the native host (DuckDB 1.5.4, locked), the engine process, its supervisor, `io::authorize` |
+| `crates/conformance` | the fixture harness (`tests/harness/` ported), shared by native and browser runs |
+| `crates/web` | `SqlEngine` over DuckDB-Wasm, through `web/bridge.js` |
+| `crates/app` | the egui app, built for the desktop and for the browser |
+| `web/` | the browser pages: fixtures (`index.html`) and the app (`app.html`) |
+
+## Native
 
 ```bash
 cd rust && cargo test --release
+cargo run --release -p geomarmot-app   # needs target/release/geomarmot-engine and GEOMARMOT_EXTENSIONS
 ```
 
-The first run compiles DuckDB (about 3 minutes) and installs the spatial extension into
-`rust/target/duckdb-extensions`; after that, engines only `LOAD` from there.
+The first run compiles DuckDB and GEOS (a few minutes) and installs the extensions into
+`rust/target/duckdb-extensions`; after that an engine only loads them from there.
 
-`crates/core/tests/fixtures.rs` runs `transformers/<id>/tests.json` natively with the same
-input tables, `readPort` rules and comparator as `tests/harness/` (gate 1).
+## Browser
 
-## Spike progress
+```bash
+npm --prefix rust/web ci
+npm --prefix rust/web run build:wasm
+npm --prefix rust/web run dev        # fixtures at /, the app at /app.html
+npx playwright test --config rust/web/playwright.config.js   # after npm --prefix rust/web run build
+```
 
-| Gate | State |
-|---|---|
-| 1. Fixtures on native DuckDB | AttributeFilter, FeatureJoiner, Dissolver, Reprojector, Bufferer: 22/22 cases pass on DuckDB 1.5.6 (osx_arm64). Not yet: DuckDB-Wasm, engine process, H3 and kernel cases, cross-check with the JavaScript comparator. |
-| 2–7 | not started |
-
-**Finding:** native DuckDB is 1.5.6 and the app's DuckDB-Wasm is 1.1.1. The plan pins both to the
-same core where possible; `allowed_paths` (security, gate 6) also needs DuckDB ≥ 1.3, so the
-DuckDB-Wasm side has to move up, not the native side down.
+`web/fetch-extensions.mjs` downloads the wasm extensions at build time and checks them against
+`web/extensions.lock.json`; the page serves them itself.
