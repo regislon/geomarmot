@@ -1,51 +1,18 @@
-//! The engine, driven from a background thread so the UI never waits on it.
-//!
-//! The UI sends jobs; replies come back tagged with the generation they belong to, and the
-//! UI drops a reply for a generation it has already replaced.
+//! Desktop: the engine process, driven from a background thread so the UI never waits on it.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use geomarmot_core::graph::{Graph, NodeState, compile_graph, drop_generation};
+use geomarmot_core::graph::{compile_graph, drop_generation};
 use geomarmot_core::{SqlEngine, qid, qlit};
+
+use super::{Job, Reply};
 use geomarmot_engine::io::{Approvals, finalize_export};
 use geomarmot_engine::supervisor::{Reader, SourceRecord, SourceState, Supervisor};
-use serde_json::Value;
-
-pub enum Job {
-    Open(PathBuf),
-    Compile(Graph),
-    Read { view: String },
-    Export { view: String, to: PathBuf },
-    Cancel,
-}
-
-pub struct Table {
-    pub columns: Vec<String>,
-    pub rows: Vec<Vec<String>>,
-    /// GeoJSON geometry of each row, when there is a geometry column.
-    pub shapes: Vec<Value>,
-}
-
-pub enum Reply {
-    Opened {
-        relation: String,
-        label: String,
-    },
-    Compiled {
-        generation: u64,
-        states: std::collections::BTreeMap<usize, NodeState>,
-    },
-    Read {
-        view: String,
-        table: Result<Table, String>,
-    },
-    Status(String),
-}
 
 pub struct Worker {
-    pub jobs: Sender<Job>,
+    jobs: Sender<Job>,
     pub replies: Receiver<Reply>,
     supervisor: Arc<Supervisor>,
 }
@@ -72,6 +39,10 @@ impl Worker {
             replies,
             supervisor,
         }
+    }
+
+    pub fn send(&self, job: Job) {
+        let _ = self.jobs.send(job);
     }
 
     /// Cancel runs on the UI's side of the channel: the worker is busy with the job to cancel.
@@ -134,66 +105,15 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
             }
         }
         Job::Read { view } => Reply::Read {
-            table: pollster::block_on(read(&*engine, &view)),
+            table: pollster::block_on(super::read(&*engine, &view)),
             view,
         },
         Job::Export { view, to } => Reply::Status(match export(&*engine, staging, &view, &to) {
             Ok(()) => format!("Exported to {}", to.display()),
             Err(e) => format!("Export failed: {e}"),
         }),
-        Job::Cancel => Reply::Status("Nothing to cancel.".into()),
+        Job::OpenBytes { name, .. } => Reply::Status(format!("{name}: open files from disk on the desktop")),
     }
-}
-
-const PAGE: usize = 200;
-const MAP_LIMIT: usize = 20_000;
-
-async fn read(engine: &impl SqlEngine, view: &str) -> Result<Table, String> {
-    let described = engine.describe(view).await?;
-    let geometry = described
-        .iter()
-        .find(|c| c.kind.starts_with("GEOMETRY"))
-        .map(|c| c.name.clone());
-    let cells: Vec<String> = described
-        .iter()
-        .map(|c| {
-            if c.kind.starts_with("GEOMETRY") {
-                format!("ST_AsText({})::VARCHAR", qid(&c.name))
-            } else {
-                format!("{}::VARCHAR", qid(&c.name))
-            }
-        })
-        .collect();
-    let rows = engine
-        .query(&format!("SELECT {} FROM {view} LIMIT {PAGE}", cells.join(", ")))
-        .await?;
-    let shapes = match &geometry {
-        Some(g) => engine
-            .query(&format!(
-                "SELECT ST_AsGeoJSON({}) FROM {view} LIMIT {MAP_LIMIT}",
-                qid(g)
-            ))
-            .await?
-            .into_iter()
-            .filter_map(|r| r[0].as_str().and_then(|t| serde_json::from_str(t).ok()))
-            .collect(),
-        None => vec![],
-    };
-    Ok(Table {
-        columns: described
-            .into_iter()
-            .map(|c| format!("{} ({})", c.name, c.kind))
-            .collect(),
-        rows: rows
-            .into_iter()
-            .map(|r| {
-                r.into_iter()
-                    .map(|v| v.as_str().map(String::from).unwrap_or_else(|| "NULL".into()))
-                    .collect()
-            })
-            .collect(),
-        shapes,
-    })
 }
 
 /// Write into staging (the only place the engine may write), then move the file into place.

@@ -60,7 +60,7 @@ impl App {
     }
 
     pub fn send(&mut self, job: Job) {
-        let _ = self.worker.jobs.send(job);
+        self.worker.send(job);
     }
 
     fn compile(&mut self) {
@@ -119,22 +119,14 @@ impl App {
 
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            if ui.button("Open file…").clicked()
-                && let Some(path) = rfd::FileDialog::new().pick_file()
-            {
-                self.send(Job::Open(path));
+            if ui.button("Open file…").clicked() {
+                self.pick_file();
             }
             if ui
                 .add_enabled(self.selected_view().is_some(), egui::Button::new("Export…"))
                 .clicked()
-                && let (Some(view), Some(to)) = (
-                    self.selected_view(),
-                    rfd::FileDialog::new()
-                        .add_filter("data", &["parquet", "csv", "gpkg", "geojson"])
-                        .save_file(),
-                )
             {
-                self.send(Job::Export { view, to });
+                self.pick_export();
             }
             if ui.button("Cancel").clicked() {
                 self.status = self.worker.cancel();
@@ -143,6 +135,46 @@ impl App {
             ui.label(&self.status);
             ui.label("· right-click the canvas to add a transformer, click an output to see its rows");
         });
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn pick_file(&mut self) {
+        if let Some(path) = rfd::FileDialog::new().pick_file() {
+            self.send(Job::Open(path));
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn pick_export(&mut self) {
+        let dialog = rfd::FileDialog::new().add_filter("data", &["parquet", "csv", "gpkg", "geojson"]);
+        if let (Some(view), Some(to)) = (self.selected_view(), dialog.save_file()) {
+            self.send(Job::Export { view, to });
+        }
+    }
+
+    /// The browser's file picker is async: the bytes come back as a job.
+    #[cfg(target_arch = "wasm32")]
+    fn pick_file(&mut self) {
+        let jobs = self.worker.sender();
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Some(file) = rfd::AsyncFileDialog::new().pick_file().await {
+                jobs(Job::OpenBytes {
+                    name: file.file_name(),
+                    bytes: file.read().await,
+                });
+            }
+        });
+    }
+
+    /// The browser downloads the export; Parquet unless asked otherwise.
+    #[cfg(target_arch = "wasm32")]
+    fn pick_export(&mut self) {
+        if let Some(view) = self.selected_view() {
+            self.send(Job::Export {
+                view,
+                to: "export.parquet".into(),
+            });
+        }
     }
 
     fn inspector(&mut self, ui: &mut egui::Ui) {

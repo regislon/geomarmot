@@ -17,6 +17,42 @@ extern "C" {
     async fn bridge_overlay(request: &str) -> std::result::Result<JsValue, JsValue>;
 }
 
+/// The page-level calls the app makes besides SQL.
+pub mod bridge {
+    use wasm_bindgen::prelude::*;
+
+    #[wasm_bindgen]
+    extern "C" {
+        #[wasm_bindgen(js_namespace = gmBridge, js_name = addSource, catch)]
+        async fn add_source_js(name: &str, bytes: &[u8], sql: &str) -> Result<JsValue, JsValue>;
+        #[wasm_bindgen(js_namespace = gmBridge, js_name = cancel, catch)]
+        async fn cancel_js() -> Result<JsValue, JsValue>;
+        #[wasm_bindgen(js_namespace = gmBridge, js_name = download, catch)]
+        async fn download_js(copy: &str, name: &str) -> Result<JsValue, JsValue>;
+    }
+
+    /// Register a picked file and the view over it; replayed by the bridge after a restart.
+    pub async fn add_source(name: &str, bytes: &[u8], sql: &str) -> Result<(), String> {
+        add_source_js(name, bytes, sql)
+            .await
+            .map(|_| ())
+            .map_err(super::message)
+    }
+
+    /// Cooperative cancel, then terminate and reboot the DuckDB worker (ADR 0004).
+    pub async fn cancel() -> Result<String, String> {
+        cancel_js()
+            .await
+            .map(|v| v.as_string().unwrap_or_default())
+            .map_err(super::message)
+    }
+
+    /// Run `copy` (a COPY … TO `name`) and hand the file to the browser as a download.
+    pub async fn download(copy: &str, name: &str) -> Result<(), String> {
+        download_js(copy, name).await.map(|_| ()).map_err(super::message)
+    }
+}
+
 fn message(e: JsValue) -> String {
     e.as_string()
         .or_else(|| {

@@ -7,12 +7,17 @@ use geomarmot_app::{app, worker};
 use geomarmot_engine::Config;
 use geomarmot_engine::supervisor::Supervisor;
 
+#[cfg(not(target_arch = "wasm32"))]
 fn beside_exe(name: &str) -> PathBuf {
     std::env::current_exe()
         .map(|p| p.with_file_name(name))
         .unwrap_or_else(|_| name.into())
 }
 
+#[cfg(target_arch = "wasm32")]
+fn main() {}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     let extension_dir = std::env::var_os("GEOMARMOT_EXTENSIONS")
         .map(PathBuf::from)

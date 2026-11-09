@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 
 const DUCKDB = "v1.5.4";
 const PLATFORMS = ["wasm_eh", "wasm_mvp"];
-const EXTENSIONS = ["spatial", "json"];
+const EXTENSIONS = ["spatial", "json", "parquet"];
 const here = dirname(new URL(import.meta.url).pathname);
 const lockPath = join(here, "extensions.lock.json");
 const update = process.argv.includes("--update");
