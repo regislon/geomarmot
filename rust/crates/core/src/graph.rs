@@ -1,0 +1,284 @@
+//! Compiling a whole graph: nodes in topological order, each through `compile_node`.
+//!
+//! A failed node reports its error and everything downstream reports "blocked", while the
+//! rest of the graph still compiles (docs/architecture.md). Every compile is a generation:
+//! its views are named `g<generation>_n<node>_<port>`.
+// ponytail: no leases yet — the caller drops a generation once it shows the next one (one reader, the UI).
+
+use std::collections::{BTreeMap, VecDeque};
+
+use crate::{NodeOutput, Result, SqlEngine, compile_node, qid, transformers};
+use serde_json::Value;
+
+#[derive(Debug, Clone)]
+pub struct Node {
+    /// A transformer id, or `Reader` for a registered source.
+    pub kind: String,
+    pub params: Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Edge {
+    pub from: usize,
+    pub from_port: usize,
+    pub to: usize,
+    pub to_port: usize,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Graph {
+    pub nodes: BTreeMap<usize, Node>,
+    pub edges: Vec<Edge>,
+}
+
+#[derive(Debug, Clone)]
+pub enum NodeState {
+    Ready { ports: Vec<(String, String)>, crs: String },
+    Error(String),
+    Blocked,
+}
+
+/// Input and output port names of a node kind (for the canvas).
+pub fn ports(node: &Node) -> (Vec<String>, Vec<String>) {
+    if node.kind == "Reader" {
+        return (vec![], vec!["output".into()]);
+    }
+    match transformers::by_id(&node.kind) {
+        Some(t) => (
+            t.inputs().iter().map(|s| s.to_string()).collect(),
+            t.outputs(&node.params),
+        ),
+        None => (vec![], vec![]),
+    }
+}
+
+fn order(graph: &Graph) -> Vec<usize> {
+    let mut indegree: BTreeMap<usize, usize> = graph.nodes.keys().map(|&k| (k, 0)).collect();
+    for e in &graph.edges {
+        *indegree.entry(e.to).or_default() += 1;
+    }
+    let mut queue: VecDeque<usize> = indegree.iter().filter(|(_, d)| **d == 0).map(|(k, _)| *k).collect();
+    let mut out = Vec::new();
+    while let Some(n) = queue.pop_front() {
+        out.push(n);
+        for e in graph.edges.iter().filter(|e| e.from == n) {
+            let d = indegree.get_mut(&e.to).unwrap();
+            *d -= 1;
+            if *d == 0 {
+                queue.push_back(e.to);
+            }
+        }
+    }
+    out
+}
+
+async fn reader(engine: &impl SqlEngine, node: &Node, prefix: &str) -> Result<NodeOutput> {
+    let relation = node
+        .params
+        .get("relation")
+        .and_then(Value::as_str)
+        .ok_or("Open a file for this Reader.")?;
+    let crs = node
+        .params
+        .get("crs")
+        .and_then(Value::as_str)
+        .unwrap_or("EPSG:4326")
+        .to_string();
+    let view = qid(&format!("{prefix}_output"));
+    engine
+        .exec(&format!(
+            "CREATE OR REPLACE VIEW {view} AS SELECT * FROM {}",
+            qid(relation)
+        ))
+        .await?;
+    Ok(NodeOutput {
+        views: BTreeMap::from([("output".into(), view)]),
+        crs,
+    })
+}
+
+pub async fn compile_graph(engine: &impl SqlEngine, graph: &Graph, generation: u64) -> BTreeMap<usize, NodeState> {
+    build(engine, graph, generation, false).await
+}
+
+/// Run a graph with output caching: compile each node, then keep its outputs
+/// as tables (`<view>_cache`) that downstream nodes and the table/map read, so nothing upstream
+/// is recomputed.
+pub async fn run_graph(engine: &impl SqlEngine, graph: &Graph, generation: u64) -> BTreeMap<usize, NodeState> {
+    build(engine, graph, generation, true).await
+}
+
+/// The part of `graph` that `targets` depend on, targets included.
+pub fn upstream(graph: &Graph, targets: &[usize]) -> Graph {
+    let mut keep: Vec<usize> = targets
+        .iter()
+        .copied()
+        .filter(|t| graph.nodes.contains_key(t))
+        .collect();
+    let mut i = 0;
+    while i < keep.len() {
+        let n = keep[i];
+        for e in graph.edges.iter().filter(|e| e.to == n) {
+            if !keep.contains(&e.from) {
+                keep.push(e.from);
+            }
+        }
+        i += 1;
+    }
+    Graph {
+        nodes: graph
+            .nodes
+            .iter()
+            .filter(|(id, _)| keep.contains(id))
+            .map(|(id, n)| (*id, n.clone()))
+            .collect(),
+        edges: graph
+            .edges
+            .iter()
+            .filter(|e| keep.contains(&e.from) && keep.contains(&e.to))
+            .copied()
+            .collect(),
+    }
+}
+
+async fn build(engine: &impl SqlEngine, graph: &Graph, generation: u64, cache: bool) -> BTreeMap<usize, NodeState> {
+    let mut states = BTreeMap::new();
+    for id in order(graph) {
+        let node = &graph.nodes[&id];
+        let prefix = format!("g{generation}_n{id}");
+        let (inputs, _) = ports(node);
+        let mut resolved = BTreeMap::new();
+        let mut blocked = false;
+        for (k, port) in inputs.iter().enumerate() {
+            let Some(e) = graph.edges.iter().find(|e| e.to == id && e.to_port == k) else {
+                continue;
+            };
+            match states.get(&e.from) {
+                Some(NodeState::Ready { ports, crs }) => {
+                    if let Some((_, view)) = ports.get(e.from_port) {
+                        resolved.insert(port.clone(), (view.clone(), crs.clone()));
+                    }
+                }
+                _ => blocked = true,
+            }
+        }
+        if blocked {
+            states.insert(id, NodeState::Blocked);
+            continue;
+        }
+        let result = if node.kind == "Reader" {
+            reader(engine, node, &prefix).await
+        } else {
+            match transformers::by_id(&node.kind) {
+                Some(t) => compile_node(engine, t, &node.params, &resolved, &prefix).await,
+                None => Err(format!("{} is not ported yet.", node.kind)),
+            }
+        };
+        let (_, outputs) = ports(node);
+        let mut state = match result {
+            Ok(out) => NodeState::Ready {
+                ports: outputs
+                    .iter()
+                    .filter_map(|p| Some((p.clone(), out.views.get(p)?.clone())))
+                    .collect(),
+                crs: out.crs,
+            },
+            Err(e) => NodeState::Error(e),
+        };
+        let mut failed = None;
+        if cache && let NodeState::Ready { ports, .. } = &mut state {
+            for (_, view) in ports.iter_mut() {
+                // Views arrive quoted (`qid`); the cache sits beside them, same generation prefix.
+                let table = qid(&format!("{}_cache", view.trim_matches('"')));
+                let sql = format!("CREATE OR REPLACE TABLE {table} AS SELECT * FROM {view}");
+                match engine.exec(&sql).await {
+                    Ok(()) => *view = table,
+                    Err(e) => {
+                        failed = Some(e);
+                        break;
+                    }
+                }
+            }
+        }
+        if let Some(e) = failed {
+            state = NodeState::Error(e);
+        }
+        states.insert(id, state);
+    }
+    states
+}
+
+/// Attribute names (geometry left out) of one output, without running anything: compile the
+/// graph (views are lazy) in generation 0, describe the view, drop it. Before its input has run,
+/// this is what an attribute picker lists.
+// ponytail: a hook (a kernel) upstream still does its work here; cache per graph if that is slow.
+pub async fn output_columns(
+    engine: &impl SqlEngine,
+    graph: &Graph,
+    node: usize,
+    port: usize,
+) -> Result<Vec<Vec<Value>>> {
+    let states = compile_graph(engine, graph, 0).await;
+    let result = match states.get(&node) {
+        Some(NodeState::Ready { ports, .. }) => match ports.get(port) {
+            Some((_, view)) => {
+                engine
+                    .query(&format!(
+                        "SELECT column_name FROM (DESCRIBE {view}) WHERE column_type NOT LIKE 'GEOMETRY%'"
+                    ))
+                    .await
+            }
+            None => Err("No such output.".into()),
+        },
+        Some(NodeState::Error(e)) => Err(e.clone()),
+        _ => Err("Its input is not connected.".into()),
+    };
+    drop_generation(engine, 0).await;
+    result
+}
+
+/// Drop every view and table of a generation.
+pub async fn drop_generation(engine: &impl SqlEngine, generation: u64) {
+    let like = format!("g{generation}\\_n%");
+    let found = engine
+        .query(&format!(
+            "SELECT table_name, table_type FROM information_schema.tables WHERE table_name LIKE '{like}' ESCAPE '\\'"
+        ))
+        .await
+        .unwrap_or_default();
+    for row in found {
+        let (Some(name), Some(kind)) = (row[0].as_str(), row[1].as_str()) else {
+            continue;
+        };
+        let what = if kind == "VIEW" { "VIEW" } else { "TABLE" };
+        let _ = engine.exec(&format!("DROP {what} IF EXISTS {}", qid(name))).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upstream_keeps_targets_and_their_ancestors_only() {
+        let node = || Node {
+            kind: "Reader".into(),
+            params: Value::Null,
+        };
+        let edge = |from, to| Edge {
+            from,
+            from_port: 0,
+            to,
+            to_port: 0,
+        };
+        // 0 → 1 → 2, and 3 → 2, and 1 → 4.
+        let graph = Graph {
+            nodes: (0..5).map(|i| (i, node())).collect(),
+            edges: vec![edge(0, 1), edge(1, 2), edge(3, 2), edge(1, 4)],
+        };
+        let sub = upstream(&graph, &[2]);
+        assert_eq!(sub.nodes.keys().copied().collect::<Vec<_>>(), vec![0, 1, 2, 3]);
+        assert_eq!(sub.edges.len(), 3);
+        assert_eq!(upstream(&graph, &[4]).nodes.len(), 3);
+    }
+}

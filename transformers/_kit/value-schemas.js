@@ -64,7 +64,18 @@ const BY_KIND = {
   column: () => TEXT,
   columns: () => rows(TEXT),
   valuespec: () => ({ $ref: "#/$defs/valuespec" }),
-  conditions: () => rows(object({ column: TEXT, operator: operatorEnum, value: TEXT })),
+  // `join` (AND/OR with the condition before) and parentheses are optional (Tester).
+  conditions: () =>
+    rows(
+      object({
+        join: { enum: ["AND", "OR", ""] },
+        open: { enum: ["", "(", "(("] },
+        column: TEXT,
+        operator: operatorEnum,
+        value: TEXT,
+        close: { enum: ["", ")", "))"] },
+      }),
+    ),
   renames: () => rows(object({ from: TEXT, to: TEXT })),
   creates: () => rows(object({ name: TEXT, expression: SQL_TEXT })),
   valuerows: () => rows(object({ name: TEXT, value: { $ref: "#/$defs/valuespec" } })),

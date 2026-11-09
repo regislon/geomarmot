@@ -56,15 +56,22 @@ export const OPERATORS = {
 
 /** The predicate for a list of conditions joined by AND or OR, or null when none is complete. */
 export function buildPredicate(conditions, logic) {
+  // Each condition may carry its own `join` (AND/OR, else `logic`) and parentheses (`open`, `close`).
+  let depth = 0;
   const parts = (conditions || [])
-    .filter((condition) => condition.column && condition.operator)
-    .map((condition) => {
-      const build = OPERATORS[condition.operator];
-      return build ? `(${build(qid(condition.column), condition.value ?? "")})` : null;
-    })
-    .filter(Boolean);
+    .filter((condition) => condition.column && condition.operator && OPERATORS[condition.operator])
+    .map((condition, k) => {
+      const opens = (condition.open || "").split("(").length - 1;
+      const closes = (condition.close || "").split(")").length - 1;
+      depth += opens - closes;
+      if (depth < 0) throw new Error("The parentheses do not balance: a ) closes nothing.");
+      const join = ["AND", "OR"].includes(condition.join) ? condition.join : logic === "OR" ? "OR" : "AND";
+      const test = `(${OPERATORS[condition.operator](qid(condition.column), condition.value ?? "")})`;
+      return `${k ? ` ${join} ` : ""}${"(".repeat(opens)}${test}${")".repeat(closes)}`;
+    });
+  if (depth !== 0) throw new Error("The parentheses do not balance: a ( is never closed.");
   if (!parts.length) return null;
-  return parts.join(logic === "OR" ? " OR " : " AND ");
+  return parts.join("");
 }
 
 /** Ceiling on value- and rule-driven output ports, so a high-cardinality column cannot freeze the canvas. */

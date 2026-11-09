@@ -5,6 +5,12 @@ export default [
   {
     ignores: [
       "node_modules/",
+      "rust/target/",
+      "rust/web/pkg/",
+      "rust/web/app-pkg/",
+      "rust/web/node_modules/",
+      "rust/web/public/",
+      "rust/web/dist/",
       "dist/",
       "dist-test/",
       "_site/",

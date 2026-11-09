@@ -1,0 +1,334 @@
+//! Port of `tests/harness/compare.js`: a port's output against a fixture expectation.
+//!
+//! exact     same type, dimensions, parts in order, rings with the same start vertex
+//!           and orientation, every coordinate within `tolerance` (`ignore` relaxes
+//!           ringStart / orientation / partOrder).
+//! topology  same type and dimensions, symmetric-difference area within
+//!           `areaTolerance` of the expected area, discrete Hausdorff distance within
+//!           `tolerance`, same validity. Uses `geo`, independent of DuckDB's spatial.
+
+use geo::{Area, BooleanOps, Buffer, Geometry, HausdorffDistance, MultiPolygon, Validation};
+use serde_json::Value;
+
+use crate::wkt::{Body, Geom, parse};
+
+#[derive(Clone)]
+pub struct GeomOpts {
+    pub mode: String,
+    pub tolerance: f64,
+    pub area_tolerance: f64,
+    pub ignore: Vec<String>,
+}
+
+impl GeomOpts {
+    pub fn from_case(v: Option<&Value>) -> Self {
+        let get = |k: &str| v.and_then(|o| o.get(k));
+        GeomOpts {
+            mode: get("mode").and_then(Value::as_str).unwrap_or("exact").into(),
+            tolerance: get("tolerance").and_then(Value::as_f64).unwrap_or(1e-9),
+            area_tolerance: get("areaTolerance").and_then(Value::as_f64).unwrap_or(1e-6),
+            ignore: get("ignore")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
+                .unwrap_or_default(),
+        }
+    }
+    fn ignores(&self, what: &str) -> bool {
+        self.ignore.iter().any(|i| i == what)
+    }
+}
+
+fn coords_equal(a: &[f64], b: &[f64], tol: f64) -> bool {
+    a.len() == b.len()
+        && a.iter()
+            .zip(b)
+            .all(|(x, y)| (x - y).abs() <= tol || (x.is_nan() && y.is_nan()))
+}
+
+fn list_equal(a: &[Vec<f64>], b: &[Vec<f64>], tol: f64) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(p, q)| coords_equal(p, q, tol))
+}
+
+fn ring_equal(a: &[Vec<f64>], b: &[Vec<f64>], o: &GeomOpts) -> bool {
+    if list_equal(a, b, o.tolerance) {
+        return true;
+    }
+    if a.len() != b.len() || a.len() < 4 {
+        return false;
+    }
+    let (oa, ob) = (&a[..a.len() - 1], &b[..b.len() - 1]);
+    let rotations: Vec<Vec<Vec<f64>>> = if o.ignores("ringStart") {
+        (0..oa.len()).map(|k| [&oa[k..], &oa[..k]].concat()).collect()
+    } else {
+        vec![oa.to_vec()]
+    };
+    let mut candidates = vec![ob.to_vec()];
+    if o.ignores("orientation") {
+        let mut rev = b.to_vec();
+        rev.reverse();
+        candidates.push(rev[..rev.len() - 1].to_vec());
+    }
+    rotations
+        .iter()
+        .any(|r| candidates.iter().any(|c| list_equal(r, c, o.tolerance)))
+}
+
+fn polygon_equal(a: &[Vec<Vec<f64>>], b: &[Vec<Vec<f64>>], o: &GeomOpts) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(r, s)| ring_equal(r, s, o))
+}
+
+fn line_equal(a: &[Vec<f64>], b: &[Vec<f64>], o: &GeomOpts) -> bool {
+    list_equal(a, b, o.tolerance)
+        || (o.ignores("orientation") && list_equal(a, &b.iter().rev().cloned().collect::<Vec<_>>(), o.tolerance))
+}
+
+fn multi_equal<T>(a: &[T], b: &[T], o: &GeomOpts, eq: impl Fn(&T, &T) -> bool) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    if !o.ignores("partOrder") {
+        return a.iter().zip(b).all(|(x, y)| eq(x, y));
+    }
+    let mut left: Vec<&T> = b.iter().collect();
+    a.iter()
+        .all(|part| match left.iter().position(|other| eq(part, other)) {
+            Some(at) => {
+                left.remove(at);
+                true
+            }
+            None => false,
+        })
+}
+
+fn has_z(g: &Geom) -> bool {
+    fn deep(b: &Body) -> bool {
+        match b {
+            Body::Point(p) => p.len() > 2,
+            Body::Line(l) | Body::MultiPoint(l) => l.iter().any(|p| p.len() > 2),
+            Body::Polygon(r) | Body::MultiLine(r) => r.iter().flatten().any(|p| p.len() > 2),
+            Body::MultiPolygon(m) => m.iter().flatten().flatten().any(|p| p.len() > 2),
+            Body::Collection(c) => c.iter().any(has_z),
+        }
+    }
+    g.z || g.body.as_ref().is_some_and(deep)
+}
+
+fn body_equal(a: &Body, b: &Body, o: &GeomOpts) -> bool {
+    match (a, b) {
+        (Body::Point(x), Body::Point(y)) => coords_equal(x, y, o.tolerance),
+        (Body::Line(x), Body::Line(y)) => line_equal(x, y, o),
+        (Body::Polygon(x), Body::Polygon(y)) => polygon_equal(x, y, o),
+        (Body::MultiPoint(x), Body::MultiPoint(y)) => multi_equal(x, y, o, |p, q| coords_equal(p, q, o.tolerance)),
+        (Body::MultiLine(x), Body::MultiLine(y)) => multi_equal(x, y, o, |p, q| line_equal(p, q, o)),
+        (Body::MultiPolygon(x), Body::MultiPolygon(y)) => multi_equal(x, y, o, |p, q| polygon_equal(p, q, o)),
+        (Body::Collection(x), Body::Collection(y)) => multi_equal(x, y, o, |p, q| exact_diff(p, q, o).is_none()),
+        _ => false,
+    }
+}
+
+fn exact_diff(a: &Geom, b: &Geom, o: &GeomOpts) -> Option<String> {
+    if a.kind != b.kind {
+        return Some(format!("type {} ≠ {}", a.kind, b.kind));
+    }
+    match (&a.body, &b.body) {
+        (None, None) => return None,
+        (None, _) | (_, None) => return Some("one is empty".into()),
+        _ => {}
+    }
+    if has_z(a) != has_z(b) {
+        let d = |g| if has_z(g) { "XYZ" } else { "XY" };
+        return Some(format!("dimensions {} ≠ {}", d(a), d(b)));
+    }
+    (!body_equal(a.body.as_ref()?, b.body.as_ref()?, o)).then(|| "coordinates differ".into())
+}
+
+/// A `geo` geometry for the topology mode (XY only; Z was already compared).
+fn to_geo(g: &Geom) -> Geometry<f64> {
+    let pt = |p: &Vec<f64>| geo::Point::new(p[0], p[1]);
+    let line = |r: &Vec<Vec<f64>>| geo::LineString::from(r.iter().map(|p| (p[0], p[1])).collect::<Vec<_>>());
+    let poly = |p: &Vec<Vec<Vec<f64>>>| geo::Polygon::new(line(&p[0]), p[1..].iter().map(line).collect());
+    match g.body.as_ref().expect("empty geometries are handled before") {
+        Body::Point(p) => pt(p).into(),
+        Body::Line(l) => line(l).into(),
+        Body::Polygon(p) => poly(p).into(),
+        Body::MultiPoint(m) => geo::MultiPoint(m.iter().map(pt).collect()).into(),
+        Body::MultiLine(m) => geo::MultiLineString(m.iter().map(line).collect()).into(),
+        Body::MultiPolygon(m) => MultiPolygon(m.iter().map(poly).collect()).into(),
+        Body::Collection(c) => Geometry::GeometryCollection(geo::GeometryCollection(
+            c.iter().filter(|g| g.body.is_some()).map(to_geo).collect(),
+        )),
+    }
+}
+
+/// Topological dimension (0 points, 1 lines, 2 areas), the largest part's for a collection.
+fn dimension(g: &Geom) -> u8 {
+    match &g.body {
+        Some(Body::Point(_) | Body::MultiPoint(_)) | None => 0,
+        Some(Body::Line(_) | Body::MultiLine(_)) => 1,
+        Some(Body::Polygon(_) | Body::MultiPolygon(_)) => 2,
+        Some(Body::Collection(c)) => c.iter().map(dimension).max().unwrap_or(0),
+    }
+}
+
+/// The area to compare: the geometry itself for areas, a buffer of `tolerance` for lines.
+fn areal(g: &Geometry<f64>, dim: u8, tolerance: f64) -> MultiPolygon<f64> {
+    match (dim, g) {
+        (2, Geometry::Polygon(p)) => MultiPolygon(vec![p.clone()]),
+        (2, Geometry::MultiPolygon(m)) => m.clone(),
+        _ => g.buffer(tolerance),
+    }
+}
+
+pub fn compare_geometry(actual: Option<&str>, expected: Option<&str>, o: &GeomOpts) -> Option<String> {
+    let (a_txt, b_txt) = match (actual, expected) {
+        (Some(a), Some(b)) => (a, b),
+        (None, None) => return None,
+        _ => return Some(format!("{actual:?} ≠ {expected:?}")),
+    };
+    let (a, b) = match (parse(a_txt), parse(b_txt)) {
+        (Ok(a), Ok(b)) => (a, b),
+        (Err(e), _) | (_, Err(e)) => return Some(e),
+    };
+    if o.mode == "exact" {
+        return exact_diff(&a, &b, o).map(|d| format!("{d}: {a_txt} vs {b_txt}"));
+    }
+    if a.kind != b.kind {
+        return Some(format!("type {} ≠ {}: {a_txt} vs {b_txt}", a.kind, b.kind));
+    }
+    match (&a.body, &b.body) {
+        (None, None) => return None,
+        (None, _) | (_, None) => return Some(format!("one is empty: {a_txt} vs {b_txt}")),
+        _ => {}
+    }
+    if has_z(&a) != has_z(&b) {
+        return Some(format!("dimensions differ: {a_txt} vs {b_txt}"));
+    }
+    let (ga, gb) = (to_geo(&a), to_geo(&b));
+    if ga.is_valid() != gb.is_valid() {
+        return Some(format!("validity differs: {a_txt} vs {b_txt}"));
+    }
+    let dim = dimension(&b);
+    let (aa, ab) = (areal(&ga, dim, o.tolerance), areal(&gb, dim, o.tolerance));
+    let reference = ab.unsigned_area().max(1e-30);
+    let sym = aa.xor(&ab).unsigned_area();
+    if dim > 0 && sym > o.area_tolerance * reference {
+        return Some(format!(
+            "shapes differ (symmetric difference {sym} > {} × {reference}): {a_txt} vs {b_txt}",
+            o.area_tolerance
+        ));
+    }
+    let hausdorff = ga.hausdorff_distance(&gb);
+    (hausdorff > o.tolerance).then(|| format!("Hausdorff distance {hausdorff} > {}: {a_txt} vs {b_txt}", o.tolerance))
+}
+
+fn value_equal(a: &Value, b: &Value, kind: &str, o: &GeomOpts) -> bool {
+    if a.is_null() || b.is_null() {
+        return a.is_null() && b.is_null();
+    }
+    if kind == "GEOMETRY" {
+        return compare_geometry(a.as_str(), b.as_str(), o).is_none();
+    }
+    if let (Some(x), Some(y)) = (a.as_f64(), b.as_f64()) {
+        return x == y || (x - y).abs() <= 1e-9 * 1f64.max(x.abs()).max(y.abs());
+    }
+    a == b
+}
+
+#[derive(Clone)]
+pub struct Table {
+    pub columns: Vec<(String, String)>,
+    pub rows: Vec<Vec<Value>>,
+}
+
+impl Table {
+    pub fn to_json(&self) -> Value {
+        let columns: Vec<Value> = self
+            .columns
+            .iter()
+            .map(|(n, k)| serde_json::json!({ "name": n, "type": k }))
+            .collect();
+        serde_json::json!({ "columns": columns, "rows": self.rows })
+    }
+
+    pub fn from_json(v: &Value) -> Table {
+        let columns = v["columns"]
+            .as_array()
+            .map(|cs| {
+                cs.iter()
+                    .map(|c| {
+                        (
+                            c["name"].as_str().unwrap_or("").into(),
+                            c["type"].as_str().unwrap_or("").into(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let rows = v["rows"]
+            .as_array()
+            .map(|rs| rs.iter().map(|r| r.as_array().cloned().unwrap_or_default()).collect())
+            .unwrap_or_default();
+        Table { columns, rows }
+    }
+}
+
+pub fn compare_table(actual: &Table, expected: &Table, ordered: bool, o: &GeomOpts) -> Vec<String> {
+    let names = |t: &Table| {
+        t.columns
+            .iter()
+            .map(|(n, k)| format!("{n} {k}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    // DuckDB 1.29 typed a bare NULL constant `"NULL"`; DuckDB 1.5 types it INTEGER. Only a column
+    // holding nothing but NULLs may stand in for an expected `"NULL"` column.
+    let mut actual = std::borrow::Cow::Borrowed(actual);
+    for (i, (_, k)) in expected.columns.iter().enumerate() {
+        let all_null = actual.rows.iter().all(|r| r.get(i).is_none_or(Value::is_null));
+        if k == "\"NULL\"" && all_null && actual.columns.get(i).is_some_and(|(_, a)| a != k) {
+            actual.to_mut().columns[i].1 = k.clone();
+        }
+    }
+    let actual = actual.as_ref();
+    if names(actual) != names(expected) {
+        return vec![format!(
+            "columns differ:\n    actual:   {}\n    expected: {}",
+            names(actual),
+            names(expected)
+        )];
+    }
+    let kinds: Vec<&str> = expected.columns.iter().map(|(_, k)| k.as_str()).collect();
+    let row_equal = |x: &Vec<Value>, y: &Vec<Value>| {
+        x.len() == y.len() && x.iter().zip(y).zip(&kinds).all(|((a, b), k)| value_equal(a, b, k, o))
+    };
+    let mut problems = Vec::new();
+    if actual.rows.len() != expected.rows.len() {
+        problems.push(format!("{} rows, expected {}", actual.rows.len(), expected.rows.len()));
+    }
+    if ordered {
+        for (k, row) in expected.rows.iter().enumerate() {
+            if let Some(a) = actual.rows.get(k).filter(|a| !row_equal(a, row)) {
+                problems.push(format!(
+                    "row {k}: {} ≠ {}",
+                    Value::from(a.clone()),
+                    Value::from(row.clone())
+                ));
+            }
+        }
+        return problems;
+    }
+    let mut left: Vec<&Vec<Value>> = actual.rows.iter().collect();
+    for row in &expected.rows {
+        match left.iter().position(|c| row_equal(c, row)) {
+            Some(at) => {
+                left.remove(at);
+            }
+            None => problems.push(format!("missing row {}", Value::from(row.clone()))),
+        }
+    }
+    problems.extend(
+        left.into_iter()
+            .map(|r| format!("unexpected row {}", Value::from(r.clone()))),
+    );
+    problems
+}

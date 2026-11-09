@@ -1,0 +1,65 @@
+name: rust-spike
+
+# Spike gate 7 (docs/rust-migration-plan.md): build the native engine on every target and check,
+# offline where the runner allows, that its bundled extensions load and answer; and run the
+# gate-1 fixtures in Chromium through the wasm build.
+
+on:
+  pull_request:
+    paths: ["rust/**", "transformers/*/tests.json", ".github/workflows/rust-spike.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Build the engine and its tests
+        run: cargo test --release -p geomarmot-engine --no-run
+      - name: Install the bundled extensions (a build step, with network)
+        run: cargo test --release -p geomarmot-engine --test guard
+      - name: Runtime check, network off (Linux)
+        if: runner.os == 'Linux'
+        run: sudo unshare --net -- env "PATH=$PATH" "HOME=$HOME" "CARGO_HOME=$CARGO_HOME" "RUSTUP_HOME=$RUSTUP_HOME" cargo test --release --offline -p geomarmot-engine --test runtime -- --nocapture
+      - name: Runtime check (locked engine; macOS, Windows)
+        if: runner.os != 'Linux'
+        run: cargo test --release -p geomarmot-engine --test runtime -- --nocapture
+      - name: Native gates (fixtures, guard, security, cancellation, overlay parity)
+        run: cargo test --release -p geomarmot-engine -p geomarmot-kernels
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cargo install wasm-bindgen-cli --version "=0.2.130" --locked
+      - run: npm ci
+      - run: npm ci
+        working-directory: rust/web
+      - run: npx playwright install --with-deps chromium
+      - run: npm --prefix rust/web run build:wasm && npm --prefix rust/web run build
+      - run: npx playwright test --config rust/web/playwright.config.js

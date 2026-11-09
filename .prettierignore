@@ -16,3 +16,9 @@ schemas/params.schema.json
 _site/
 _site_src/
 .cache/
+rust/target/
+rust/web/pkg/
+rust/web/public/extensions/
+rust/web/node_modules/
+rust/web/dist/
+rust/web/app-pkg/

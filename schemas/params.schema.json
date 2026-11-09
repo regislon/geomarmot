@@ -965,13 +965,27 @@
           ]
         },
         "conditions": {
-          "description": "Each condition is an attribute, an operator and, for most operators, a value to compare with.",
+          "description": "Each condition is an attribute, an operator and, for most operators, a value to compare with. A condition may also say AND or OR with the one before (join), and open or close parentheses to group them.",
           "type": "array",
           "maxItems": 200,
           "items": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
+              "join": {
+                "enum": [
+                  "AND",
+                  "OR",
+                  ""
+                ]
+              },
+              "open": {
+                "enum": [
+                  "",
+                  "(",
+                  "(("
+                ]
+              },
               "column": {
                 "type": "string",
                 "maxLength": 1000
@@ -993,6 +1007,13 @@
               "value": {
                 "type": "string",
                 "maxLength": 1000
+              },
+              "close": {
+                "enum": [
+                  "",
+                  ")",
+                  "))"
+                ]
               }
             }
           }
