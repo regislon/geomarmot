@@ -82,6 +82,11 @@ pub enum Kind {
     Column { port: &'static str },
     /// Several attributes of the input port, in the input's order.
     Columns { port: &'static str },
+    /// Several of fixed choices (`param.choices`), with the ones on by default.
+    Choices {
+        choices: &'static [&'static str],
+        default: &'static [&'static str],
+    },
     /// A list of literal values, with "Fill from data" from the `column` parameter.
     Values,
     /// Pairs of attributes, `left` = `right`, from the `left` and `right` ports.
@@ -122,6 +127,7 @@ pub fn default_params(t: &dyn Transformer) -> Value {
         let v = match p.kind {
             Kind::Columns { .. } | Kind::Values => Value::Array(vec![]),
             Kind::JoinKeys => serde_json::json!([{ "left": "", "right": "" }]),
+            Kind::Choices { default, .. } => serde_json::json!(default),
             _ => Value::String(p.default.into()),
         };
         out.insert(p.id.into(), v);

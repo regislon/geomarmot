@@ -189,6 +189,29 @@ pub fn show(ui: &mut Ui, node: usize, params: &[Param], values: &mut Value, colu
                     }
                 }
             }
+            Kind::Choices { choices, default } => {
+                let mut chosen: Vec<String> = match value.as_array() {
+                    Some(a) => a.iter().filter_map(|v| v.as_str().map(String::from)).collect(),
+                    None => default.iter().map(|s| s.to_string()).collect(),
+                };
+                let mut changed = false;
+                for c in choices {
+                    let mut on = chosen.iter().any(|x| x == c);
+                    if ui.checkbox(&mut on, *c).changed() {
+                        changed = true;
+                        chosen.retain(|x| x != c);
+                        if on {
+                            chosen.push(c.to_string());
+                        }
+                    }
+                }
+                if changed {
+                    // The declared order, not the click order.
+                    let picked = choices.iter().filter(|c| chosen.iter().any(|x| x == *c));
+                    *value = picked.map(|c| Value::String(c.to_string())).collect();
+                    out.changed = true;
+                }
+            }
             Kind::Values => {
                 let mut items: Vec<String> = value.as_array().into_iter().flatten().map(|v| text(v, "")).collect();
                 let mut changed = false;

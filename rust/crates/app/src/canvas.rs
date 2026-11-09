@@ -17,6 +17,15 @@ pub const PALETTE: &[&str] = &[
     "AreaOnAreaOverlayer",
     "MinimumBoundingCircle",
     "H3GeometryFromIndex",
+    "AddGeometryAttributes",
+    "BoundingBoxReplacer",
+    "CentroidVector",
+    "CoordinateSystemSetter",
+    "EliminateCoincidentPoints",
+    "FilterVectorFeaturesByArea",
+    "MinimumBoundingBox",
+    "MinimumConvexHull",
+    "RepresentativePointVector",
 ];
 
 /// Width of a node's title: every node is as wide.

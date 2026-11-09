@@ -16,6 +16,15 @@ pub const GATE_1: &[&str] = &[
     "area-on-area-overlayer",
     "minimum-bounding-circle",
     "h3-geometry-from-index",
+    "add-geometry-attributes",
+    "bounding-box-replacer",
+    "centroid-vector",
+    "coordinate-system-setter",
+    "eliminate-coincident-points",
+    "filter-vector-features-by-area",
+    "minimum-bounding-box",
+    "minimum-convex-hull",
+    "representative-point-vector",
 ];
 
 /// Run every case of `docs` ((folder, tests.json text)); returns (passed, failures).
