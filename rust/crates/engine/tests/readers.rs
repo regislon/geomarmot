@@ -12,14 +12,80 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use geomarmot_engine::{Config, Host, SqlEngine, io, qlit};
-use support::{extension_dir, repo};
+use support::extension_dir;
 
-fn generated(name: &str) -> String {
-    repo()
-        .join("tests/fixtures/generated")
-        .join(name)
-        .to_string_lossy()
-        .into_owned()
+/// The GeoJSON of the JavaScript feature-panel fixture: a small polygon and a five-part,
+/// 100,000-vertex boundary, each with 30 attributes (`tests/browser/geopackage.spec.js`).
+fn areas_geojson() -> String {
+    let ring = |cx: f64, n: usize| -> Vec<[f64; 2]> {
+        (0..=n)
+            .map(|k| {
+                let a = std::f64::consts::TAU * (k % n) as f64 / n as f64;
+                [cx + a.cos(), a.sin()]
+            })
+            .collect()
+    };
+    let props = |name: &str, last_null: bool| {
+        let mut p = serde_json::Map::new();
+        p.insert("name".into(), name.into());
+        for k in 0..30 {
+            let v = if last_null && k == 29 {
+                serde_json::Value::Null
+            } else {
+                format!("v{k}").into()
+            };
+            p.insert(format!("attr_{k:02}"), v);
+        }
+        p
+    };
+    serde_json::json!({ "type": "FeatureCollection", "features": [
+        { "type": "Feature", "properties": props("small", false),
+          "geometry": { "type": "Polygon", "coordinates": [ring(0.0, 8)] } },
+        { "type": "Feature", "properties": props("boundary", true),
+          "geometry": { "type": "MultiPolygon",
+                        "coordinates": (0..5).map(|p| vec![ring(p as f64 * 3.0, 20000)]).collect::<Vec<_>>() } },
+    ]})
+    .to_string()
+}
+
+/// GeoPackages written by GDAL (DuckDB's GDAL driver), as `tests/fixtures/build.js` writes them
+/// with ogr2ogr: `feature-panel.gpkg` (areas, lon/lat) and `lv95.gpkg` (one point in EPSG:2056).
+fn gdal_geopackages(dir: &std::path::Path) -> Vec<String> {
+    let geojson = dir.join("areas.geojson");
+    std::fs::write(&geojson, areas_geojson()).unwrap();
+    let path = |name: &str| dir.join(name).to_string_lossy().into_owned();
+    let host = Host::open(&Config {
+        extension_dir: extension_dir(),
+        allowed_paths: vec![
+            geojson.to_string_lossy().into_owned(),
+            path("feature-panel.gpkg"),
+            path("lv95.gpkg"),
+        ],
+        staging_dir: Some(dir.to_path_buf()),
+        memory_limit: None,
+    })
+    .unwrap();
+    let copy = |select: &str, name: &str, layer: &str, srs: &str| {
+        host.exec_now(&format!(
+            "COPY ({select}) TO {} WITH (FORMAT GDAL, DRIVER 'GPKG', LAYER_NAME '{layer}', SRS '{srs}')",
+            qlit(&path(name))
+        ))
+        .unwrap();
+    };
+    let source = geojson.to_string_lossy().into_owned();
+    copy(
+        &format!("SELECT * EXCLUDE (OGC_FID) FROM ST_Read({})", qlit(&source)),
+        "feature-panel.gpkg",
+        "areas",
+        "EPSG:4326",
+    );
+    copy(
+        "SELECT 'Bern' AS name, ST_Point(2600000, 1200000) AS geom",
+        "lv95.gpkg",
+        "sites",
+        "EPSG:2056",
+    );
+    vec![path("feature-panel.gpkg"), path("lv95.gpkg")]
 }
 
 fn staging(name: &str) -> PathBuf {
@@ -74,14 +140,7 @@ fn terrio_and_st_read_agree_and_timings() {
     let dir = staging("gpkg");
     // Copies in the staging directory: GDAL (ST_Read, the comparison) probes sidecar files, which
     // only a directory permission allows. The app reads these formats with terrio instead.
-    let mut files: Vec<String> = ["feature-panel.gpkg", "lv95.gpkg"]
-        .iter()
-        .map(|name| {
-            let to = dir.join(name);
-            std::fs::copy(generated(name), &to).unwrap();
-            to.to_string_lossy().into_owned()
-        })
-        .collect();
+    let mut files = gdal_geopackages(&dir);
     files.push(big_geopackage(&dir, 200_000));
     let config = Config {
         extension_dir: extension_dir(),
@@ -220,8 +279,8 @@ fn parquet_range_reads_fetch_only_what_the_query_needs() {
 
 #[test]
 fn geopackage_written_by_terrio_reads_back() {
-    let source = generated("feature-panel.gpkg");
     let dir = staging("export");
+    let source = gdal_geopackages(&dir).remove(0);
     let out = dir.join("out.gpkg").to_string_lossy().into_owned();
     let host = Host::open(&Config {
         extension_dir: extension_dir(),

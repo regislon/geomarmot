@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use egui_snarl::{InPinId, NodeId, OutPinId};
 use geomarmot_app::app::App;
 use geomarmot_app::canvas::NodeData;
@@ -51,7 +52,7 @@ fn open_chain_read_export() {
         .wgpu()
         .build_eframe(|_cc| App::new(Worker::start(supervisor, staging, || {})));
 
-    let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tests/fixtures/generated/areas.geojson");
+    let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/areas.geojson");
     h.state_mut().open(file);
     wait(&mut h, "the Reader", |a| {
         a.snarl.node_ids().count() == 1 && a.status() == "Ready."
@@ -213,4 +214,31 @@ fn open_chain_read_export() {
         .0;
     assert_eq!(app.snarl.wires().count(), wires + 1);
     assert!(app.snarl.wires().any(|(o, i)| o.node == dissolve && i.node == sorter));
+
+    // AttributeManager lists its input's attributes before anything runs: compiled, not run.
+    let app = h.state_mut();
+    let manager = app.snarl.insert_node(
+        egui::pos2(0.0, 600.0),
+        NodeData::new("AttributeManager", json!({"actions": []}), String::new()),
+    );
+    app.snarl.connect(
+        OutPinId {
+            node: reader,
+            output: 0,
+        },
+        InPinId {
+            node: manager,
+            input: 0,
+        },
+    );
+    app.viewer.selected = Some((manager.0, 0));
+    for _ in 0..200 {
+        h.step();
+        if h.query_by_label("attr_29").is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(h.query_by_label("Input attribute").is_some(), "the attribute table");
+    assert!(h.query_by_label("attr_29").is_some(), "the input's attributes, before any run");
 }

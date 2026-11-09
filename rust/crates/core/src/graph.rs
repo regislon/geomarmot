@@ -208,6 +208,35 @@ async fn build(engine: &impl SqlEngine, graph: &Graph, generation: u64, cache: b
     states
 }
 
+/// Attribute names (geometry left out) of one output, without running anything: compile the
+/// graph (views are lazy) in generation 0, describe the view, drop it. Before its input has run,
+/// this is what an attribute picker lists.
+// ponytail: a hook (a kernel) upstream still does its work here; cache per graph if that is slow.
+pub async fn output_columns(
+    engine: &impl SqlEngine,
+    graph: &Graph,
+    node: usize,
+    port: usize,
+) -> Result<Vec<Vec<Value>>> {
+    let states = compile_graph(engine, graph, 0).await;
+    let result = match states.get(&node) {
+        Some(NodeState::Ready { ports, .. }) => match ports.get(port) {
+            Some((_, view)) => {
+                engine
+                    .query(&format!(
+                        "SELECT column_name FROM (DESCRIBE {view}) WHERE column_type NOT LIKE 'GEOMETRY%'"
+                    ))
+                    .await
+            }
+            None => Err("No such output.".into()),
+        },
+        Some(NodeState::Error(e)) => Err(e.clone()),
+        _ => Err("Its input is not connected.".into()),
+    };
+    drop_generation(engine, 0).await;
+    result
+}
+
 /// Drop every view and table of a generation.
 pub async fn drop_generation(engine: &impl SqlEngine, generation: u64) {
     let like = format!("g{generation}\\_n%");

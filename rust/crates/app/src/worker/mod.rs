@@ -37,6 +37,13 @@ pub enum Job {
         key: String,
         sql: String,
     },
+    /// Attribute names of output `port` of `node`, compiling `graph` without running it; replies `Rows`.
+    Columns {
+        key: String,
+        graph: Graph,
+        node: usize,
+        port: usize,
+    },
     /// Run a statement for its effect (the probe's workload).
     Exec(String),
     /// The browser: a file the user picked, as bytes.

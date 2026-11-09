@@ -108,6 +108,10 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
             key,
             rows: pollster::block_on(engine.query(&sql)),
         },
+        Job::Columns { key, graph, node, port } => Reply::Rows {
+            key,
+            rows: pollster::block_on(geomarmot_core::graph::output_columns(&*engine, &graph, node, port)),
+        },
         Job::Read { view, crs, offset } => Reply::Read {
             table: pollster::block_on(super::read(&*engine, &view, &crs, offset)),
             view,

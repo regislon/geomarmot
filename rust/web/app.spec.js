@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
 
-const fixture = readFileSync(new URL("../../tests/fixtures/generated/areas.geojson", import.meta.url));
+const fixture = readFileSync(new URL("../crates/app/tests/areas.geojson", import.meta.url));
 
 const waitFor = (page, check, timeout = 60_000) => page.waitForFunction(check, null, { timeout, polling: 100 });
 

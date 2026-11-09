@@ -94,6 +94,10 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
             key,
             rows: engine.query(&sql).await,
         },
+        Job::Columns { key, graph, node, port } => Reply::Rows {
+            key,
+            rows: geomarmot_core::graph::output_columns(&engine, &graph, node, port).await,
+        },
         Job::Read { view, crs, offset } => Reply::Read {
             table: super::read(&engine, &view, &crs, offset).await,
             view,

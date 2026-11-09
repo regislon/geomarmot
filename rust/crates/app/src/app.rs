@@ -637,11 +637,36 @@ impl App {
             .collect()
     }
 
-    /// Attribute names of each input that has run; asks the engine once per view.
+    /// Attribute names of each connected input; asks the engine once per view. An input that has
+    /// not run is compiled, not run, to learn them (keyed by the graph feeding it).
     fn input_columns(&mut self, node: usize) -> crate::form::Columns {
         let mut out = crate::form::Columns::new();
-        for (port, from) in self.upstream(node) {
-            let Some((view, _)) = from else { continue };
+        for (k, (port, from)) in self.upstream(node).into_iter().enumerate() {
+            let Some((view, _)) = from else {
+                let Some((o, _)) = self.snarl.wires().find(|(_, i)| i.node.0 == node && i.input == k) else {
+                    continue;
+                };
+                let graph = geomarmot_core::graph::upstream(&crate::canvas::to_graph(&self.snarl), &[o.node.0]);
+                let key = {
+                    use std::hash::{Hash, Hasher};
+                    let mut h = std::collections::hash_map::DefaultHasher::new();
+                    format!("{graph:?}").hash(&mut h);
+                    format!("compiled:{}:{}:{:x}", o.node.0, o.output, h.finish())
+                };
+                match self.schemas.get(&key) {
+                    Some(names) => {
+                        out.insert(port, names.clone());
+                    }
+                    None if self.asked.insert(key.clone()) => self.send(Job::Columns {
+                        key: format!("schema:{key}"),
+                        graph,
+                        node: o.node.0,
+                        port: o.output,
+                    }),
+                    None => {}
+                }
+                continue;
+            };
             match self.schemas.get(&view) {
                 Some(names) => {
                     out.insert(port, names.clone());
