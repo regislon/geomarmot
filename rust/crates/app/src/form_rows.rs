@@ -213,6 +213,9 @@ fn title(key: &str) -> &str {
         "value" => "Value",
         "func" => "Function",
         "alias" => "Result name",
+        "join" => "Logic",
+        "open" => "(",
+        "close" => ")",
         other => other,
     }
 }
@@ -226,16 +229,22 @@ pub fn table(
     names: Option<&Vec<String>>,
 ) -> bool {
     const WIDTH: f32 = 104.0;
+    // Parentheses and AND/OR are narrow columns.
+    let width = |key: &str| match key {
+        "open" | "close" => 44.0,
+        "join" => 64.0,
+        _ => WIDTH,
+    };
     let mut rows: Vec<Value> = value.as_array().cloned().unwrap_or_default();
     let (mut changed, mut remove) = (false, None);
-    let pick = |ui: &mut Ui, salt, s: &mut String, options: &mut dyn Iterator<Item = &str>| {
+    let pick = |ui: &mut Ui, salt, w: f32, s: &mut String, options: &mut dyn Iterator<Item = &str>| {
         let before = s.clone();
         egui::ComboBox::from_id_salt(salt)
-            .width(WIDTH)
+            .width(w)
             .selected_text(if s.is_empty() { "—" } else { s.as_str() })
             .show_ui(ui, |ui| {
                 for o in options {
-                    ui.selectable_value(s, o.to_string(), o);
+                    ui.selectable_value(s, o.to_string(), if o.is_empty() { "—" } else { o });
                 }
             });
         *s != before
@@ -245,10 +254,12 @@ pub fn table(
         .spacing([6.0, 4.0])
         .striped(true)
         .show(ui, |ui| {
-            for (key, _) in fields {
-                ui.label(egui::RichText::new(title(key)).small().strong());
+            if !rows.is_empty() {
+                for (key, _) in fields {
+                    ui.label(egui::RichText::new(title(key)).small().strong());
+                }
+                ui.end_row();
             }
-            ui.end_row();
             for (i, row) in rows.iter_mut().enumerate() {
                 for (key, cell) in fields {
                     let mut s = row[*key]
@@ -259,13 +270,24 @@ pub fn table(
                             v => v.to_string(),
                         });
                     let edited = match (cell, names) {
+                        // The first line has nothing before it to join with.
+                        _ if *key == "join" && i == 0 => {
+                            ui.label(egui::RichText::new("If").color(crate::canvas::colour::MUTED));
+                            false
+                        }
                         (Cell::Column, Some(names)) => pick(
                             ui,
                             (id, i, *key),
+                            WIDTH,
                             &mut s,
                             &mut std::iter::once("").chain(names.iter().map(String::as_str)),
                         ),
-                        (Cell::Pick(options), _) => pick(ui, (id, i, *key), &mut s, &mut options.iter().copied()),
+                        (Cell::Pick(options), _) => {
+                            if *key == "join" && s.is_empty() {
+                                s = "AND".into();
+                            }
+                            pick(ui, (id, i, *key), width(key), &mut s, &mut options.iter().copied())
+                        }
                         // An empty rule label leaves the port its default name, R0, R1, …
                         _ => {
                             let hint = if *key == "label" {
@@ -293,8 +315,12 @@ pub fn table(
         changed = true;
     }
     if ui.small_button("+ Add").clicked() {
+        // A new condition joins the one before with AND.
         rows.push(Value::Object(
-            fields.iter().map(|(k, _)| (k.to_string(), Value::from(""))).collect(),
+            fields
+                .iter()
+                .map(|(k, _)| (k.to_string(), Value::from(if *k == "join" { "AND" } else { "" })))
+                .collect(),
         ));
         changed = true;
     }

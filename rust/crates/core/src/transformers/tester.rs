@@ -14,28 +14,22 @@ impl Transformer for Tester {
     }
 
     fn params(&self) -> &'static [Param] {
-        const P: &[Param] = &[
-            Param::new(
-                "logic",
-                "Combine with",
-                Kind::Select(&[
-                    ("AND", "A row passes when every condition holds."),
-                    ("OR", "A row passes when any condition holds."),
-                ]),
-                "How the conditions combine into one test: all of them, or any of them.",
-            )
-            .default("AND"),
-            Param::new(
-                "conditions",
-                "Conditions",
-                Kind::Rows(&[
-                    ("column", Cell::Column),
-                    ("operator", Cell::Pick(OPERATORS)),
-                    ("value", Cell::Text),
-                ]),
-                "Each condition is an attribute, an operator and, for most operators, a value to compare with.",
-            ),
-        ];
+        // One line per condition, as a table: its AND/OR with the line before, parentheses to
+        // group lines. `logic` (the older all-AND or all-OR switch) still applies to lines
+        // without their own AND/OR.
+        const P: &[Param] = &[Param::new(
+            "conditions",
+            "Conditions",
+            Kind::Rows(&[
+                ("join", Cell::Pick(&["AND", "OR"])),
+                ("open", Cell::Pick(&["", "(", "(("])),
+                ("column", Cell::Column),
+                ("operator", Cell::Pick(OPERATORS)),
+                ("value", Cell::Text),
+                ("close", Cell::Pick(&["", ")", "))"])),
+            ]),
+            "Each line is AND or OR with the line before, an attribute, an operator and a value; parentheses group lines.",
+        )];
         P
     }
 
@@ -44,13 +38,40 @@ impl Transformer for Tester {
     }
 
     fn sql(&self, ctx: &Ctx) -> Result<Ports> {
-        // buildPredicate: complete conditions only, joined by the logic.
-        let parts: Vec<String> = rows(ctx, "conditions")
-            .iter()
-            .filter(|c| !field(c, "column").is_empty() && !field(c, "operator").is_empty())
-            .filter_map(|c| comparison(&field(c, "column"), &field(c, "operator"), &field(c, "value")))
-            .map(|p| format!("({p})"))
-            .collect();
+        // buildPredicate: complete conditions only, each joined by its own AND/OR (else `logic`),
+        // with its parentheses.
+        let logic = if ctx.str("logic") == "OR" { "OR" } else { "AND" };
+        let mut depth = 0i32;
+        let mut parts = Vec::new();
+        for c in rows(ctx, "conditions") {
+            if field(c, "column").is_empty() || field(c, "operator").is_empty() {
+                continue;
+            }
+            let Some(test) = comparison(&field(c, "column"), &field(c, "operator"), &field(c, "value")) else {
+                continue;
+            };
+            let (opens, closes) = (
+                field(c, "open").matches('(').count(),
+                field(c, "close").matches(')').count(),
+            );
+            depth += opens as i32 - closes as i32;
+            if depth < 0 {
+                return Err("The parentheses do not balance: a ) closes nothing.".into());
+            }
+            let join = match field(c, "join").as_str() {
+                j @ ("AND" | "OR") => j.to_string(),
+                _ => logic.to_string(),
+            };
+            let lead = if parts.is_empty() {
+                String::new()
+            } else {
+                format!(" {join} ")
+            };
+            parts.push(format!("{lead}{}({test}){}", "(".repeat(opens), ")".repeat(closes)));
+        }
+        if depth != 0 {
+            return Err("The parentheses do not balance: a ( is never closed.".into());
+        }
         let input = ctx.input("input");
         if parts.is_empty() {
             return Ok(Ports::from([
@@ -58,8 +79,7 @@ impl Transformer for Tester {
                 ("failed".into(), format!("SELECT * FROM {input} WHERE FALSE")),
             ]));
         }
-        let joiner = if ctx.str("logic") == "OR" { " OR " } else { " AND " };
-        let test = truthy(&parts.join(joiner));
+        let test = truthy(&parts.concat());
         Ok(Ports::from([
             ("passed".into(), format!("SELECT * FROM {input} WHERE {test}")),
             ("failed".into(), format!("SELECT * FROM {input} WHERE NOT {test}")),

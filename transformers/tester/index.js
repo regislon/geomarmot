@@ -40,7 +40,9 @@ export default defineTransformer({
       description: "How the conditions combine into one test: all of them, or any of them.",
     }),
     param.conditions("conditions", "Conditions", {
-      description: "Each condition is an attribute, an operator and, for most operators, a value to compare with.",
+      description:
+        "Each condition is an attribute, an operator and, for most operators, a value to compare with. " +
+        "A condition may also say AND or OR with the one before (join), and open or close parentheses to group them.",
     }),
   ],
   sql: (ctx) => {

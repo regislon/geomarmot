@@ -75,12 +75,14 @@ impl App {
         if let Some(b) = bookmarks::around(&self.viewer, &nodes, format!("Bookmark {}", n + 1), n) {
             self.viewer.bookmarks.push(b);
         } else {
-            self.status = "Select nodes first: click one, or Shift-drag a box around several.".into();
+            self.status = "Select nodes first: click one, or drag a box around several.".into();
         }
     }
 
-    /// Bookmark drags, from the raw pointer, before the canvas takes the drag as a pan.
-    /// True when the pointer is busy with a bookmark.
+    /// Bookmark drags and the selection box, from the raw pointer, before the canvas takes the
+    /// drag as a pan (panning is the middle or right button, or the trackpad). A left drag on
+    /// empty canvas draws a box; the nodes it touches are selected together.
+    /// True when the pointer is busy with a bookmark or a box.
     pub(super) fn bookmark_input(&mut self, ctx: &egui::Context, area: egui::Rect) -> bool {
         let (pressed, down, delta, pos) = ctx.input(|i| {
             (
@@ -96,12 +98,59 @@ impl App {
                 .node_rects
                 .iter()
                 .any(|(_, r)| (self.viewer.to_global * *r).contains(p));
-            if !on_node {
+            // A node's ports and floating buttons sit just outside it.
+            let near_node = self
+                .viewer
+                .node_rects
+                .iter()
+                .any(|(_, r)| (self.viewer.to_global * *r).expand(14.0).contains(p));
+            if on_node {
+                // A click on a node outside the box ends the box selection.
+                let hit = self
+                    .viewer
+                    .node_rects
+                    .iter()
+                    .find(|(_, r)| (self.viewer.to_global * *r).contains(p));
+                if hit.is_some_and(|(n, _)| !self.boxed.contains(n)) {
+                    self.boxed.clear();
+                }
+            } else {
                 self.bookmark_drag = bookmarks::press(&mut self.viewer, p);
-                if self.bookmark_drag.is_some() {
+                let on_bookmark_title = bookmarks::title_at(&self.viewer, p).is_some();
+                if self.bookmark_drag.is_none() && !near_node && !on_bookmark_title {
+                    self.box_from = Some(p);
+                }
+                if self.bookmark_drag.is_some() || self.box_from.is_some() {
                     self.viewer.lock_view = Some(self.viewer.to_global);
                 }
             }
+        }
+        if let Some(from) = self.box_from {
+            let to = pos.unwrap_or(from);
+            let r = egui::Rect::from_two_pos(from, to);
+            if down {
+                let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("box")));
+                painter.rect_filled(r, 2.0, crate::canvas::colour::ACCENT_SOFT.gamma_multiply(0.15));
+                painter.rect_stroke(
+                    r,
+                    2.0,
+                    egui::Stroke::new(1.0, crate::canvas::colour::ACCENT),
+                    egui::StrokeKind::Inside,
+                );
+                ctx.request_repaint();
+            } else {
+                // Released: the nodes the box touches (a click selects nothing).
+                self.boxed = self
+                    .viewer
+                    .node_rects
+                    .iter()
+                    .filter(|(_, n)| (self.viewer.to_global * *n).intersects(r) && r.area() > 16.0)
+                    .map(|(n, _)| *n)
+                    .collect();
+                self.box_from = None;
+                self.viewer.lock_view = None;
+            }
+            return true;
         }
         if let Some(what) = &self.bookmark_drag {
             if down {

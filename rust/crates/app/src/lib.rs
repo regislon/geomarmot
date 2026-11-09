@@ -9,6 +9,7 @@ mod form_manager;
 mod form_rows;
 #[cfg(target_arch = "wasm32")]
 pub mod hooks;
+pub mod icons;
 mod links;
 pub mod map;
 #[cfg(not(target_arch = "wasm32"))]

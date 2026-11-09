@@ -257,6 +257,35 @@ fn open_chain_read_export() {
     });
     h.run_steps(3);
     assert_eq!(h.state().viewer.bookmarks.len(), 1);
+
+    // A left drag on empty canvas draws a box; the nodes it touches are selected together.
+    let r = {
+        let v = &h.state().viewer;
+        v.to_global * v.node_rects.iter().find(|(n, _)| *n == reader.0).unwrap().1
+    };
+    let (from, to) = (r.right_bottom() + egui::vec2(40.0, 40.0), r.center());
+    let before = h.state().viewer.to_global;
+    h.event(egui::Event::PointerMoved(from));
+    h.event(egui::Event::PointerButton {
+        pos: from,
+        button: egui::PointerButton::Primary,
+        pressed: true,
+        modifiers: egui::Modifiers::NONE,
+    });
+    h.step();
+    for k in 1..=5 {
+        h.event(egui::Event::PointerMoved(from + (to - from) * k as f32 / 5.0));
+        h.step();
+    }
+    h.event(egui::Event::PointerButton {
+        pos: to,
+        button: egui::PointerButton::Primary,
+        pressed: false,
+        modifiers: egui::Modifiers::NONE,
+    });
+    h.run_steps(2);
+    assert!(h.state().viewer.multi.contains(&reader.0), "the box selects the Reader");
+    assert_eq!(h.state().viewer.to_global, before, "the box does not pan the view");
     h.render()
         .expect("render")
         .save(target().join("gate5-bookmark.png"))

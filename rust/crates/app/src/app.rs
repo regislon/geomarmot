@@ -34,6 +34,9 @@ pub struct App {
     reopen: Vec<(String, egui_snarl::NodeId)>,
     /// A bookmark being moved or resized.
     bookmark_drag: Option<crate::bookmarks::Drag>,
+    /// Where a selection box started (screen), and the nodes the last box selected.
+    box_from: Option<egui::Pos2>,
+    boxed: Vec<usize>,
     /// A bookmark being renamed, and where its field sits.
     renaming: Option<(usize, egui::Pos2)>,
     /// The link under the pointer when the search opened: the new node goes into it.
@@ -81,6 +84,8 @@ impl App {
             project_path: None,
             reopen: Vec::new(),
             bookmark_drag: None,
+            box_from: None,
+            boxed: Vec::new(),
             renaming: None,
             quick_link: None,
             map: crate::map::MapView::default(),
@@ -421,14 +426,16 @@ impl App {
     }
 
     fn top_bar(&mut self, ui: &mut egui::Ui) {
-        let white = |t: &str| egui::RichText::new(t).color(egui::Color32::WHITE);
+        use crate::icons::{Icon, tool};
         let later = "Not in the Rust version yet";
-        let dim = |t: &str| egui::RichText::new(t).color(egui::Color32::from_gray(110));
         ui.horizontal_centered(|ui| {
             ui.label(egui::RichText::new("GeoMarmot").size(18.0).color(egui::Color32::WHITE));
             ui.add_space(24.0);
             ui.separator();
-            if ui.add(egui::Button::new(white("New")).frame(false)).clicked() {
+            if tool(ui, Icon::New, "New", true, None)
+                .on_hover_text("Start an empty canvas")
+                .clicked()
+            {
                 self.snarl = egui_snarl::Snarl::new();
                 self.viewer.bookmarks.clear();
                 self.project_path = None;
@@ -436,68 +443,60 @@ impl App {
                 self.states.clear();
                 self.shown = None;
             }
-            if ui.add(egui::Button::new(white("Open…")).frame(false)).clicked() {
-                self.pick_file();
-            }
-            if ui
-                .add_enabled(
-                    self.snarl.node_ids().next().is_some(),
-                    egui::Button::new(egui::RichText::new("▶ Run").color(colour::ACCENT_SOFT).strong()).frame(false),
-                )
-                .on_hover_text("Run the whole graph and cache every result")
+            if tool(ui, Icon::Open, "Open…", true, None)
+                .on_hover_text("Open a data file, or a saved graph (.flow.json)")
                 .clicked()
             {
-                self.run(None);
+                self.pick_file();
             }
-            if ui
-                .add(egui::Button::new(white("Save")).frame(false))
+            if tool(ui, Icon::Save, "Save", true, None)
                 .on_hover_text("Save the graph (Ctrl+S); Shift-click to save as")
                 .clicked()
             {
                 let ask = ui.input(|i| i.modifiers.shift);
                 self.save_graph(ask);
             }
-            if ui
-                .add(egui::Button::new(white("Bookmark")).frame(false))
-                .on_hover_text("Frame the selected nodes in a bookmark (Ctrl+B). Shift-drag a box to select several.")
+            ui.separator();
+            tool(ui, Icon::Connect, "Connect", false, None).on_hover_text(later);
+            ui.separator();
+            let any = self.snarl.node_ids().next().is_some();
+            if tool(ui, Icon::Run, "Run", any, Some(colour::ACCENT_SOFT))
+                .on_hover_text("Run the whole graph and cache every result")
                 .clicked()
             {
-                self.add_bookmark();
-            }
-            ui.separator();
-            ui.add_enabled(false, egui::Button::new(dim("Connect")).frame(false))
-                .on_disabled_hover_text(later);
-            ui.separator();
-            if ui
-                .add_enabled(
-                    self.selected_view().is_some(),
-                    egui::Button::new(white("Export…")).frame(false),
-                )
-                .clicked()
-            {
-                self.pick_export();
+                self.run(None);
             }
             let busy = self.running.is_some();
-            let cancel = if busy {
-                egui::RichText::new("■ Cancel").color(colour::HIGHLIGHT).strong()
-            } else {
-                white("Cancel")
-            };
-            if ui.add(egui::Button::new(cancel).frame(false)).clicked() {
+            let accent = busy.then_some(colour::HIGHLIGHT);
+            if tool(ui, Icon::Cancel, "Cancel", true, accent)
+                .on_hover_text("Stop the run")
+                .clicked()
+            {
                 self.status = self.worker.cancel();
                 self.running = None;
                 self.viewer.running.clear();
             }
-            ui.separator();
-            for name in ["Undo", "Redo"] {
-                ui.add_enabled(false, egui::Button::new(dim(name)).frame(false))
-                    .on_disabled_hover_text(later);
+            if tool(ui, Icon::Export, "Export…", self.selected_view().is_some(), None)
+                .on_hover_text("Write the shown output to a file")
+                .clicked()
+            {
+                self.pick_export();
             }
             ui.separator();
-            for name in ["Arrange", "Assistant"] {
-                ui.add_enabled(false, egui::Button::new(dim(name)).frame(false))
-                    .on_disabled_hover_text(later);
+            if tool(ui, Icon::Bookmark, "Bookmark", true, None)
+                .on_hover_text(
+                    "Frame the selected nodes in a bookmark (Ctrl+B). Drag a box on empty canvas to select several.",
+                )
+                .clicked()
+            {
+                self.add_bookmark();
             }
+            tool(ui, Icon::Arrange, "Arrange", false, None).on_hover_text(later);
+            ui.separator();
+            tool(ui, Icon::Undo, "Undo", false, None).on_hover_text(later);
+            tool(ui, Icon::Redo, "Redo", false, None).on_hover_text(later);
+            ui.separator();
+            tool(ui, Icon::Assistant, "Assistant", false, None).on_hover_text(later);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if !self.note.is_empty() {
                     ui.label(
@@ -907,6 +906,7 @@ impl App {
             self.add_bookmark();
         }
         if delete && !self.viewer.multi.is_empty() {
+            self.boxed.clear();
             for node in std::mem::take(&mut self.viewer.multi) {
                 self.remove_node(node);
             }
@@ -1259,7 +1259,15 @@ impl eframe::App for App {
                 self.bookmark_input(ui.ctx(), ui.max_rect());
                 let widget = SnarlWidget::new().style(crate::canvas::style());
                 let canvas = widget.show(&mut self.snarl, &mut self.viewer, ui);
-                self.viewer.multi = widget.get_selected_nodes(ui).into_iter().map(|n| n.0).collect();
+                // Selected together: the box, plus Shift-drag (the canvas's own box).
+                self.boxed
+                    .retain(|n| self.snarl.get_node(egui_snarl::NodeId(*n)).is_some());
+                self.viewer.multi = self.boxed.clone();
+                for n in widget.get_selected_nodes(ui) {
+                    if !self.viewer.multi.contains(&n.0) {
+                        self.viewer.multi.push(n.0);
+                    }
+                }
                 self.bookmark_rename(ui.ctx());
                 self.canvas_keys(ui.ctx(), &canvas);
                 let hovering = ui.ctx().input(|i| !i.raw.hovered_files.is_empty());
