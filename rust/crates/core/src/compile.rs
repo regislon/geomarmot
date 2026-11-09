@@ -73,6 +73,10 @@ pub async fn compile_node(
     inputs: &BTreeMap<String, (String, String)>,
     prefix: &str,
 ) -> Result<NodeOutput> {
+    // Step 0: the SQL guard, before any hook or query.
+    crate::sqlguard::guard_node(engine, t.params(), params)
+        .await
+        .map_err(|r| r.message)?;
     let mut relations = BTreeMap::new();
     let mut crs_seen = Vec::<String>::new();
     for port in t.inputs() {

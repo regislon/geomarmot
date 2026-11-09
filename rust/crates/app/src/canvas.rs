@@ -17,6 +17,14 @@ pub const PALETTE: &[&str] = &[
     "AreaOnAreaOverlayer",
     "MinimumBoundingCircle",
     "H3GeometryFromIndex",
+    "AttributeCreator",
+    "AttributeKeeper",
+    "AttributeManager",
+    "AttributeRemover",
+    "AttributeRenamer",
+    "SQLTransformer",
+    "Sorter",
+    "Sampler",
 ];
 
 /// Width of a node's title: every node is as wide.

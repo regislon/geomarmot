@@ -86,6 +86,16 @@ pub enum Kind {
     Values,
     /// Pairs of attributes, `left` = `right`, from the `left` and `right` ports.
     JoinKeys,
+    /// A query written by the user (`sqltext`/`sqlcreate`); the SQL guard checks it.
+    SqlText { placeholder: &'static str },
+    /// Rows `{from, to}`: an attribute of `input` and its new name.
+    Renames,
+    /// Rows `{column, direction}`: ASC or DESC.
+    Sorts,
+    /// Rows `{name, value}`, `value` a value spec (`valuerows`).
+    ValueRows,
+    /// AttributeManager's edits: rows `{action, column, target, to, spec}`.
+    Actions,
 }
 
 /// One parameter of a transformer: what the inspector draws, and its default.
@@ -120,7 +130,9 @@ pub fn default_params(t: &dyn Transformer) -> Value {
     let mut out = serde_json::Map::new();
     for p in t.params() {
         let v = match p.kind {
-            Kind::Columns { .. } | Kind::Values => Value::Array(vec![]),
+            Kind::Columns { .. } | Kind::Values | Kind::Renames | Kind::Sorts | Kind::ValueRows | Kind::Actions => {
+                Value::Array(vec![])
+            }
             Kind::JoinKeys => serde_json::json!([{ "left": "", "right": "" }]),
             _ => Value::String(p.default.into()),
         };

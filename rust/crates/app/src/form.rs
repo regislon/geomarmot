@@ -30,7 +30,7 @@ fn text(v: &Value, default: &str) -> String {
 }
 
 /// A dropdown of attribute names, with "—" for none.
-fn column_picker(
+pub(crate) fn column_picker(
     ui: &mut Ui,
     id: impl std::hash::Hash + std::fmt::Debug,
     current: &mut String,
@@ -271,6 +271,24 @@ pub fn show(ui: &mut Ui, node: usize, params: &[Param], values: &mut Value, colu
                     );
                     out.changed = true;
                 }
+            }
+            Kind::SqlText { placeholder } => {
+                let mut s = text(value, p.default);
+                if ui
+                    .add(
+                        egui::TextEdit::multiline(&mut s)
+                            .code_editor()
+                            .hint_text(placeholder)
+                            .desired_width(f32::INFINITY),
+                    )
+                    .changed()
+                {
+                    *value = Value::String(s);
+                    out.changed = true;
+                }
+            }
+            Kind::Renames | Kind::Sorts | Kind::ValueRows | Kind::Actions => {
+                out.changed |= crate::form_rows::show(ui, id, p.kind, value, columns.get("input"));
             }
         }
     }

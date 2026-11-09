@@ -8,7 +8,7 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use crate::{SqlEngine, qlit};
+use crate::{Kind, Param, SqlEngine, qlit};
 
 /// Placeholder for the upstream relation in a placeholder form.
 pub const INPUT_PLACEHOLDER: &str = "__gm_input";
@@ -268,4 +268,47 @@ pub async fn validate(engine: &impl SqlEngine, fragment: &str, context: Context)
         Some(problem) => Err(problem),
         None => Ok(()),
     }
+}
+
+/// Every untrusted fragment in a node's params, with its context (`fragmentsOf`).
+pub fn fragments(params: &[Param], values: &Value) -> Vec<(String, Context)> {
+    let mut out = Vec::new();
+    let mut text = |v: &Value, context| {
+        if let Some(s) = v.as_str().filter(|s| !s.trim().is_empty()) {
+            out.push((s.to_string(), context));
+        }
+    };
+    let spec = |v: &Value| {
+        if v["kind"] == "SQL" {
+            v["sql"].clone()
+        } else {
+            Value::Null
+        }
+    };
+    for p in params {
+        let value = &values[p.id];
+        let rows = value.as_array().map(Vec::as_slice).unwrap_or_default();
+        match p.kind {
+            Kind::SqlText { .. } => text(value, Context::Query),
+            Kind::ValueRows => rows.iter().for_each(|r| {
+                text(&spec(&r["value"]), Context::Expression);
+                // The older rows hold a bare expression rather than a value spec.
+                text(&r["expression"], Context::Expression);
+            }),
+            Kind::Actions => rows.iter().for_each(|r| {
+                text(&spec(&r["spec"]), Context::Expression);
+                text(&r["value"], Context::Expression);
+            }),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Validate every untrusted fragment of a node (`guardNode`): the first refusal, if any.
+pub async fn guard_node(engine: &impl SqlEngine, params: &[Param], values: &Value) -> Result<(), Refusal> {
+    for (sql, context) in fragments(params, values) {
+        validate(engine, &sql, context).await?;
+    }
+    Ok(())
 }
