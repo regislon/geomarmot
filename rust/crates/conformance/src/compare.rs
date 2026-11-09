@@ -234,12 +234,22 @@ fn value_equal(a: &Value, b: &Value, kind: &str, o: &GeomOpts) -> bool {
     a == b
 }
 
+#[derive(Clone)]
 pub struct Table {
     pub columns: Vec<(String, String)>,
     pub rows: Vec<Vec<Value>>,
 }
 
 impl Table {
+    pub fn to_json(&self) -> Value {
+        let columns: Vec<Value> = self
+            .columns
+            .iter()
+            .map(|(n, k)| serde_json::json!({ "name": n, "type": k }))
+            .collect();
+        serde_json::json!({ "columns": columns, "rows": self.rows })
+    }
+
     pub fn from_json(v: &Value) -> Table {
         let columns = v["columns"]
             .as_array()

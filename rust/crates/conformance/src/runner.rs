@@ -76,6 +76,17 @@ pub async fn read_port(engine: &impl SqlEngine, view: &str) -> Result<Table, Str
 
 /// Run one case; returns its problems (empty = pass). Mirrors `runCase` + `checkCase`.
 pub async fn run_case(engine: &impl SqlEngine, id: &str, case: &Value) -> Vec<String> {
+    run_case_recording(engine, id, case, &mut Vec::new()).await
+}
+
+/// As `run_case`, also recording every port read: (port, actual table) — for cross-checking
+/// this comparator against `tests/harness/compare.js`.
+pub async fn run_case_recording(
+    engine: &impl SqlEngine,
+    id: &str,
+    case: &Value,
+    record: &mut Vec<(String, Table)>,
+) -> Vec<String> {
     let Some(t) = transformers::by_id(id) else {
         return vec![format!("{id} is not ported")];
     };
@@ -114,9 +125,13 @@ pub async fn run_case(engine: &impl SqlEngine, id: &str, case: &Value) -> Vec<St
         };
         match read_port(engine, view).await {
             Ok(actual) => problems.extend(
-                compare_table(&actual, &Table::from_json(expected), ordered, &opts)
-                    .into_iter()
-                    .map(|p| format!("{port}: {p}")),
+                {
+                    let found = compare_table(&actual, &Table::from_json(expected), ordered, &opts);
+                    record.push((port.clone(), actual));
+                    found
+                }
+                .into_iter()
+                .map(|p| format!("{port}: {p}")),
             ),
             Err(e) => problems.push(format!("{port}: could not read: {e}")),
         }
