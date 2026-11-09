@@ -25,6 +25,15 @@ pub const PALETTE: &[&str] = &[
     "H3GeometryFromPosition",
     "PolygonToH3",
     "PositionalH3Index",
+    "AddGeometryAttributes",
+    "BoundingBoxReplacer",
+    "CentroidVector",
+    "CoordinateSystemSetter",
+    "EliminateCoincidentPoints",
+    "FilterVectorFeaturesByArea",
+    "MinimumBoundingBox",
+    "MinimumConvexHull",
+    "RepresentativePointVector",
 ];
 
 /// Width of a node's title: every node is as wide.
