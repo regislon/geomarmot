@@ -3,38 +3,11 @@
 //! the harness's `readPort` rules and compared (`compare.rs`, a port of `compare.js`).
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
 
 use geomarmot_core::{LONLAT, SqlEngine, compile_node, qid, qlit, transformers};
 use serde_json::Value;
 
-use super::compare::{GeomOpts, Table, compare_table};
-
-pub fn repo() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")
-}
-
-/// Extensions installed once per checkout, as a build step would.
-pub fn extension_dir() -> PathBuf {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/duckdb-extensions");
-    if !dir.exists() {
-        geomarmot_engine::install_extensions(&dir).expect("install extensions");
-    }
-    dir
-}
-
-/// Every case of `transformers/<folder>/tests.json`: (transformer id, case).
-pub fn cases(folder: &str) -> Vec<(String, Value)> {
-    let path = repo().join("transformers").join(folder).join("tests.json");
-    let doc: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    let id = doc["transformer"].as_str().unwrap().to_string();
-    doc["cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|c| (id.clone(), c.clone()))
-        .collect()
-}
+use crate::compare::{GeomOpts, Table, compare_table};
 
 /// The harness's `typedLiteral`.
 fn literal(value: &Value, kind: &str) -> String {

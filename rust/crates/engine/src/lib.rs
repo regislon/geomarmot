@@ -63,6 +63,8 @@ pub struct Config {
 /// The in-process engine.
 pub struct Host {
     conn: Connection,
+    /// What trusted I/O outside DuckDB (terrio) may touch: the same allow list.
+    approvals: io::Approvals,
     /// Set by an interrupt; kernels check it between tasks.
     cancel: Arc<AtomicBool>,
 }
@@ -109,8 +111,13 @@ impl Host {
         }
         lock.push_str("SET enable_external_access = false; SET lock_configuration = true;");
         conn.execute_batch(&lock).map_err(err)?;
+        let approvals = io::Approvals {
+            sources: config.allowed_paths.clone(),
+            staging_dir: config.staging_dir.clone(),
+        };
         Ok(Self {
             conn,
+            approvals,
             cancel: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -154,6 +161,24 @@ impl Host {
             appender.append_record_batch(batch.clone()).map_err(err)?;
         }
         appender.flush().map_err(err)
+    }
+
+    /// Read the first layer of a vector file with terrio into `table` (geometry as GEOMETRY in
+    /// `geometry`). Returns the layer's CRS. DuckDB itself never opens the file.
+    // ponytail: first layer only; one source per layer, as the JavaScript Reader does, comes with the I/O phase.
+    pub fn import_now(&self, table: &str, path: &str) -> Result<Option<String>> {
+        self.approvals.authorize(path, io::Access::Read)?;
+        let layers = geomarmot_io::read_vector(path)?;
+        let layer = layers.first().ok_or_else(|| format!("{path} has no layer"))?;
+        let raw = format!("{table}__raw");
+        self.create_from_arrow(&raw, &layer.schema, &layer.batches)?;
+        self.exec_now(&format!(
+            "CREATE OR REPLACE TABLE {} AS SELECT * REPLACE (ST_GeomFromWKB(geometry) AS geometry) FROM {}; DROP TABLE {};",
+            qid(table),
+            qid(&raw),
+            qid(&raw)
+        ))?;
+        Ok(layer.crs.clone())
     }
 
     pub fn exec_now(&self, sql: &str) -> Result<()> {

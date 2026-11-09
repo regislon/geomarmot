@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/sql", "crates/kernels", "crates/io", "crates/engine", "crates/core", "crates/app"]
+members = ["crates/sql", "crates/kernels", "crates/io", "crates/engine", "crates/core", "crates/conformance", "crates/app", "crates/web"]
 
 [workspace.package]
 edition = "2024"
@@ -8,7 +8,7 @@ license = "Apache-2.0"
 publish = false
 
 [workspace.dependencies]
-duckdb = { version = "=1.10506.1", features = ["bundled", "parquet", "json", "appender-arrow"] }
+duckdb = { version = "=1.10504.0", features = ["bundled", "parquet", "json", "appender-arrow"] }
 serde_json = "1"
 arrow = { version = "58.4.1", default-features = false, features = ["ipc", "prettyprint"] }
 pollster = "0.4"

@@ -14,6 +14,6 @@ serde_json.workspace = true
 pollster.workspace = true
 
 [dev-dependencies]
+geomarmot-conformance = { path = "../conformance" }
 geomarmot-io = { path = "../io" }
 geomarmot-core = { path = "../core" }
-geo = "0.33"

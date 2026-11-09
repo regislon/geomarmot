@@ -10,7 +10,7 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use geomarmot_core::graph::{Graph, NodeState, compile_graph, drop_generation};
 use geomarmot_core::{SqlEngine, qid, qlit};
 use geomarmot_engine::io::{Approvals, finalize_export};
-use geomarmot_engine::supervisor::{Reader, SourceRecord, Supervisor};
+use geomarmot_engine::supervisor::{Reader, SourceRecord, SourceState, Supervisor};
 use serde_json::Value;
 
 pub enum Job {
@@ -94,7 +94,7 @@ fn reader_for(path: &Path) -> Reader {
     {
         "csv" | "tsv" => Reader::Csv,
         "parquet" | "pq" => Reader::Parquet,
-        _ => Reader::Gdal,
+        _ => Reader::Vector,
     }
 }
 
@@ -111,6 +111,10 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
                 fingerprint: None,
             };
             match s.approve_source(record) {
+                Ok(states) if states.iter().any(|(n, st)| *n == relation && *st != SourceState::Ready) => {
+                    let state = states.into_iter().find(|(n, _)| *n == relation).map(|(_, st)| st);
+                    Reply::Status(format!("Could not open {}: {state:?}", path.display()))
+                }
                 Ok(_) => Reply::Opened {
                     relation,
                     label: path.file_name().unwrap_or_default().to_string_lossy().into(),

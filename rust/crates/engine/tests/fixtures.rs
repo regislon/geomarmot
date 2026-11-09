@@ -8,17 +8,7 @@ use geomarmot_engine::process::ProcessEngine;
 use geomarmot_engine::{Config, Host, SqlEngine};
 use serde_json::Value;
 use support::compare::{GeomOpts, Table, compare_table};
-use support::runner::{cases, extension_dir, run_case, teardown};
-
-/// Transformer folders covered by gate 1.
-const GATE_1: &[&str] = &[
-    "attribute-filter",
-    "feature-joiner",
-    "dissolver",
-    "reprojector",
-    "bufferer",
-    "area-on-area-overlayer",
-];
+use support::{extension_dir, fixture_docs};
 
 /// A locked engine with nothing approved: fixtures only create and read tables.
 fn locked() -> Config {
@@ -29,20 +19,7 @@ fn locked() -> Config {
 }
 
 async fn run_all(engine: &impl SqlEngine, label: &str) {
-    let mut failures = Vec::new();
-    let mut passed = 0;
-    for folder in GATE_1 {
-        for (id, case) in cases(folder) {
-            let problems = run_case(engine, &id, &case).await;
-            teardown(engine).await;
-            if problems.is_empty() {
-                passed += 1;
-            } else {
-                let name = case["name"].as_str().unwrap_or("?");
-                failures.push(format!("{id} › {name}\n  {}", problems.join("\n  ")));
-            }
-        }
-    }
+    let (passed, failures) = geomarmot_conformance::run_all(engine, &fixture_docs()).await;
     eprintln!("gate 1, {label}: {passed} passed, {} failed", failures.len());
     assert!(failures.is_empty(), "\n{}", failures.join("\n\n"));
 }

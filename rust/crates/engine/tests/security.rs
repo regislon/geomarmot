@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use geomarmot_core::sqlguard::{Context, validate};
 use geomarmot_engine::process::ProcessEngine;
 use geomarmot_engine::{Config, Host, SqlEngine, io};
-use support::runner::extension_dir;
+use support::extension_dir;
 
 struct Files {
     root: PathBuf,
@@ -49,9 +49,11 @@ fn rows(f: &Files) -> Vec<(&'static str, String, bool)> {
             true,
         ),
         (
+            // DuckDB 1.5.4's GDAL lists `approved.*` for sidecars, which the exact allow list refuses:
+            // vector files are read by terrio instead (`terrio_import_obeys_the_allow_list`).
             "read an approved GeoJSON through GDAL",
             format!("SELECT * FROM ST_Read('{}')", f.p("approved.geojson")),
-            true,
+            false,
         ),
         (
             "read a file next to an approved one",
@@ -208,4 +210,23 @@ fn walk(dir: &Path) -> Vec<PathBuf> {
         }
     }
     out
+}
+
+#[test]
+fn terrio_import_obeys_the_allow_list() {
+    let f = Files::new("import");
+    let host = Host::open(&f.config()).unwrap();
+    assert!(host.import_now("ok", &f.p("approved.geojson")).is_ok());
+    assert_eq!(
+        pollster::block_on(host.query("SELECT count(*) FROM ok")).unwrap()[0][0],
+        1
+    );
+    assert!(
+        host.import_now("no", &f.p("neighbour.geojson")).is_err(),
+        "a file next to an approved one"
+    );
+    let binary = Path::new(env!("CARGO_BIN_EXE_geomarmot-engine"));
+    let engine = ProcessEngine::spawn(binary, &f.config()).unwrap();
+    assert!(engine.import("ok", &f.p("approved.geojson")).is_ok());
+    assert!(engine.import("no", &f.p("neighbour.geojson")).is_err());
 }

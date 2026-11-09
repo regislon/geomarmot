@@ -10,7 +10,7 @@
 use geo::{Area, BooleanOps, Buffer, Geometry, HausdorffDistance, MultiPolygon, Validation};
 use serde_json::Value;
 
-use super::wkt::{Body, Geom, parse};
+use crate::wkt::{Body, Geom, parse};
 
 #[derive(Clone)]
 pub struct GeomOpts {

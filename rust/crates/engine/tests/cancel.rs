@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use geomarmot_engine::supervisor::{Reader, STOP_GRACE, SourceRecord, SourceState, Supervisor};
 use geomarmot_engine::{Config, io};
-use support::runner::extension_dir;
+use support::extension_dir;
 
 fn root(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("gm-cancel-{name}-{}", std::process::id()));

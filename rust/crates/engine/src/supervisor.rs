@@ -22,8 +22,8 @@ pub const STOP_GRACE: Duration = Duration::from_secs(2);
 pub enum Reader {
     Csv,
     Parquet,
-    /// GeoPackage, GeoJSON, FlatGeobuf through the spatial extension.
-    Gdal,
+    /// GeoPackage, GeoJSON, FlatGeobuf through terrio, inside the engine process.
+    Vector,
 }
 
 /// What the app keeps about a source so a fresh engine can register it again.
@@ -147,6 +147,7 @@ impl Supervisor {
 
     /// Approve a source: the allow list is fixed per process, so this restarts the engine.
     pub fn approve_source(&self, mut record: SourceRecord) -> Result<Vec<(String, SourceState)>> {
+        record.location = io::canonical(&record.location)?;
         record.fingerprint = io::fingerprint(&record.location);
         self.sources.lock().unwrap().push(record);
         self.restart()
@@ -168,7 +169,7 @@ impl Supervisor {
             let state = match io::fingerprint(&r.location) {
                 None if r.fingerprint.is_some() => SourceState::Missing("the file is gone".into()),
                 now if r.fingerprint.is_some() && now != r.fingerprint => SourceState::ChangedSinceLoaded,
-                _ => match pollster::block_on(fresh.exec(&register_sql(r))) {
+                _ => match register(&fresh, r) {
                     Ok(()) => SourceState::Ready,
                     Err(e) => SourceState::Missing(e),
                 },
@@ -181,13 +182,18 @@ impl Supervisor {
     }
 }
 
-/// The view that makes a source readable by name.
-pub fn register_sql(r: &SourceRecord) -> String {
+/// Make a source readable by name: a view over DuckDB's lazy scan, or a table imported by terrio.
+fn register(engine: &ProcessEngine, r: &SourceRecord) -> Result<()> {
     let location = qlit(&r.location);
     let scan = match r.reader {
         Reader::Csv => format!("read_csv({location})"),
         Reader::Parquet => format!("read_parquet({location})"),
-        Reader::Gdal => format!("ST_Read({location})"),
+        // GDAL inside a locked DuckDB probes sidecar files (`.*`, `-journal`, `.aux.xml`) that are
+        // not approved; terrio reads exactly the approved file.
+        Reader::Vector => return engine.import(&r.name, &r.location).map(|_| ()),
     };
-    format!("CREATE OR REPLACE VIEW {} AS SELECT * FROM {scan}", qid(&r.name))
+    pollster::block_on(engine.exec(&format!(
+        "CREATE OR REPLACE VIEW {} AS SELECT * FROM {scan}",
+        qid(&r.name)
+    )))
 }

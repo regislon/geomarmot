@@ -4,7 +4,7 @@ mod support;
 
 use geomarmot_core::sqlguard::{Context, validate};
 use geomarmot_engine::{Config, Host};
-use support::runner::extension_dir;
+use support::extension_dir;
 
 const REFUSED: &[(&str, &str)] = &[
     ("a file-reading table function", "SELECT * FROM read_csv('x.csv')"),

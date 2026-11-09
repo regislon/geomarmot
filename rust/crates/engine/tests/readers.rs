@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use geomarmot_engine::{Config, Host, SqlEngine, io, qlit};
-use support::runner::{extension_dir, repo};
+use support::{extension_dir, repo};
 
 fn generated(name: &str) -> String {
     repo()
@@ -72,7 +72,16 @@ fn big_geopackage(dir: &std::path::Path, n: usize) -> String {
 #[test]
 fn terrio_and_st_read_agree_and_timings() {
     let dir = staging("gpkg");
-    let mut files = ["feature-panel.gpkg", "lv95.gpkg"].map(generated).to_vec();
+    // Copies in the staging directory: GDAL (ST_Read, the comparison) probes sidecar files, which
+    // only a directory permission allows. The app reads these formats with terrio instead.
+    let mut files: Vec<String> = ["feature-panel.gpkg", "lv95.gpkg"]
+        .iter()
+        .map(|name| {
+            let to = dir.join(name);
+            std::fs::copy(generated(name), &to).unwrap();
+            to.to_string_lossy().into_owned()
+        })
+        .collect();
     files.push(big_geopackage(&dir, 200_000));
     let config = Config {
         extension_dir: extension_dir(),
@@ -90,7 +99,7 @@ fn terrio_and_st_read_agree_and_timings() {
             t_terrio.push(t0.elapsed());
             let t0 = Instant::now();
             host.exec_now(&format!(
-                "CREATE OR REPLACE TABLE b AS SELECT * FROM ST_Read({})",
+                "CREATE OR REPLACE TABLE b AS SELECT * FROM ST_Read({0})",
                 qlit(path)
             ))
             .unwrap();
@@ -226,7 +235,7 @@ fn geopackage_written_by_terrio_reads_back() {
         .query_now("SELECT * EXCLUDE (geom), ST_AsWKB(geom) AS geometry FROM a")
         .unwrap();
     geomarmot_io::write_vector(&batches[0].schema(), &batches, "out", &out).unwrap();
-    host.exec_now(&format!("CREATE TABLE back AS SELECT * FROM ST_Read({})", qlit(&out)))
+    host.exec_now(&format!("CREATE TABLE back AS SELECT * FROM ST_Read({0})", qlit(&out)))
         .unwrap();
     let back = geomarmot_io::read_vector(&out).unwrap();
     let rows: usize = back[0].batches.iter().map(|b| b.num_rows()).sum();

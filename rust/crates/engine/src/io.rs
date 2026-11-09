@@ -67,3 +67,14 @@ pub fn fingerprint(path: &str) -> Option<(u64, std::time::SystemTime)> {
     let meta = std::fs::metadata(path).ok()?;
     Some((meta.len(), meta.modified().ok()?))
 }
+
+/// The canonical form of an approved local path (no `..`, no symlinks), so the allow list and
+/// what DuckDB and GDAL actually open agree. URLs are returned unchanged.
+pub fn canonical(location: &str) -> Result<String> {
+    if location.contains("://") {
+        return Ok(location.to_string());
+    }
+    std::fs::canonicalize(location)
+        .map(|p| p.to_string_lossy().into_owned())
+        .map_err(|e| format!("{location}: {e}"))
+}

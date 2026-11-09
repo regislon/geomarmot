@@ -24,6 +24,7 @@ const INTERRUPT: u8 = 3;
 /// a stand-in for a kernel stuck inside one long synchronous operation.
 const STUCK: u8 = 4;
 const OVERLAY: u8 = 5;
+const IMPORT: u8 = 6;
 const STATS: u8 = 3;
 const DONE: u8 = 0;
 const BATCHES: u8 = 1;
@@ -88,6 +89,12 @@ pub fn serve(host: Host, test_hooks: bool) -> std::io::Result<()> {
             OVERLAY => OverlayRequest::decode(&sql)
                 .and_then(|r| host.overlay_now(&r))
                 .map(|stats| (STATS, stats.encode().into_bytes())),
+            IMPORT => match sql.split_once('\n') {
+                Some((table, path)) => host
+                    .import_now(table, path)
+                    .map(|crs| (STATS, crs.unwrap_or_default().into_bytes())),
+                None => Err("malformed import request".into()),
+            },
             STUCK if test_hooks => {
                 std::thread::sleep(std::time::Duration::from_secs(sql.parse().unwrap_or(60)));
                 Ok((DONE, vec![]))
@@ -162,6 +169,12 @@ impl ProcessEngine {
     /// Test-only: occupy the engine for `seconds`, ignoring interrupts (needs `--test-hooks`).
     pub fn stuck(&self, seconds: u64) -> Result<()> {
         self.request(STUCK, &seconds.to_string()).map(|_| ())
+    }
+
+    /// Read a vector file into `table` with terrio, inside the engine process. Returns its CRS.
+    pub fn import(&self, table: &str, path: &str) -> Result<Option<String>> {
+        let (_, bytes) = self.request(IMPORT, &format!("{table}\n{path}"))?;
+        Ok(Some(String::from_utf8_lossy(&bytes).into_owned()).filter(|c| !c.is_empty()))
     }
 
     /// Ask the running statement to stop (cooperative cancel).
