@@ -9,6 +9,7 @@ pub use geomarmot_sql::{Column, OverlayRequest, Result, SqlEngine, qid, qlit};
 use serde_json::Value;
 
 mod compile;
+pub mod graph;
 pub mod sqlguard;
 pub mod transformers;
 
@@ -104,7 +105,11 @@ pub struct GeometryColumn {
 const GEOMETRY_COLUMN_NAMES: &[&str] = &["geometry", "geom", "the_geom", "wkb_geometry", "geometry_wkb", "wkb"];
 
 pub fn find_geometry_column(columns: &[Column]) -> Option<GeometryColumn> {
-    if let Some(c) = columns.iter().find(|c| c.kind == "GEOMETRY") {
+    // DuckDB 1.5 writes the CRS into the type: GEOMETRY('EPSG:4326').
+    if let Some(c) = columns
+        .iter()
+        .find(|c| c.kind == "GEOMETRY" || c.kind.starts_with("GEOMETRY("))
+    {
         return Some(GeometryColumn {
             name: c.name.clone(),
             wkb: false,
