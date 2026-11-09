@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Ctx, Engine, LONLAT, Result, Transformer, qid};
+use crate::{Ctx, LONLAT, Result, SqlEngine, Transformer, qid};
 use serde_json::Value;
 
 pub struct NodeOutput {
@@ -15,9 +15,15 @@ pub struct NodeOutput {
     pub crs: String,
 }
 
+/// A `check` hook's query, and how to word its failure.
+pub struct Probe {
+    pub sql: String,
+    pub error: Box<dyn Fn(&str) -> String + Send>,
+}
+
 /// `inputs`: port → (relation, CRS). `prefix` names the node's views.
-pub fn compile_node(
-    engine: &Engine,
+pub async fn compile_node(
+    engine: &impl SqlEngine,
     t: &dyn Transformer,
     params: &Value,
     inputs: &BTreeMap<String, (String, String)>,
@@ -43,7 +49,7 @@ pub fn compile_node(
     let mut schemas = BTreeMap::new();
     if t.needs_schema() {
         for (port, relation) in &relations {
-            schemas.insert(port.clone(), engine.describe(relation)?);
+            schemas.insert(port.clone(), engine.describe(relation).await?);
         }
     }
     let ctx = Ctx {
@@ -67,7 +73,9 @@ pub fn compile_node(
         ));
     }
     let crs = t.crs(&ctx);
-    t.check(&ctx, engine)?;
+    if let Some(probe) = t.check(&ctx) {
+        engine.query(&probe.sql).await.map_err(|e| (probe.error)(&e))?;
+    }
 
     let mut views = BTreeMap::new();
     let mut ddl = String::from("BEGIN TRANSACTION;\n");
@@ -77,8 +85,8 @@ pub fn compile_node(
         views.insert(port.clone(), qid(&view));
     }
     ddl.push_str("COMMIT;");
-    if let Err(e) = engine.exec(&ddl) {
-        let _ = engine.exec("ROLLBACK");
+    if let Err(e) = engine.exec(&ddl).await {
+        let _ = engine.exec("ROLLBACK").await;
         return Err(e);
     }
     Ok(NodeOutput { views, crs })

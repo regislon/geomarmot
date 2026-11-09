@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/engine", "crates/core"]
+members = ["crates/sql", "crates/engine", "crates/core"]
 
 [workspace.package]
 edition = "2024"
@@ -10,3 +10,5 @@ publish = false
 [workspace.dependencies]
 duckdb = { version = "=1.10506.1", features = ["bundled", "parquet", "json"] }
 serde_json = "1"
+arrow = { version = "58.4.1", default-features = false, features = ["ipc", "prettyprint"] }
+pollster = "0.4"

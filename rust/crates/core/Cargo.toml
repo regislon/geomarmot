@@ -6,8 +6,5 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-geomarmot-engine = { path = "../engine" }
+geomarmot-sql = { path = "../sql" }
 serde_json.workspace = true
-
-[dev-dependencies]
-geo = "0.31"

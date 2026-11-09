@@ -1,38 +1,39 @@
-//! Runs `transformers/<id>/tests.json` on the native engine, the way
-//! `tests/harness/run-case.js` runs them on DuckDB-Wasm: inputs become typed tables,
-//! the subject node is compiled, every port is read with the harness's readPort
-//! rules and compared with `support::compare` (a port of `tests/harness/compare.js`).
-//!
-//! Spike gate 1. Extensions are installed once into `rust/target/duckdb-extensions`.
-
-mod support;
+//! Running one fixture case on any engine, the way `tests/harness/run-case.js` does:
+//! inputs become typed tables, the subject node is compiled, every port is read with
+//! the harness's `readPort` rules and compared (`compare.rs`, a port of `compare.js`).
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use geomarmot_core::{Engine, LONLAT, compile_node, qid, qlit, transformers};
+use geomarmot_core::{LONLAT, SqlEngine, compile_node, qid, qlit, transformers};
 use serde_json::Value;
-use support::compare::{GeomOpts, Table, compare_table};
 
-/// Transformer folders covered by gate 1.
-const GATE_1: &[&str] = &[
-    "attribute-filter",
-    "feature-joiner",
-    "dissolver",
-    "reprojector",
-    "bufferer",
-];
+use super::compare::{GeomOpts, Table, compare_table};
 
-fn repo() -> PathBuf {
+pub fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..")
 }
 
-fn extension_dir() -> PathBuf {
+/// Extensions installed once per checkout, as a build step would.
+pub fn extension_dir() -> PathBuf {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/duckdb-extensions");
     if !dir.exists() {
         geomarmot_engine::install_extensions(&dir).expect("install extensions");
     }
     dir
+}
+
+/// Every case of `transformers/<folder>/tests.json`: (transformer id, case).
+pub fn cases(folder: &str) -> Vec<(String, Value)> {
+    let path = repo().join("transformers").join(folder).join("tests.json");
+    let doc: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let id = doc["transformer"].as_str().unwrap().to_string();
+    doc["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (id.clone(), c.clone()))
+        .collect()
 }
 
 /// The harness's `typedLiteral`.
@@ -41,15 +42,16 @@ fn literal(value: &Value, kind: &str) -> String {
         Value::Null => format!("NULL::{kind}"),
         _ if kind == "GEOMETRY" => format!("ST_GeomFromText({})", qlit(value.as_str().unwrap_or_default())),
         Value::String(s) => format!("CAST({} AS {kind})", qlit(s)),
-        Value::Object(_) | Value::Array(_) => format!("CAST({} AS {kind})", qlit(&value.to_string())),
         other => format!("CAST({} AS {kind})", qlit(&other.to_string())),
     }
 }
 
-fn create_table(engine: &Engine, name: &str, input: &Value) -> Result<(), String> {
+pub async fn create_table(engine: &impl SqlEngine, name: &str, input: &Value) -> Result<(), String> {
     let table = Table::from_json(input);
     let defs: Vec<String> = table.columns.iter().map(|(n, k)| format!("{} {k}", qid(n))).collect();
-    engine.exec(&format!("CREATE OR REPLACE TABLE {} ({})", qid(name), defs.join(", ")))?;
+    engine
+        .exec(&format!("CREATE OR REPLACE TABLE {} ({})", qid(name), defs.join(", ")))
+        .await?;
     if table.rows.is_empty() {
         return Ok(());
     }
@@ -61,7 +63,9 @@ fn create_table(engine: &Engine, name: &str, input: &Value) -> Result<(), String
             format!("({})", cells.join(", "))
         })
         .collect();
-    engine.exec(&format!("INSERT INTO {} VALUES {}", qid(name), rows.join(", ")))
+    engine
+        .exec(&format!("INSERT INTO {} VALUES {}", qid(name), rows.join(", ")))
+        .await
 }
 
 /// The harness's `readableColumn`.
@@ -80,32 +84,39 @@ fn readable(name: &str, kind: &str) -> String {
     }
 }
 
-fn read_port(engine: &Engine, view: &str) -> Result<Table, String> {
-    let columns: Vec<(String, String)> = engine.describe(view)?.into_iter().map(|c| (c.name, c.kind)).collect();
+pub async fn read_port(engine: &impl SqlEngine, view: &str) -> Result<Table, String> {
+    let columns: Vec<(String, String)> = engine
+        .describe(view)
+        .await?
+        .into_iter()
+        .map(|c| (c.name, c.kind))
+        .collect();
     if columns.is_empty() {
         return Ok(Table { columns, rows: vec![] });
     }
     let selection: Vec<String> = columns.iter().map(|(n, k)| readable(n, k)).collect();
-    let rows = engine.query(&format!("SELECT {} FROM {view}", selection.join(", ")))?;
+    let rows = engine
+        .query(&format!("SELECT {} FROM {view}", selection.join(", ")))
+        .await?;
     Ok(Table { columns, rows })
 }
 
 /// Run one case; returns its problems (empty = pass). Mirrors `runCase` + `checkCase`.
-fn run_case(engine: &Engine, id: &str, case: &Value) -> Vec<String> {
+pub async fn run_case(engine: &impl SqlEngine, id: &str, case: &Value) -> Vec<String> {
     let Some(t) = transformers::by_id(id) else {
         return vec![format!("{id} is not ported")];
     };
     let mut inputs = BTreeMap::new();
     for (k, (port, input)) in case["inputs"].as_object().into_iter().flatten().enumerate() {
         let table = format!("fx_{k}");
-        if let Err(e) = create_table(engine, &table, input) {
+        if let Err(e) = create_table(engine, &table, input).await {
             return vec![format!("could not build input {port}: {e}")];
         }
         let crs = input.get("crs").and_then(Value::as_str).unwrap_or(LONLAT);
         inputs.insert(port.clone(), (qid(&table), crs.to_string()));
     }
     let params = case.get("params").cloned().unwrap_or(Value::Object(Default::default()));
-    let compiled = compile_node(engine, t, &params, &inputs, "subject");
+    let compiled = compile_node(engine, t, &params, &inputs, "subject").await;
     let expect = &case["expect"];
 
     if let Some(want) = expect.get("error").and_then(Value::as_str) {
@@ -128,7 +139,7 @@ fn run_case(engine: &Engine, id: &str, case: &Value) -> Vec<String> {
             problems.push(format!("no \"{port}\" port in the output (have: {})", have.join(", ")));
             continue;
         };
-        match read_port(engine, view) {
+        match read_port(engine, view).await {
             Ok(actual) => problems.extend(
                 compare_table(&actual, &Table::from_json(expected), ordered, &opts)
                     .into_iter()
@@ -145,80 +156,16 @@ fn run_case(engine: &Engine, id: &str, case: &Value) -> Vec<String> {
     problems
 }
 
-#[test]
-fn gate_1_fixtures() {
-    let dir = extension_dir();
-    let mut failures = Vec::new();
-    let mut passed = 0;
-    for folder in GATE_1 {
-        let path = repo().join("transformers").join(folder).join("tests.json");
-        let doc: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        let id = doc["transformer"].as_str().unwrap();
-        for case in doc["cases"].as_array().unwrap() {
-            // A fresh engine per case, as the harness tears down between cases.
-            let engine = Engine::open(&dir).expect("engine");
-            let problems = run_case(&engine, id, case);
-            if problems.is_empty() {
-                passed += 1;
-            } else {
-                failures.push(format!(
-                    "{id} › {}\n  {}",
-                    case["name"].as_str().unwrap_or("?"),
-                    problems.join("\n  ")
-                ));
-            }
-        }
+/// Clear what a case left behind, as the harness's teardown does.
+pub async fn teardown(engine: &impl SqlEngine) {
+    for (name, kind) in engine
+        .query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'main'")
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|r| Some((r[0].as_str()?.to_string(), r[1].as_str()?.to_string())))
+    {
+        let what = if kind == "VIEW" { "VIEW" } else { "TABLE" };
+        let _ = engine.exec(&format!("DROP {what} IF EXISTS {}", qid(&name))).await;
     }
-    eprintln!("gate 1: {passed} passed, {} failed", failures.len());
-    assert!(failures.is_empty(), "\n{}", failures.join("\n\n"));
-}
-
-/// The comparator must fail on wrong output, or a green gate means nothing.
-#[test]
-fn comparator_rejects_wrong_output() {
-    let exact = GeomOpts::from_case(None);
-    let topo = GeomOpts::from_case(Some(
-        &serde_json::json!({"mode": "topology", "tolerance": 1e-7, "areaTolerance": 1e-7}),
-    ));
-    let cmp = support::compare::compare_geometry;
-    let sq = |s: f64| format!("POLYGON ((0 0, {s} 0, {s} {s}, 0 {s}, 0 0))");
-    assert!(cmp(Some("POINT (1 2)"), Some("POINT (1 2)"), &exact).is_none());
-    assert!(cmp(Some("POINT (1 2.001)"), Some("POINT (1 2)"), &exact).is_some());
-    assert!(cmp(Some("POINT Z (1 2 3)"), Some("POINT (1 2)"), &exact).is_some());
-    assert!(
-        cmp(Some(&sq(1.0)), Some("POLYGON ((1 0, 1 1, 0 1, 0 0, 1 0))"), &exact).is_some(),
-        "ring start"
-    );
-    assert!(cmp(Some(&sq(1.0)), Some("POLYGON ((1 0, 1 1, 0 1, 0 0, 1 0))"), &topo).is_none());
-    assert!(cmp(Some(&sq(1.0)), Some(&sq(1.001)), &topo).is_some(), "area");
-    let t = |rows: Value| {
-        Table::from_json(&serde_json::json!({"columns": [{"name": "id", "type": "INTEGER"}], "rows": rows}))
-    };
-    assert!(
-        compare_table(
-            &t(serde_json::json!([[1], [2]])),
-            &t(serde_json::json!([[2], [1]])),
-            false,
-            &exact
-        )
-        .is_empty()
-    );
-    assert!(
-        !compare_table(
-            &t(serde_json::json!([[1], [2]])),
-            &t(serde_json::json!([[2], [1]])),
-            true,
-            &exact
-        )
-        .is_empty()
-    );
-    assert!(
-        !compare_table(
-            &t(serde_json::json!([[1]])),
-            &t(serde_json::json!([[1], [1]])),
-            false,
-            &exact
-        )
-        .is_empty()
-    );
 }

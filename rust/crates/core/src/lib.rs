@@ -5,13 +5,13 @@
 
 use std::collections::BTreeMap;
 
-pub use geomarmot_engine::{Column, Engine, Result, qid, qlit};
+pub use geomarmot_sql::{Column, Result, SqlEngine, qid, qlit};
 use serde_json::Value;
 
 mod compile;
 pub mod transformers;
 
-pub use compile::{NodeOutput, compile_node};
+pub use compile::{NodeOutput, Probe, compile_node};
 
 /// SQL per output port.
 pub type Ports = BTreeMap<String, String>;
@@ -73,8 +73,9 @@ pub trait Transformer: Sync {
     fn crs(&self, ctx: &Ctx) -> String {
         ctx.incoming_crs.clone()
     }
-    fn check(&self, _ctx: &Ctx, _engine: &Engine) -> Result<()> {
-        Ok(())
+    /// The `check` hook as data: a probe query the compiler runs, and how to word its failure.
+    fn check(&self, _ctx: &Ctx) -> Option<Probe> {
+        None
     }
 }
 

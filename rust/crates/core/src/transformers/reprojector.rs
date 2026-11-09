@@ -1,4 +1,4 @@
-use crate::{Ctx, Engine, Ports, Result, Transformer, find_geometry_column, geometry_expression, qid, to_crs};
+use crate::{Ctx, Ports, Probe, Result, Transformer, find_geometry_column, geometry_expression, qid, to_crs};
 
 pub struct Reprojector;
 
@@ -40,17 +40,15 @@ impl Transformer for Reprojector {
         )]))
     }
 
-    fn check(&self, ctx: &Ctx, engine: &Engine) -> Result<()> {
+    fn check(&self, ctx: &Ctx) -> Option<Probe> {
         let to = destination(ctx);
         if to.is_empty() || to == ctx.incoming_crs {
-            return Ok(());
+            return None;
         }
-        engine
-            .query(&format!(
-                "SELECT {} AS probe",
-                to_crs("ST_Point(0, 0)", &ctx.incoming_crs, to)
-            ))
-            .map(|_| ())
-            .map_err(|e| format!("PROJ does not know \"{to}\" ({e})"))
+        let quoted = format!("\"{to}\"");
+        Some(Probe {
+            sql: format!("SELECT {} AS probe", to_crs("ST_Point(0, 0)", &ctx.incoming_crs, to)),
+            error: Box::new(move |e| format!("PROJ does not know {quoted} ({e})")),
+        })
     }
 }

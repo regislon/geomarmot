@@ -1,31 +1,22 @@
 //! The native engine host: DuckDB with the bundled extensions.
 //!
-//! Spike scope: the in-process host only (no engine process, no allow list yet).
-//! Extensions are installed into a local directory once (`install_extensions`),
-//! then every engine only LOADs them from there, so a running engine never
-//! fetches anything (the offline rule, docs/decisions/0002).
+//! Two entry points over the same host: in-process (`Host`, used by the CLI and
+//! tests) and the `geomarmot-engine` binary served over a pipe (`process`), used by
+//! the desktop app. Extensions are installed into a local directory once
+//! (`install_extensions`); an engine only LOADs them from there, so a running engine
+//! never fetches anything (docs/decisions/0002).
 
 use std::path::Path;
+use std::sync::Arc;
 
-use duckdb::Connection;
-use duckdb::types::Value as Dv;
-use serde_json::Value;
+use duckdb::{Connection, InterruptHandle};
+use geomarmot_sql::arrow::array::RecordBatch;
+pub use geomarmot_sql::{Column, Result, SqlEngine, arrow, qid, qlit};
+
+pub mod process;
 
 /// Extensions loaded at boot. parquet and json are compiled into the bundled build.
 pub const EXTENSIONS: &[&str] = &["spatial"];
-
-pub type Result<T> = std::result::Result<T, String>;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Column {
-    pub name: String,
-    /// Upper-cased DuckDB type, as `DESCRIBE` prints it.
-    pub kind: String,
-}
-
-pub struct Engine {
-    conn: Connection,
-}
 
 fn err(e: duckdb::Error) -> String {
     e.to_string()
@@ -52,7 +43,12 @@ pub fn install_extensions(dir: &Path) -> Result<()> {
     Ok(())
 }
 
-impl Engine {
+/// The in-process engine.
+pub struct Host {
+    conn: Connection,
+}
+
+impl Host {
     /// Boot an engine that loads its extensions from `extension_dir` and nowhere else.
     pub fn open(extension_dir: &Path) -> Result<Self> {
         let conn = Connection::open_in_memory().map_err(err)?;
@@ -74,64 +70,27 @@ impl Engine {
         Ok(Self { conn })
     }
 
-    pub fn exec(&self, sql: &str) -> Result<()> {
+    /// Stops the running statement of this engine, from any thread.
+    pub fn interrupt_handle(&self) -> Arc<InterruptHandle> {
+        self.conn.interrupt_handle()
+    }
+
+    pub fn exec_now(&self, sql: &str) -> Result<()> {
         self.conn.execute_batch(sql).map_err(err)
     }
 
-    /// Rows as JSON values, in column order.
-    pub fn query(&self, sql: &str) -> Result<Vec<Vec<Value>>> {
+    pub fn query_now(&self, sql: &str) -> Result<Vec<RecordBatch>> {
         let mut stmt = self.conn.prepare(sql).map_err(err)?;
-        let mut rows = stmt.query([]).map_err(err)?;
-        let width = rows.as_ref().map(|s| s.column_count()).unwrap_or(0);
-        let mut out = Vec::new();
-        while let Some(row) = rows.next().map_err(err)? {
-            let mut cells = Vec::with_capacity(width);
-            for k in 0..width {
-                cells.push(to_json(row.get::<_, Dv>(k).map_err(err)?));
-            }
-            out.push(cells);
-        }
-        Ok(out)
-    }
-
-    /// Columns of a table or view.
-    pub fn describe(&self, relation: &str) -> Result<Vec<Column>> {
-        Ok(self
-            .query(&format!("SELECT column_name, column_type FROM (DESCRIBE {relation})"))?
-            .into_iter()
-            .map(|r| Column {
-                name: r[0].as_str().unwrap_or_default().to_string(),
-                kind: r[1].as_str().unwrap_or_default().to_uppercase(),
-            })
-            .collect())
+        Ok(stmt.query_arrow([]).map_err(err)?.collect())
     }
 }
 
-fn to_json(v: Dv) -> Value {
-    match v {
-        Dv::Null => Value::Null,
-        Dv::Boolean(b) => b.into(),
-        Dv::TinyInt(n) => n.into(),
-        Dv::SmallInt(n) => n.into(),
-        Dv::Int(n) => n.into(),
-        Dv::BigInt(n) => n.into(),
-        Dv::UTinyInt(n) => n.into(),
-        Dv::USmallInt(n) => n.into(),
-        Dv::UInt(n) => n.into(),
-        Dv::UBigInt(n) => n.into(),
-        Dv::Float(f) => serde_json::Number::from_f64(f as f64).map_or(Value::Null, Value::Number),
-        Dv::Double(f) => serde_json::Number::from_f64(f).map_or(Value::Null, Value::Number),
-        Dv::Text(s) => s.into(),
-        other => format!("{other:?}").into(),
+impl SqlEngine for Host {
+    async fn exec(&self, sql: &str) -> Result<()> {
+        self.exec_now(sql)
     }
-}
 
-/// Quote an identifier.
-pub fn qid(name: &str) -> String {
-    format!("\"{}\"", name.replace('"', "\"\""))
-}
-
-/// Quote a string literal.
-pub fn qlit(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "''"))
+    async fn query_arrow(&self, sql: &str) -> Result<Vec<RecordBatch>> {
+        self.query_now(sql)
+    }
 }
