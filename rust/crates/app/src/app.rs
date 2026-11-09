@@ -1,5 +1,8 @@
 //! The window: canvas in the middle, inspector on the right, table and map below.
 
+#[path = "app_files.rs"]
+mod files;
+
 use std::collections::BTreeMap;
 
 use egui::Rect;
@@ -22,9 +25,17 @@ pub struct App {
     pub tab_map: bool,
     status: String,
     /// Files opened, as (relation, label): the Layers list.
-    layers: Vec<(String, String)>,
+    layers: Vec<(String, String, Option<String>)>,
     styled: bool,
     quick: Option<crate::quickadd::QuickAdd>,
+    /// The graph's file, once saved or opened.
+    project_path: Option<std::path::PathBuf>,
+    /// Readers of an opened graph waiting for their file: (path, node).
+    reopen: Vec<(String, egui_snarl::NodeId)>,
+    /// A bookmark being moved or resized.
+    bookmark_drag: Option<crate::bookmarks::Drag>,
+    /// A bookmark being renamed, and where its field sits.
+    renaming: Option<(usize, egui::Pos2)>,
     /// The link under the pointer when the search opened: the new node goes into it.
     quick_link: Option<(egui_snarl::OutPinId, egui_snarl::InPinId)>,
     map: crate::map::MapView,
@@ -67,6 +78,10 @@ impl App {
             layers: Vec::new(),
             styled: false,
             quick: None,
+            project_path: None,
+            reopen: Vec::new(),
+            bookmark_drag: None,
+            renaming: None,
             quick_link: None,
             map: crate::map::MapView::default(),
             last_press: None,
@@ -88,6 +103,10 @@ impl App {
 
     /// Open a file, as the Open button does after its dialog.
     pub fn open(&mut self, path: std::path::PathBuf) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if path.extension().is_some_and(|e| e == "json") {
+            return self.open_graph(path);
+        }
         self.send(Job::Open(path));
     }
 
@@ -299,10 +318,20 @@ impl App {
     pub fn poll(&mut self) {
         while let Ok(reply) = self.worker.replies.try_recv() {
             match reply {
-                Reply::Opened { relation, label } => {
-                    self.layers.push((relation.clone(), label.clone()));
+                Reply::Opened { relation, label, path } => {
+                    self.layers.push((relation.clone(), label.clone(), path.clone()));
+                    // A Reader of an opened graph gets its file back.
+                    if let Some(at) = self.reopen.iter().position(|(p, _)| Some(p) == path.as_ref()) {
+                        let (_, node) = self.reopen.remove(at);
+                        if let Some(d) = self.snarl.get_node_mut(node) {
+                            d.node.params["relation"] = relation.into();
+                        }
+                        continue;
+                    }
                     let pos = self.viewer.place(self.snarl.node_ids().count());
-                    let node = self.snarl.insert_node(pos, NodeData::reader(&relation, &label));
+                    let node = self
+                        .snarl
+                        .insert_node(pos, NodeData::reader(&relation, &label, path.as_deref()));
                     self.status = format!("Opened {label}.");
                     self.run(Some(vec![node.0]));
                 }
@@ -401,6 +430,8 @@ impl App {
             ui.separator();
             if ui.add(egui::Button::new(white("New")).frame(false)).clicked() {
                 self.snarl = egui_snarl::Snarl::new();
+                self.viewer.bookmarks.clear();
+                self.project_path = None;
                 self.viewer.selected = None;
                 self.states.clear();
                 self.shown = None;
@@ -418,8 +449,21 @@ impl App {
             {
                 self.run(None);
             }
-            ui.add_enabled(false, egui::Button::new(dim("Save")).frame(false))
-                .on_disabled_hover_text(later);
+            if ui
+                .add(egui::Button::new(white("Save")).frame(false))
+                .on_hover_text("Save the graph (Ctrl+S); Shift-click to save as")
+                .clicked()
+            {
+                let ask = ui.input(|i| i.modifiers.shift);
+                self.save_graph(ask);
+            }
+            if ui
+                .add(egui::Button::new(white("Bookmark")).frame(false))
+                .on_hover_text("Frame the selected nodes in a bookmark (Ctrl+B). Shift-drag a box to select several.")
+                .clicked()
+            {
+                self.add_bookmark();
+            }
             ui.separator();
             ui.add_enabled(false, egui::Button::new(dim("Connect")).frame(false))
                 .on_disabled_hover_text(later);
@@ -499,18 +543,19 @@ impl App {
                     });
                 });
             let mut add = None;
-            for (relation, label) in &self.layers {
+            for (relation, label, path) in &self.layers {
                 if ui
                     .add(egui::Button::new(label.as_str()).frame(false))
                     .on_hover_text("Add a Reader for this file")
                     .clicked()
                 {
-                    add = Some((relation.clone(), label.clone()));
+                    add = Some((relation.clone(), label.clone(), path.clone()));
                 }
             }
-            if let Some((relation, label)) = add {
+            if let Some((relation, label, path)) = add {
                 let pos = self.viewer.place(self.snarl.node_ids().count());
-                self.snarl.insert_node(pos, NodeData::reader(&relation, &label));
+                self.snarl
+                    .insert_node(pos, NodeData::reader(&relation, &label, path.as_deref()));
             }
             ui.add_space(10.0);
             ui.separator();
@@ -807,6 +852,9 @@ impl App {
                         });
                         match hit {
                             Some((n, _)) => self.viewer.open_form = Some(*n),
+                            None if let Some(i) = crate::bookmarks::title_at(&self.viewer, pos) => {
+                                self.renaming = Some((i, pos));
+                            }
                             None => {
                                 self.quick_link = crate::links::wire_at(&self.viewer, &self.snarl, pos);
                                 self.quick = Some(crate::quickadd::QuickAdd::new("", pos));
@@ -846,6 +894,24 @@ impl App {
             let delete = i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace);
             (typed, delete)
         });
+        let (save, bookmark) = ctx.input_mut(|i| {
+            (
+                i.consume_key(egui::Modifiers::COMMAND, egui::Key::S),
+                i.consume_key(egui::Modifiers::COMMAND, egui::Key::B),
+            )
+        });
+        if save {
+            self.save_graph(false);
+        }
+        if bookmark {
+            self.add_bookmark();
+        }
+        if delete && !self.viewer.multi.is_empty() {
+            for node in std::mem::take(&mut self.viewer.multi) {
+                self.remove_node(node);
+            }
+            return;
+        }
         if let (Some(t), Some(at)) = (typed, pointer) {
             self.quick_link = crate::links::wire_at(&self.viewer, &self.snarl, at);
             self.quick = Some(crate::quickadd::QuickAdd::new(&t, at));
@@ -1190,10 +1256,11 @@ impl eframe::App for App {
             .frame(egui::Frame::new().fill(colour::PAPER_2))
             .show(ui, |ui| {
                 self.viewer.canvas = Some(ui.max_rect());
-                let canvas =
-                    SnarlWidget::new()
-                        .style(crate::canvas::style())
-                        .show(&mut self.snarl, &mut self.viewer, ui);
+                self.bookmark_input(ui.ctx(), ui.max_rect());
+                let widget = SnarlWidget::new().style(crate::canvas::style());
+                let canvas = widget.show(&mut self.snarl, &mut self.viewer, ui);
+                self.viewer.multi = widget.get_selected_nodes(ui).into_iter().map(|n| n.0).collect();
+                self.bookmark_rename(ui.ctx());
                 self.canvas_keys(ui.ctx(), &canvas);
                 let hovering = ui.ctx().input(|i| !i.raw.hovered_files.is_empty());
                 if self.quick.is_none() && (hovering || self.snarl.node_ids().next().is_none()) {

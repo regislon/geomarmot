@@ -89,6 +89,7 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
                 Ok(_) => Reply::Opened {
                     relation,
                     label: path.file_name().unwrap_or_default().to_string_lossy().into(),
+                    path: Some(path.to_string_lossy().into_owned()),
                 },
                 Err(e) => Reply::Status(format!("Could not open {}: {e}", path.display())),
             }

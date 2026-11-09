@@ -2,6 +2,7 @@
 //! one codebase for the desktop (engine process) and the browser (DuckDB-Wasm).
 
 pub mod app;
+pub mod bookmarks;
 pub mod canvas;
 pub mod form;
 mod form_manager;
@@ -12,6 +13,7 @@ mod links;
 pub mod map;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod probe;
+pub mod project;
 pub mod quickadd;
 pub mod worker;
 

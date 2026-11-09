@@ -217,8 +217,13 @@ impl NodeData {
         }
     }
 
-    pub fn reader(relation: &str, label: &str) -> Self {
-        Self::new("Reader", json!({ "relation": relation }), label.into())
+    /// A Reader of a table opened from `path` (kept, to open it again with a saved graph).
+    pub fn reader(relation: &str, label: &str, path: Option<&str>) -> Self {
+        let mut params = json!({ "relation": relation });
+        if let Some(p) = path {
+            params["path"] = p.into();
+        }
+        Self::new("Reader", params, label.into())
     }
 }
 
@@ -283,6 +288,12 @@ pub struct Viewer {
     pub pointer: Option<egui::Pos2>,
     /// × clicked on this node: remove it.
     pub delete: Option<usize>,
+    /// Bookmarks, drawn behind the nodes.
+    pub bookmarks: Vec<crate::bookmarks::Bookmark>,
+    /// Hold the view still (a bookmark is being dragged, which the canvas would take as a pan).
+    pub lock_view: Option<egui::emath::TSTransform>,
+    /// Nodes selected together (Shift-drag a box), as of last frame.
+    pub multi: Vec<usize>,
 }
 
 impl Viewer {
@@ -313,7 +324,7 @@ impl SnarlViewer<NodeData> for Viewer {
         snarl: &Snarl<NodeData>,
     ) -> egui::Frame {
         let failed = matches!(snarl[node].state, Some(NodeState::Error(_)));
-        let selected = self.selected.map(|(n, _)| n) == Some(node.0);
+        let selected = self.selected.map(|(n, _)| n) == Some(node.0) || self.multi.contains(&node.0);
         let stroke = match (failed, selected) {
             // A failed node gets a dashed red outline instead (final_node_rect).
             (true, _) => egui::Stroke::NONE,
@@ -464,7 +475,7 @@ impl SnarlViewer<NodeData> for Viewer {
         }
     }
 
-    /// Dots every 18 points, as the JavaScript canvas (thinned out when zoomed far out).
+    /// Dots every 18 points, as the JavaScript canvas (thinned out when zoomed far out), then the bookmarks.
     fn draw_background(
         &mut self,
         _background: Option<&egui_snarl::ui::BackgroundPattern>,
@@ -492,9 +503,13 @@ impl SnarlViewer<NodeData> for Viewer {
             }
             y += step;
         }
+        crate::bookmarks::draw(painter, &self.bookmarks);
     }
 
     fn current_transform(&mut self, to_global: &mut egui::emath::TSTransform, snarl: &mut Snarl<NodeData>) {
+        if let Some(locked) = self.lock_view {
+            *to_global = locked;
+        }
         if !self.started {
             // Laid out at Z (crisp text): start at 100 %.
             self.started = true;

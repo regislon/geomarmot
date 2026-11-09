@@ -240,5 +240,25 @@ fn open_chain_read_export() {
         std::thread::sleep(Duration::from_millis(20));
     }
     assert!(h.query_by_label("Input attribute").is_some(), "the attribute table");
-    assert!(h.query_by_label("attr_29").is_some(), "the input's attributes, before any run");
+    assert!(
+        h.query_by_label("attr_29").is_some(),
+        "the input's attributes, before any run"
+    );
+
+    // Ctrl+B frames the selected node in a bookmark, drawn behind it.
+    h.state_mut().viewer.selected = Some((dissolve.0, 0));
+    h.event(egui::Event::PointerMoved(egui::pos2(900.0, 440.0)));
+    h.event(egui::Event::Key {
+        key: egui::Key::B,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::COMMAND,
+    });
+    h.run_steps(3);
+    assert_eq!(h.state().viewer.bookmarks.len(), 1);
+    h.render()
+        .expect("render")
+        .save(target().join("gate5-bookmark.png"))
+        .unwrap();
 }

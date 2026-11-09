@@ -75,7 +75,11 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
                 scan(&name)
             );
             match bridge::add_source(&name, &bytes, &sql).await {
-                Ok(()) => Reply::Opened { relation, label: name },
+                Ok(()) => Reply::Opened {
+                    relation,
+                    label: name,
+                    path: None,
+                },
                 Err(e) => Reply::Status(format!("Could not open {name}: {e}")),
             }
         }

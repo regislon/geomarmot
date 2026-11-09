@@ -80,6 +80,8 @@ pub enum Reply {
     Opened {
         relation: String,
         label: String,
+        /// The file's path on the desktop (None in the browser).
+        path: Option<String>,
     },
     Compiled {
         generation: u64,
