@@ -326,6 +326,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmake"
+version = "0.1.58"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0f78a02292a74a88ac736019ab962ece0bc380e3f977bf72e376c5d78ff0678"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "comfy-table"
 version = "7.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -629,8 +638,19 @@ dependencies = [
  "duckdb",
  "geo",
  "geomarmot-core",
+ "geomarmot-kernels",
  "geomarmot-sql",
  "pollster",
+ "serde_json",
+]
+
+[[package]]
+name = "geomarmot-kernels"
+version = "0.0.0"
+dependencies = [
+ "geo",
+ "geos",
+ "rayon",
  "serde_json",
 ]
 
@@ -640,6 +660,38 @@ version = "0.0.0"
 dependencies = [
  "arrow",
  "serde_json",
+]
+
+[[package]]
+name = "geos"
+version = "11.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b131d80ad838c8e5b9e0d31482f893961267fbd29903ea1b6a1565d814b07e5"
+dependencies = [
+ "geos-sys",
+ "libc",
+]
+
+[[package]]
+name = "geos-src"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4eee1f85b9bb01f9b6051facc23971da8e7baebee757c1642973d95eb3510092"
+dependencies = [
+ "cmake",
+]
+
+[[package]]
+name = "geos-sys"
+version = "2.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bd0fc1bcdc69e16138f10ea038a3ef9f83931eb0d75a903543ca683e8b75d56"
+dependencies = [
+ "geos-src",
+ "libc",
+ "link-cplusplus",
+ "pkg-config",
+ "semver",
 ]
 
 [[package]]
@@ -964,6 +1016,15 @@ name = "libm"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6d2cec3eae94f9f509c767b45932f1ada8350c4bdb85af2fcab4a3c14807981"
+
+[[package]]
+name = "link-cplusplus"
+version = "1.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f78c730aaa7d0b9336a299029ea49f9ee53b0ed06e9202e8cb7db9bae7b8c82"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "linux-raw-sys"

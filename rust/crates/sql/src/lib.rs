@@ -24,11 +24,86 @@ pub struct Column {
     pub kind: String,
 }
 
+/// A request to the overlay kernel. Names are quoted SQL; the three outputs are tables it creates:
+/// faces (face_id, geometry), memberships (face_id, fid), ambiguous (geometry, area, clearance).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct OverlayRequest {
+    pub source: String,
+    pub fid: String,
+    pub geometry: String,
+    pub faces: String,
+    pub memberships: String,
+    pub ambiguous: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct OverlayStats {
+    pub faces: usize,
+    pub ambiguous: usize,
+    pub parts: usize,
+    pub tasks: usize,
+}
+
+impl OverlayRequest {
+    /// One line per field, for the engine-process protocol.
+    pub fn encode(&self) -> String {
+        [
+            &self.source,
+            &self.fid,
+            &self.geometry,
+            &self.faces,
+            &self.memberships,
+            &self.ambiguous,
+        ]
+        .map(|s| s.replace('\n', " "))
+        .join("\n")
+    }
+
+    pub fn decode(text: &str) -> Result<Self> {
+        let f: Vec<&str> = text.split('\n').collect();
+        let [source, fid, geometry, faces, memberships, ambiguous] = f[..] else {
+            return Err("malformed overlay request".into());
+        };
+        Ok(Self {
+            source: source.into(),
+            fid: fid.into(),
+            geometry: geometry.into(),
+            faces: faces.into(),
+            memberships: memberships.into(),
+            ambiguous: ambiguous.into(),
+        })
+    }
+}
+
+impl OverlayStats {
+    pub fn encode(&self) -> String {
+        format!("{} {} {} {}", self.faces, self.ambiguous, self.parts, self.tasks)
+    }
+
+    pub fn decode(text: &str) -> Result<Self> {
+        let n: Vec<usize> = text.split(' ').filter_map(|x| x.parse().ok()).collect();
+        let [faces, ambiguous, parts, tasks] = n[..] else {
+            return Err("malformed overlay stats".into());
+        };
+        Ok(Self {
+            faces,
+            ambiguous,
+            parts,
+            tasks,
+        })
+    }
+}
+
 /// What the compiler needs from an engine. Async because the browser's engine is.
 #[allow(async_fn_in_trait)]
 pub trait SqlEngine {
     async fn exec(&self, sql: &str) -> Result<()>;
     async fn query_arrow(&self, sql: &str) -> Result<Vec<RecordBatch>>;
+
+    /// Run the overlay kernel next to the data.
+    async fn overlay(&self, _request: &OverlayRequest) -> Result<OverlayStats> {
+        Err("This engine has no overlay kernel.".into())
+    }
 
     /// Rows as JSON values, in column order.
     async fn query(&self, sql: &str) -> Result<Vec<Vec<Value>>> {

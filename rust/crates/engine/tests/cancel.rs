@@ -28,12 +28,14 @@ fn supervisor(dir: &Path) -> Arc<Supervisor> {
     Arc::new(Supervisor::start(Path::new(env!("CARGO_BIN_EXE_geomarmot-engine")), config, true).unwrap())
 }
 
-/// Start `work` on a thread, cancel after `after`; returns (escalated, stop latency, work error).
+/// Start `work` on a thread, cancel after `after` (the engine is warmed up first, so `after` measures
+/// time inside the work, not process start-up); returns (escalated, stop latency, work error).
 fn cancel_during(
     s: &Arc<Supervisor>,
     after: Duration,
     work: impl FnOnce(&Supervisor) -> Result<(), String> + Send + 'static,
 ) -> (bool, Duration, Option<String>) {
+    s.query("SELECT 1").value.unwrap();
     let worker = s.clone();
     let handle = thread::spawn(move || work(&worker));
     thread::sleep(after);

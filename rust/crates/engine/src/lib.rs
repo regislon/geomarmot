@@ -8,12 +8,14 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use duckdb::{Connection, InterruptHandle};
 use geomarmot_sql::arrow::array::RecordBatch;
-pub use geomarmot_sql::{Column, Result, SqlEngine, arrow, qid, qlit};
+pub use geomarmot_sql::{Column, OverlayRequest, OverlayStats, Result, SqlEngine, arrow, qid, qlit};
 
 pub mod io;
+mod kernels;
 pub mod process;
 pub mod supervisor;
 
@@ -61,6 +63,8 @@ pub struct Config {
 /// The in-process engine.
 pub struct Host {
     conn: Connection,
+    /// Set by an interrupt; kernels check it between tasks.
+    cancel: Arc<AtomicBool>,
 }
 
 impl Host {
@@ -104,12 +108,26 @@ impl Host {
         }
         lock.push_str("SET enable_external_access = false; SET lock_configuration = true;");
         conn.execute_batch(&lock).map_err(err)?;
-        Ok(Self { conn })
+        Ok(Self {
+            conn,
+            cancel: Arc::new(AtomicBool::new(false)),
+        })
     }
 
     /// Stops the running statement of this engine, from any thread.
     pub fn interrupt_handle(&self) -> Arc<InterruptHandle> {
         self.conn.interrupt_handle()
+    }
+
+    /// Stops a running kernel between tasks, from any thread.
+    pub fn cancel_flag(&self) -> Arc<AtomicBool> {
+        self.cancel.clone()
+    }
+
+    pub fn overlay_now(&self, request: &OverlayRequest) -> Result<OverlayStats> {
+        let result = kernels::overlay(self, request, &self.cancel);
+        self.cancel.store(false, Ordering::SeqCst);
+        result
     }
 
     pub fn exec_now(&self, sql: &str) -> Result<()> {
@@ -129,5 +147,9 @@ impl SqlEngine for Host {
 
     async fn query_arrow(&self, sql: &str) -> Result<Vec<RecordBatch>> {
         self.query_now(sql)
+    }
+
+    async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {
+        self.overlay_now(request)
     }
 }

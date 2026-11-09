@@ -17,6 +17,7 @@ const GATE_1: &[&str] = &[
     "dissolver",
     "reprojector",
     "bufferer",
+    "area-on-area-overlayer",
 ];
 
 /// A locked engine with nothing approved: fixtures only create and read tables.

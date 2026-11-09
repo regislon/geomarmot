@@ -7,7 +7,7 @@
 //!           `areaTolerance` of the expected area, discrete Hausdorff distance within
 //!           `tolerance`, same validity. Uses `geo`, independent of DuckDB's spatial.
 
-use geo::{Area, BooleanOps, Geometry, HausdorffDistance, MultiPolygon, Validation};
+use geo::{Area, BooleanOps, Buffer, Geometry, HausdorffDistance, MultiPolygon, Validation};
 use serde_json::Value;
 
 use super::wkt::{Body, Geom, parse};
@@ -142,15 +142,40 @@ fn exact_diff(a: &Geom, b: &Geom, o: &GeomOpts) -> Option<String> {
     (!body_equal(a.body.as_ref()?, b.body.as_ref()?, o)).then(|| "coordinates differ".into())
 }
 
-/// Polygonal geometry for the topology mode (XY only; Z was already compared).
-fn polygonal(g: &Geom) -> Result<MultiPolygon<f64>, String> {
-    let ring = |r: &Vec<Vec<f64>>| geo::LineString::from(r.iter().map(|p| (p[0], p[1])).collect::<Vec<_>>());
-    let poly = |p: &Vec<Vec<Vec<f64>>>| geo::Polygon::new(ring(&p[0]), p[1..].iter().map(ring).collect());
+/// A `geo` geometry for the topology mode (XY only; Z was already compared).
+fn to_geo(g: &Geom) -> Geometry<f64> {
+    let pt = |p: &Vec<f64>| geo::Point::new(p[0], p[1]);
+    let line = |r: &Vec<Vec<f64>>| geo::LineString::from(r.iter().map(|p| (p[0], p[1])).collect::<Vec<_>>());
+    let poly = |p: &Vec<Vec<Vec<f64>>>| geo::Polygon::new(line(&p[0]), p[1..].iter().map(line).collect());
+    match g.body.as_ref().expect("empty geometries are handled before") {
+        Body::Point(p) => pt(p).into(),
+        Body::Line(l) => line(l).into(),
+        Body::Polygon(p) => poly(p).into(),
+        Body::MultiPoint(m) => geo::MultiPoint(m.iter().map(pt).collect()).into(),
+        Body::MultiLine(m) => geo::MultiLineString(m.iter().map(line).collect()).into(),
+        Body::MultiPolygon(m) => MultiPolygon(m.iter().map(poly).collect()).into(),
+        Body::Collection(c) => Geometry::GeometryCollection(geo::GeometryCollection(
+            c.iter().filter(|g| g.body.is_some()).map(to_geo).collect(),
+        )),
+    }
+}
+
+/// Topological dimension (0 points, 1 lines, 2 areas), the largest part's for a collection.
+fn dimension(g: &Geom) -> u8 {
     match &g.body {
-        Some(Body::Polygon(p)) => Ok(MultiPolygon(vec![poly(p)])),
-        Some(Body::MultiPolygon(m)) => Ok(MultiPolygon(m.iter().map(poly).collect())),
-        // ponytail: topology mode for points/lines is not ported yet (no gate-1 case uses it); port with the first one that does.
-        _ => Err(format!("topology comparison of {} is not ported yet", g.kind)),
+        Some(Body::Point(_) | Body::MultiPoint(_)) | None => 0,
+        Some(Body::Line(_) | Body::MultiLine(_)) => 1,
+        Some(Body::Polygon(_) | Body::MultiPolygon(_)) => 2,
+        Some(Body::Collection(c)) => c.iter().map(dimension).max().unwrap_or(0),
+    }
+}
+
+/// The area to compare: the geometry itself for areas, a buffer of `tolerance` for lines.
+fn areal(g: &Geometry<f64>, dim: u8, tolerance: f64) -> MultiPolygon<f64> {
+    match (dim, g) {
+        (2, Geometry::Polygon(p)) => MultiPolygon(vec![p.clone()]),
+        (2, Geometry::MultiPolygon(m)) => m.clone(),
+        _ => g.buffer(tolerance),
     }
 }
 
@@ -178,22 +203,21 @@ pub fn compare_geometry(actual: Option<&str>, expected: Option<&str>, o: &GeomOp
     if has_z(&a) != has_z(&b) {
         return Some(format!("dimensions differ: {a_txt} vs {b_txt}"));
     }
-    let (ga, gb) = match (polygonal(&a), polygonal(&b)) {
-        (Ok(x), Ok(y)) => (x, y),
-        (Err(e), _) | (_, Err(e)) => return Some(e),
-    };
+    let (ga, gb) = (to_geo(&a), to_geo(&b));
     if ga.is_valid() != gb.is_valid() {
         return Some(format!("validity differs: {a_txt} vs {b_txt}"));
     }
-    let reference = gb.unsigned_area().max(1e-30);
-    let sym = ga.xor(&gb).unsigned_area();
-    if sym > o.area_tolerance * reference {
+    let dim = dimension(&b);
+    let (aa, ab) = (areal(&ga, dim, o.tolerance), areal(&gb, dim, o.tolerance));
+    let reference = ab.unsigned_area().max(1e-30);
+    let sym = aa.xor(&ab).unsigned_area();
+    if dim > 0 && sym > o.area_tolerance * reference {
         return Some(format!(
             "shapes differ (symmetric difference {sym} > {} × {reference}): {a_txt} vs {b_txt}",
             o.area_tolerance
         ));
     }
-    let hausdorff = Geometry::from(ga).hausdorff_distance(&Geometry::from(gb));
+    let hausdorff = ga.hausdorff_distance(&gb);
     (hausdorff > o.tolerance).then(|| format!("Hausdorff distance {hausdorff} > {}: {a_txt} vs {b_txt}", o.tolerance))
 }
 

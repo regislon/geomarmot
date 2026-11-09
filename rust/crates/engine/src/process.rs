@@ -9,12 +9,13 @@
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 
 use crate::{Config, Host, Result, SqlEngine};
 use geomarmot_sql::arrow::array::RecordBatch;
-use geomarmot_sql::{from_ipc, to_ipc};
+use geomarmot_sql::{OverlayRequest, OverlayStats, from_ipc, to_ipc};
 
 const EXEC: u8 = 1;
 const QUERY: u8 = 2;
@@ -22,6 +23,8 @@ const INTERRUPT: u8 = 3;
 /// Test-only (`--test-hooks`): block the engine for N seconds, ignoring interrupts —
 /// a stand-in for a kernel stuck inside one long synchronous operation.
 const STUCK: u8 = 4;
+const OVERLAY: u8 = 5;
+const STATS: u8 = 3;
 const DONE: u8 = 0;
 const BATCHES: u8 = 1;
 const ERROR: u8 = 2;
@@ -45,25 +48,46 @@ fn read_frame(r: &mut impl Read) -> std::io::Result<(u8, Vec<u8>)> {
 /// Serve `host` until stdin closes. Called by the `geomarmot-engine` binary.
 pub fn serve(host: Host, test_hooks: bool) -> std::io::Result<()> {
     let interrupt = host.interrupt_handle();
-    let (tx, rx) = mpsc::channel::<(u8, String)>();
+    let cancel = host.cancel_flag();
+    // An interrupt cancels the running request and every request received before it, so one
+    // that arrives while its request is still queued is not lost.
+    let cancelled_upto = Arc::new(AtomicU64::new(0));
+    let reader_cancelled = cancelled_upto.clone();
+    let (tx, rx) = mpsc::channel::<(u64, u8, String)>();
     std::thread::spawn(move || {
         let mut input = BufReader::new(std::io::stdin().lock());
+        let mut received = 0;
         while let Ok((kind, payload)) = read_frame(&mut input) {
             if kind == INTERRUPT {
+                reader_cancelled.store(received, Ordering::SeqCst);
                 interrupt.interrupt();
-            } else if tx.send((kind, String::from_utf8_lossy(&payload).into_owned())).is_err() {
+                cancel.store(true, Ordering::SeqCst);
+                continue;
+            }
+            received += 1;
+            if tx
+                .send((received, kind, String::from_utf8_lossy(&payload).into_owned()))
+                .is_err()
+            {
                 break;
             }
         }
     });
     let mut out = BufWriter::new(std::io::stdout().lock());
-    for (kind, sql) in rx {
+    for (seq, kind, sql) in rx {
+        if seq <= cancelled_upto.load(Ordering::SeqCst) {
+            write_frame(&mut out, ERROR, b"INTERRUPT Error: cancelled before it ran")?;
+            continue;
+        }
         let reply = match kind {
             EXEC => host.exec_now(&sql).map(|_| (DONE, vec![])),
             QUERY => host
                 .query_now(&sql)
                 .and_then(|b| to_ipc(&b))
                 .map(|bytes| (BATCHES, bytes)),
+            OVERLAY => OverlayRequest::decode(&sql)
+                .and_then(|r| host.overlay_now(&r))
+                .map(|stats| (STATS, stats.encode().into_bytes())),
             STUCK if test_hooks => {
                 std::thread::sleep(std::time::Duration::from_secs(sql.parse().unwrap_or(60)));
                 Ok((DONE, vec![]))
@@ -168,5 +192,10 @@ impl SqlEngine for ProcessEngine {
     async fn query_arrow(&self, sql: &str) -> Result<Vec<RecordBatch>> {
         let (_, bytes) = self.request(QUERY, sql)?;
         from_ipc(&bytes)
+    }
+
+    async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {
+        let (_, bytes) = self.request(OVERLAY, &request.encode())?;
+        OverlayStats::decode(&String::from_utf8_lossy(&bytes))
     }
 }

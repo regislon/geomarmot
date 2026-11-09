@@ -5,14 +5,14 @@
 
 use std::collections::BTreeMap;
 
-pub use geomarmot_sql::{Column, Result, SqlEngine, qid, qlit};
+pub use geomarmot_sql::{Column, OverlayRequest, Result, SqlEngine, qid, qlit};
 use serde_json::Value;
 
 mod compile;
 pub mod sqlguard;
 pub mod transformers;
 
-pub use compile::{NodeOutput, Probe, compile_node};
+pub use compile::{NodeOutput, Probe, Step, compile_node};
 
 /// SQL per output port.
 pub type Ports = BTreeMap<String, String>;
@@ -26,6 +26,8 @@ pub struct Ctx {
     pub inputs: BTreeMap<String, String>,
     pub schemas: BTreeMap<String, Vec<Column>>,
     pub incoming_crs: String,
+    /// Names the node's own tables (`table_name`).
+    pub prefix: String,
 }
 
 impl Ctx {
@@ -35,6 +37,11 @@ impl Ctx {
 
     pub fn schema(&self, port: &str) -> &[Column] {
         self.schemas.get(port).map(Vec::as_slice).unwrap_or_default()
+    }
+
+    /// A table this node owns, stable between `prepare` and `sql`.
+    pub fn table_name(&self, suffix: &str) -> String {
+        format!("{}_t_{suffix}", self.prefix)
     }
 
     /// A string param, "" when absent (JS `params.x || ""`).
@@ -69,6 +76,14 @@ pub trait Transformer: Sync {
     /// Whether the compiler must DESCRIBE the inputs first (`needs.schema`).
     fn needs_schema(&self) -> bool {
         false
+    }
+    /// Inputs must be in longitude/latitude (`needs.lonLat`).
+    fn needs_lonlat(&self) -> bool {
+        false
+    }
+    /// The `prepare` hook as data: steps the compiler runs before `sql`.
+    fn prepare(&self, _ctx: &Ctx) -> Result<Vec<Step>> {
+        Ok(vec![])
     }
     fn sql(&self, ctx: &Ctx) -> Result<Ports>;
     fn crs(&self, ctx: &Ctx) -> String {
@@ -134,4 +149,22 @@ pub fn js_number(value: &Value) -> Option<f64> {
         Value::Null => Some(0.0),
         _ => None,
     }
+}
+
+/// A count as JavaScript's `toLocaleString()` writes it in English: 200,000.
+pub fn thousands(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// The CRS codes that mean longitude/latitude (`isLonLatCode`).
+pub fn is_lonlat(code: &str) -> bool {
+    ["EPSG:4326", "OGC:CRS84", "CRS84", "WGS 84", "WGS84"].contains(&code)
 }

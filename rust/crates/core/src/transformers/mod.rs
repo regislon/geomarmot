@@ -1,5 +1,6 @@
 //! One module per transformer, ported from `transformers/<id>/index.js`.
 
+mod area_on_area_overlayer;
 mod attribute_filter;
 mod bufferer;
 mod dissolver;
@@ -9,6 +10,7 @@ mod reprojector;
 use crate::Transformer;
 
 pub static ALL: &[&dyn Transformer] = &[
+    &area_on_area_overlayer::AreaOnAreaOverlayer,
     &attribute_filter::AttributeFilter,
     &bufferer::Bufferer,
     &dissolver::Dissolver,

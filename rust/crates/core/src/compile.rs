@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::{Ctx, LONLAT, Result, SqlEngine, Transformer, qid};
+use crate::{Ctx, LONLAT, OverlayRequest, Result, SqlEngine, Transformer, is_lonlat, qid};
 use serde_json::Value;
 
 pub struct NodeOutput {
@@ -19,6 +19,47 @@ pub struct NodeOutput {
 pub struct Probe {
     pub sql: String,
     pub error: Box<dyn Fn(&str) -> String + Send>,
+}
+
+/// One step of a `prepare` hook.
+pub enum Step {
+    Exec(String),
+    /// Fail with `message(n)` when `count_sql` returns more than `cap` rows.
+    Cap {
+        count_sql: String,
+        cap: u64,
+        message: Box<dyn Fn(u64) -> String + Send>,
+    },
+    /// Run the overlay kernel; with `fail_if_ambiguous`, any ambiguous face is an error.
+    Overlay {
+        request: OverlayRequest,
+        fail_if_ambiguous: Option<Box<dyn Fn(usize) -> String + Send>>,
+    },
+}
+
+async fn run_step(engine: &impl SqlEngine, step: Step) -> Result<()> {
+    match step {
+        Step::Exec(sql) => engine.exec(&sql).await,
+        Step::Cap {
+            count_sql,
+            cap,
+            message,
+        } => {
+            let rows = engine.query(&count_sql).await?;
+            let n = rows.first().and_then(|r| r[0].as_u64()).unwrap_or(0);
+            if n > cap { Err(message(n)) } else { Ok(()) }
+        }
+        Step::Overlay {
+            request,
+            fail_if_ambiguous,
+        } => {
+            let stats = engine.overlay(&request).await?;
+            match fail_if_ambiguous {
+                Some(message) if stats.ambiguous > 0 => Err(message(stats.ambiguous)),
+                _ => Ok(()),
+            }
+        }
+    }
 }
 
 /// `inputs`: port → (relation, CRS). `prefix` names the node's views.
@@ -46,6 +87,13 @@ pub async fn compile_node(
             crs_seen.join(", ")
         ));
     }
+    let incoming_crs = crs_seen.pop().unwrap_or_else(|| LONLAT.to_string());
+    if t.needs_lonlat() && !is_lonlat(&incoming_crs) {
+        return Err(format!(
+            "{} works in longitude/latitude, but its input is in {incoming_crs}. Reproject back to {LONLAT} before it.",
+            t.id()
+        ));
+    }
     let mut schemas = BTreeMap::new();
     if t.needs_schema() {
         for (port, relation) in &relations {
@@ -57,8 +105,12 @@ pub async fn compile_node(
         params: params.clone(),
         inputs: relations,
         schemas,
-        incoming_crs: crs_seen.pop().unwrap_or_else(|| LONLAT.to_string()),
+        incoming_crs,
+        prefix: prefix.to_string(),
     };
+    for step in t.prepare(&ctx)? {
+        run_step(engine, step).await?;
+    }
 
     let statements = t.sql(&ctx)?;
     let mut expected = t.outputs(params);
