@@ -32,7 +32,7 @@ jobs:
           cache: npm
       - uses: astral-sh/setup-uv@v6
       - run: npm ci
-      # The Rust app (egui on DuckDB-Wasm), served at demo/; the JavaScript app moves to demo/classic/.
+      # The Rust app (egui on DuckDB-Wasm), served at demo/ in place of the JavaScript app.
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -54,9 +54,5 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-      # The Rust app adds ~150 MB of new files (two DuckDB-Wasm builds, extensions): GitHub syncs
-      # them for longer than the action's default 10-minute wait.
       - id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          timeout: 1800000
