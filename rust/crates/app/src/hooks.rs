@@ -16,7 +16,8 @@ thread_local! {
     static CTX: RefCell<Option<egui::Context>> = const { RefCell::new(None) };
 }
 
-/// Queue a command: `{add: kind, params, from: [node, port]}`, `{select: [node, port]}`, `{export: true}`.
+/// Queue a command: `{add: kind, params, from: [node, port], raster: [node, port]}` (`raster`
+/// wires the second input), `{select: [node, port]}`, `{export: true}`, `{open_url: url}`.
 #[wasm_bindgen]
 pub fn app_command(command: String) {
     if let Ok(v) = serde_json::from_str(&command) {
@@ -49,16 +50,30 @@ pub fn run(app: &mut App, ctx: &egui::Context) {
                     InPinId { node, input: 0 },
                 );
             }
+            if let (Some(n), Some(p)) = (c["raster"][0].as_u64(), c["raster"][1].as_u64()) {
+                app.snarl.connect(
+                    OutPinId {
+                        node: NodeId(n as usize),
+                        output: p as usize,
+                    },
+                    InPinId { node, input: 1 },
+                );
+            }
             app.run(None);
         }
         if let (Some(n), Some(p)) = (c["select"][0].as_u64(), c["select"][1].as_u64()) {
             app.viewer.selected = Some((n as usize, p as usize));
+        }
+        if let Some(url) = c["open_url"].as_str() {
+            app.send(crate::worker::Job::OpenUrl(url.into()));
         }
         if c["export"].as_bool() == Some(true) {
             app.export("export.parquet".into());
         }
         ctx.request_repaint();
     }
-    let state = json!({ "status": app.status(), "nodes": app.snarl.node_ids().count(), "rows": app.shown_rows() });
+    let (columns, cells) = app.shown_cells().unwrap_or_default();
+    let state = json!({ "status": app.status(), "nodes": app.snarl.node_ids().count(), "rows": app.shown_rows(),
+                        "columns": columns, "cells": cells });
     STATE.with(|s| *s.borrow_mut() = state.to_string());
 }

@@ -1,7 +1,9 @@
 //! The engine process: the host served over stdin/stdout.
 //!
 //! Frames are `[u32 length, little-endian][u8 kind][payload]`.
-//! Requests: kind 1 exec, 2 query (payload: SQL), 3 interrupt (empty).
+//! Requests: kind 1 exec, 2 query (payload: SQL), 3 interrupt (empty), 6 import a file,
+//! 8 import a PostgreSQL table (payload: table, location, password; one per line), 9 open a
+//! raster (payload: name, path), 10 run a raster kernel (payload: `RasterRequest` JSON).
 //! Replies: kind 0 done, 1 Arrow IPC stream, 2 error (payload: message).
 //! Requests are answered in order; interrupt is handled on the reader thread, so it
 //! reaches a statement that is still running (and gets no reply of its own).
@@ -15,7 +17,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{Config, Host, Result, SqlEngine};
 use geomarmot_sql::arrow::array::RecordBatch;
-use geomarmot_sql::{KernelRequest, OverlayRequest, OverlayStats, from_ipc, to_ipc};
+use geomarmot_sql::{KernelRequest, OverlayRequest, OverlayStats, RasterRequest, from_ipc, to_ipc};
 
 const EXEC: u8 = 1;
 const QUERY: u8 = 2;
@@ -26,6 +28,9 @@ const STUCK: u8 = 4;
 const OVERLAY: u8 = 5;
 const IMPORT: u8 = 6;
 const KERNEL: u8 = 7;
+const IMPORT_PG: u8 = 8;
+const RASTER_OPEN: u8 = 9;
+const RASTER: u8 = 10;
 const STATS: u8 = 3;
 const DONE: u8 = 0;
 const BATCHES: u8 = 1;
@@ -99,6 +104,21 @@ pub fn serve(host: Host, test_hooks: bool) -> std::io::Result<()> {
                     .map(|crs| (STATS, crs.unwrap_or_default().into_bytes())),
                 None => Err("malformed import request".into()),
             },
+            IMPORT_PG => match sql.splitn(3, '\n').collect::<Vec<_>>()[..] {
+                [table, location, password] => host
+                    .import_postgres_now(table, location, password)
+                    .map(|crs| (STATS, crs.unwrap_or_default().into_bytes())),
+                _ => Err("malformed import request".into()),
+            },
+            RASTER_OPEN => match sql.split_once('\n') {
+                Some((name, path)) => host
+                    .open_raster_now(name, path)
+                    .map(|crs| (STATS, crs.unwrap_or_default().into_bytes())),
+                None => Err("malformed raster request".into()),
+            },
+            RASTER => RasterRequest::decode(&sql)
+                .and_then(|r| host.raster_now(&r))
+                .map(|_| (DONE, vec![])),
             STUCK if test_hooks => {
                 std::thread::sleep(std::time::Duration::from_secs(sql.parse().unwrap_or(60)));
                 Ok((DONE, vec![]))
@@ -181,6 +201,19 @@ impl ProcessEngine {
         Ok(Some(String::from_utf8_lossy(&bytes).into_owned()).filter(|c| !c.is_empty()))
     }
 
+    /// Read a PostgreSQL table into `table`, inside the engine process. Returns its CRS. The
+    /// password goes over the private pipe for this read only: never in arguments or logs.
+    pub fn import_postgres(&self, table: &str, location: &str, password: &str) -> Result<Option<String>> {
+        let (_, bytes) = self.request(IMPORT_PG, &format!("{table}\n{location}\n{password}"))?;
+        Ok(Some(String::from_utf8_lossy(&bytes).into_owned()).filter(|c| !c.is_empty()))
+    }
+
+    /// Open an approved raster as `name` (its footprint table) inside the engine process.
+    pub fn open_raster(&self, name: &str, path: &str) -> Result<Option<String>> {
+        let (_, bytes) = self.request(RASTER_OPEN, &format!("{name}\n{path}"))?;
+        Ok(Some(String::from_utf8_lossy(&bytes).into_owned()).filter(|c| !c.is_empty()))
+    }
+
     /// Ask the running statement to stop (cooperative cancel).
     pub fn interrupt(&self) -> Result<()> {
         let mut stdin = self.stdin.lock().map_err(|_| "engine client poisoned")?;
@@ -213,6 +246,10 @@ impl SqlEngine for ProcessEngine {
 
     async fn kernel(&self, request: &KernelRequest) -> Result<()> {
         self.request(KERNEL, &request.encode()).map(|_| ())
+    }
+
+    async fn raster(&self, request: &RasterRequest) -> Result<()> {
+        self.request(RASTER, &request.encode()).map(|_| ())
     }
 
     async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {

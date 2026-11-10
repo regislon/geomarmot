@@ -26,6 +26,8 @@ earcutr = "0.5"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 geomarmot-engine = { path = "../engine" }
 geomarmot-io = { path = "../io" }
+geomarmot-sql = { path = "../sql" }
+geomarmot-connections = { path = "../connections" }
 eframe = { version = "0.36", default-features = false, features = ["wayland", "x11"] }
 pollster.workspace = true
 

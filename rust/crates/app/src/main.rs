@@ -37,6 +37,20 @@ fn main() -> eframe::Result {
             std::process::exit(1);
         }
     };
+    // Saved database connections: details in the configuration directory, passwords in the OS
+    // keychain, looked up each time the engine (re)reads a table.
+    let connections = match geomarmot_connections::Store::open_default() {
+        Ok(store) => {
+            let store = std::sync::Arc::new(store);
+            let lookup = store.clone();
+            supervisor.set_credentials(std::sync::Arc::new(move |name: &str| lookup.password(name)));
+            Some(store)
+        }
+        Err(e) => {
+            eprintln!("Database connections are off: {e}");
+            None
+        }
+    };
     eframe::run_native(
         "GeoMarmot",
         eframe::NativeOptions::default(),
@@ -45,6 +59,7 @@ fn main() -> eframe::Result {
             let worker = worker::Worker::start(supervisor, staging, move || ctx.request_repaint());
             let mut app = app::App::new(worker);
             app.probe = geomarmot_app::probe::Probe::from_env(started);
+            app.connections = connections;
             Ok(Box::new(app))
         }),
     )

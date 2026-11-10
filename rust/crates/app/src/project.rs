@@ -143,4 +143,26 @@ mod tests {
         assert_eq!(back.get_node_info(r.0).unwrap().pos, egui::pos2(20.0, 40.0));
         assert!(load(&json!({ "format": "other" })).is_err());
     }
+
+    #[test]
+    fn a_database_reader_keeps_its_connection_name_only() {
+        let mut snarl = Snarl::new();
+        let source = json!({ "connection": "office-gis", "schema": "public", "table": "parcels", "crs": "EPSG:2056" });
+        snarl.insert_node(
+            egui::pos2(0.0, 0.0),
+            NodeData::reader("src_3", "parcels (office-gis)", &source),
+        );
+        let file = save(&snarl, &[]);
+        assert_eq!(
+            file["nodes"][0]["params"], source,
+            "no relation, no password, no server details"
+        );
+        let (back, _) = load(&file).unwrap();
+        let (_, reader) = back.node_ids().next().unwrap();
+        assert!(NodeData::same_source(&reader.node.params, &source));
+        assert!(!NodeData::same_source(
+            &reader.node.params,
+            &json!({ "connection": "office-gis", "schema": "public", "table": "roads" })
+        ));
+    }
 }

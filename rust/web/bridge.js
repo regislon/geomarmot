@@ -162,6 +162,21 @@ globalThis.gmBridge = {
       const s = await overlayFaces(overlayEngine, { source, fid, geometry, faces, memberships, ambiguous });
       return `${s.faces} ${s.ambiguous} ${s.parts} ${s.tasks}`;
     }),
+  /** The size of the file at `url` (a COG the user opened by URL). */
+  fetchLength: async (url) => {
+    const r = await fetch(url, { headers: { Range: "bytes=0-0" } });
+    if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+    const total = r.headers.get("Content-Range")?.split("/")[1];
+    const length = Number(total ?? r.headers.get("Content-Length"));
+    if (r.status !== 206 || !Number.isFinite(length)) throw new Error(`${url} does not answer range requests`);
+    return length;
+  },
+  /** `length` bytes of `url` from `offset`, by a range request. */
+  fetchRange: async (url, offset, length) => {
+    const r = await fetch(url, { headers: { Range: `bytes=${offset}-${offset + length - 1}` } });
+    if (r.status !== 206) throw new Error(`${url}: expected a partial answer, got HTTP ${r.status}`);
+    return new Uint8Array(await r.arrayBuffer());
+  },
   /** Cancel: what ADR 0004 does, terminate the worker and boot a fresh engine. */
   restart: boot,
 };

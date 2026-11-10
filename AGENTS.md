@@ -51,7 +51,8 @@ Codex, Cursor, …). `CLAUDE.md` only points here.
 - commit binary fixtures (generate them in `tests/fixtures/build.js`);
 - load code from a CDN at runtime (everything is bundled; see `docs/decisions/0002`);
 - store API keys anywhere but the browser's session/local storage, or put them in URLs, saved
-  graphs, exports or logs;
+  graphs, exports or logs. The Rust desktop app keeps database passwords in the OS keychain only,
+  under a saved connection's name ([ADR 0012](docs/decisions/0012-database-connections.md));
 - weaken a test to make it pass.
 
 ## Commands
