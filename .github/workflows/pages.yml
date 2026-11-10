@@ -20,7 +20,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -54,5 +54,9 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+      # The Rust app adds ~150 MB of new files (two DuckDB-Wasm builds, extensions): GitHub syncs
+      # them for longer than the action's default 10-minute wait.
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1800000
