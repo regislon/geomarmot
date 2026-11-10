@@ -51,6 +51,8 @@ pub const PALETTE: &[&str] = &[
     "SQLTransformer",
     "Sorter",
     "Sampler",
+    "PointOnRasterValueExtractor",
+    "RasterToPolygonCoercer",
 ];
 
 /// Width of a node's title: every node is as wide.
@@ -129,6 +131,8 @@ pub const CATALOGUE: &[(&str, &[&str])] = &[
             "PositionalH3Index",
         ],
     ),
+    // Rust only (the JavaScript app has no rasters).
+    ("Raster", &["PointOnRasterValueExtractor", "RasterToPolygonCoercer"]),
     ("Output", &["Writer"]),
 ];
 
@@ -154,7 +158,7 @@ pub mod colour {
 fn header_colour(kind: &str) -> Color32 {
     let group = CATALOGUE.iter().find(|(_, ids)| ids.contains(&kind)).map(|(g, _)| *g);
     match group {
-        Some("Source" | "H3") => colour::BLUE,
+        Some("Source" | "H3" | "Raster") => colour::BLUE,
         Some("Attributes") => colour::ACCENT,
         Some("Filters") => colour::HIGHLIGHT,
         Some("Reshape") => colour::ACCENT_SOFT,
@@ -217,13 +221,21 @@ impl NodeData {
         }
     }
 
-    /// A Reader of a table opened from `path` (kept, to open it again with a saved graph).
-    pub fn reader(relation: &str, label: &str, path: Option<&str>) -> Self {
+    /// A Reader of `relation`; `source` is what opens it again with a saved graph (`path`, or
+    /// `connection`, `schema`, `table` and `crs`).
+    pub fn reader(relation: &str, label: &str, source: &serde_json::Value) -> Self {
         let mut params = json!({ "relation": relation });
-        if let Some(p) = path {
-            params["path"] = p.into();
+        for (k, v) in source.as_object().into_iter().flatten() {
+            params[k] = v.clone();
         }
         Self::new("Reader", params, label.into())
+    }
+
+    /// The same source as `other` (file path, or connection, schema and table)?
+    pub fn same_source(a: &serde_json::Value, b: &serde_json::Value) -> bool {
+        ["path", "url", "connection", "schema", "table"]
+            .iter()
+            .all(|k| a.get(*k) == b.get(*k))
     }
 }
 

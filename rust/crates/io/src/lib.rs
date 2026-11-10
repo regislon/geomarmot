@@ -1,4 +1,5 @@
-//! Reading and writing files through terrio (pure Rust, no GDAL), as Arrow.
+//! Reading and writing files through terrio (pure Rust, no GDAL), as Arrow, and PostgreSQL
+//! tables (`postgres`).
 //!
 //! The only crate that imports terrio (docs/rust-migration-plan.md). Geometry crosses as
 //! WKB in a `geometry` column; the CRS travels beside the batches.
@@ -8,6 +9,9 @@ use geomarmot_sql::arrow::array::RecordBatch;
 use geomarmot_sql::arrow::datatypes::SchemaRef;
 use terrio::arrow::{ArrowWriteOptions, layer_from_arrow, layer_to_arrow};
 use terrio::{VectorOpenOptions, VectorWriteOptions};
+
+pub mod postgres;
+pub use geomarmot_raster as raster;
 
 /// One layer of a vector file.
 pub struct LayerData {

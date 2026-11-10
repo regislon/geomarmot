@@ -31,6 +31,7 @@ mod minimum_convex_hull;
 mod per_feature;
 mod polygon_to_h3;
 mod positional_h3_index;
+mod raster;
 mod representative_point_vector;
 mod reprojector;
 mod sampler;
@@ -50,6 +51,8 @@ use crate::{Ctx, Ports, Result, Transformer, find_geometry_column, geometry_expr
 use serde_json::Value;
 
 pub static ALL: &[&dyn Transformer] = &[
+    &raster::PointOnRasterValueExtractor,
+    &raster::RasterToPolygonCoercer,
     &area_on_area_overlayer::AreaOnAreaOverlayer,
     &attribute_filter::AttributeFilter,
     &bufferer::Bufferer,

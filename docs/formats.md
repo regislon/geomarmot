@@ -16,6 +16,21 @@ requests, so a remote Parquet costs its footer and the row groups a query needs.
 | Excel | `.xlsx`, `.xlsm` | SheetJS, in a worker | Pick the sheets and the header row; title blocks above the header are skipped, dates become dates, IDs that look numeric stay text when Excel stored them as text. Macros are ignored. |
 | Zarr | a store URL | zarrita | Choose one array, pin the non-spatial dimensions, sample a spatial window; the cost (chunks and bytes) is shown before anything is read. |
 
+**GeoTIFF and Cloud Optimized GeoTIFF (Rust desktop app).** Opening a `.tif`/`.tiff` reads only
+its headers; the Reader's output is one row describing the raster (size, bands, type, nodata, CRS,
+transform, footprint), and the pixels stay in the engine. PointOnRasterValueExtractor and
+RasterToPolygonCoercer read them. A COG can be opened from an `http(s)://` URL and is read by range
+requests, on the desktop and in the browser (where a dropped file is read from memory). There is no
+field to type a link yet; links open through saved graphs and the test hooks.
+
+**PostgreSQL and PostGIS (Rust desktop app).** **Connect** saves a connection by name (host,
+port, database, user, TLS mode; the password goes to the OS keychain) and lists the tables and
+views its user may read. Clicking one adds a Reader. The table is copied into the engine in a
+read-only transaction: geometry and geography columns become geometries with the CRS of their SRID;
+numeric becomes double; dates and timestamps keep their type (infinite ones are null); other types
+arrive as text. A saved graph keeps the connection's name, never the password
+([ADR 0012](decisions/0012-database-connections.md)). The browser cannot reach a database.
+
 Shapefiles are not supported: GDAL can read one only with its `.shx` and `.dbf` beside it, and a
 single dropped file cannot bring them.
 

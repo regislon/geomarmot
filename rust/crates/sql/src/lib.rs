@@ -15,6 +15,8 @@ use serde_json::Value;
 
 pub use arrow;
 
+pub mod pg;
+
 pub type Result<T> = std::result::Result<T, String>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,6 +126,41 @@ impl KernelRequest {
     }
 }
 
+/// A request to a raster kernel (docs/ographis-port-plan.md, "The raster contract").
+/// `raster_sql` yields the `raster` id column of a raster port; `input_sql` the op's other input;
+/// `output` is the table the kernel creates. Travels as JSON.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RasterRequest {
+    /// `sample` (input: key BIGINT, x DOUBLE, y DOUBLE in the raster's CRS → key, value) or
+    /// `polygonize` (→ value, geometry).
+    pub op: String,
+    pub raster_sql: String,
+    pub input_sql: String,
+    pub output: String,
+    /// The band, from 1.
+    pub band: usize,
+}
+
+impl RasterRequest {
+    pub fn encode(&self) -> String {
+        serde_json::json!({ "op": self.op, "raster_sql": self.raster_sql, "input_sql": self.input_sql,
+                            "output": self.output, "band": self.band })
+        .to_string()
+    }
+
+    pub fn decode(text: &str) -> Result<Self> {
+        let v: Value = serde_json::from_str(text).map_err(|e| format!("malformed raster request: {e}"))?;
+        let s = |k: &str| v[k].as_str().unwrap_or_default().to_string();
+        Ok(Self {
+            op: s("op"),
+            raster_sql: s("raster_sql"),
+            input_sql: s("input_sql"),
+            output: s("output"),
+            band: v["band"].as_u64().unwrap_or(1) as usize,
+        })
+    }
+}
+
 /// What the compiler needs from an engine. Async because the browser's engine is.
 #[allow(async_fn_in_trait)]
 pub trait SqlEngine {
@@ -138,6 +175,11 @@ pub trait SqlEngine {
     /// Run a per-feature kernel next to the data.
     async fn kernel(&self, _request: &KernelRequest) -> Result<()> {
         Err("This engine has no kernels.".into())
+    }
+
+    /// Run a raster kernel next to the rasters.
+    async fn raster(&self, _request: &RasterRequest) -> Result<()> {
+        Err("This engine has no raster support.".into())
     }
 
     /// Run the overlay kernel next to the data.

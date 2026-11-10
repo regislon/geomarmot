@@ -1,5 +1,8 @@
 //! The window: canvas in the middle, inspector on the right, table and map below.
 
+#[cfg(not(target_arch = "wasm32"))]
+#[path = "connect.rs"]
+mod connect;
 #[path = "app_files.rs"]
 mod files;
 
@@ -25,13 +28,18 @@ pub struct App {
     pub tab_map: bool,
     status: String,
     /// Files opened, as (relation, label): the Layers list.
-    layers: Vec<(String, String, Option<String>)>,
+    layers: Vec<(String, String, serde_json::Value)>,
     styled: bool,
     quick: Option<crate::quickadd::QuickAdd>,
     /// The graph's file, once saved or opened.
     project_path: Option<std::path::PathBuf>,
-    /// Readers of an opened graph waiting for their file: (path, node).
-    reopen: Vec<(String, egui_snarl::NodeId)>,
+    /// Readers of an opened graph waiting for their source: (Reader params, node).
+    reopen: Vec<(serde_json::Value, egui_snarl::NodeId)>,
+    /// Saved database connections (desktop), and the Connect dialog while it is open.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub connections: Option<std::sync::Arc<geomarmot_connections::Store>>,
+    #[cfg(not(target_arch = "wasm32"))]
+    connect: Option<connect::ConnectDialog>,
     /// A bookmark being moved or resized.
     bookmark_drag: Option<crate::bookmarks::Drag>,
     /// Where a selection box started (screen), and the nodes the last box selected.
@@ -103,6 +111,10 @@ impl App {
             info: None,
             #[cfg(not(target_arch = "wasm32"))]
             probe: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            connections: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            connect: None,
         }
     }
 
@@ -132,6 +144,14 @@ impl App {
     }
 
     /// The rows shown in the table, once read.
+    /// The shown table's column names and cells (tests).
+    pub fn shown_cells(&self) -> Option<(Vec<String>, Vec<Vec<String>>)> {
+        match &self.shown {
+            Some((_, Ok(t))) => Some((t.columns.clone(), t.rows.iter().map(|r| r.cells.clone()).collect())),
+            _ => None,
+        }
+    }
+
     pub fn shown_rows(&self) -> Option<usize> {
         match &self.shown {
             Some((_, Ok(t))) => Some(t.rows.len()),
@@ -323,20 +343,27 @@ impl App {
     pub fn poll(&mut self) {
         while let Ok(reply) = self.worker.replies.try_recv() {
             match reply {
-                Reply::Opened { relation, label, path } => {
-                    self.layers.push((relation.clone(), label.clone(), path.clone()));
-                    // A Reader of an opened graph gets its file back.
-                    if let Some(at) = self.reopen.iter().position(|(p, _)| Some(p) == path.as_ref()) {
+                Reply::Opened {
+                    relation,
+                    label,
+                    params,
+                } => {
+                    self.layers.push((relation.clone(), label.clone(), params.clone()));
+                    // A Reader of an opened graph gets its source back.
+                    if let Some(at) = self.reopen.iter().position(|(p, _)| NodeData::same_source(p, &params)) {
                         let (_, node) = self.reopen.remove(at);
                         if let Some(d) = self.snarl.get_node_mut(node) {
                             d.node.params["relation"] = relation.into();
+                            if let Some(crs) = params.get("crs") {
+                                d.node.params["crs"] = crs.clone();
+                            }
                         }
                         continue;
                     }
                     let pos = self.viewer.place(self.snarl.node_ids().count());
                     let node = self
                         .snarl
-                        .insert_node(pos, NodeData::reader(&relation, &label, path.as_deref()));
+                        .insert_node(pos, NodeData::reader(&relation, &label, &params));
                     self.status = format!("Opened {label}.");
                     self.run(Some(vec![node.0]));
                 }
@@ -457,7 +484,15 @@ impl App {
                 self.save_graph(ask);
             }
             ui.separator();
-            tool(ui, Icon::Connect, "Connect", false, None).on_hover_text(later);
+            #[cfg(not(target_arch = "wasm32"))]
+            if tool(ui, Icon::Connect, "Connect", true, None)
+                .on_hover_text("Open a table from a saved database connection (PostgreSQL / PostGIS)")
+                .clicked()
+            {
+                self.open_connect();
+            }
+            #[cfg(target_arch = "wasm32")]
+            tool(ui, Icon::Connect, "Connect", false, None).on_hover_text("Databases need the desktop app");
             ui.separator();
             let any = self.snarl.node_ids().next().is_some();
             if tool(ui, Icon::Run, "Run", any, Some(colour::ACCENT_SOFT))
@@ -542,19 +577,19 @@ impl App {
                     });
                 });
             let mut add = None;
-            for (relation, label, path) in &self.layers {
+            for (relation, label, params) in &self.layers {
                 if ui
                     .add(egui::Button::new(label.as_str()).frame(false))
-                    .on_hover_text("Add a Reader for this file")
+                    .on_hover_text("Add a Reader for this source")
                     .clicked()
                 {
-                    add = Some((relation.clone(), label.clone(), path.clone()));
+                    add = Some((relation.clone(), label.clone(), params.clone()));
                 }
             }
-            if let Some((relation, label, path)) = add {
+            if let Some((relation, label, params)) = add {
                 let pos = self.viewer.place(self.snarl.node_ids().count());
                 self.snarl
-                    .insert_node(pos, NodeData::reader(&relation, &label, path.as_deref()));
+                    .insert_node(pos, NodeData::reader(&relation, &label, &params));
             }
             ui.add_space(10.0);
             ui.separator();
@@ -738,7 +773,20 @@ impl App {
             ui.colored_label(colour::ERR, e);
         }
         let mut fill = None;
-        if data.node.kind == "Reader" {
+        if data.node.kind == "Reader" && data.node.params.get("connection").is_some() {
+            let p = &data.node.params;
+            let text = |k: &str| p[k].as_str().unwrap_or_default().to_string();
+            ui.label(muted("Reads a table of a saved database connection (Connect)."));
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Connection").strong());
+            ui.label(text("connection"));
+            ui.label(egui::RichText::new("Table").strong());
+            ui.add(egui::Label::new(format!("{}.{}", text("schema"), text("table"))).wrap());
+            if let Some(crs) = p["crs"].as_str() {
+                ui.label(egui::RichText::new("Coordinates").strong());
+                ui.label(crs);
+            }
+        } else if data.node.kind == "Reader" {
             ui.label(muted("Reads a file opened or dropped on the window."));
             ui.add_space(6.0);
             ui.label(egui::RichText::new("File").strong());
@@ -1287,6 +1335,8 @@ impl eframe::App for App {
                 }
             });
         self.form_popup(&ui.ctx().clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        self.connect_popup(&ui.ctx().clone());
         let stale = std::mem::take(&mut self.viewer.stale);
         if !stale.is_empty() {
             self.invalidate(stale);

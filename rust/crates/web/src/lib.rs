@@ -4,7 +4,9 @@
 //! (exec, query → Arrow IPC bytes, overlay → the GEOS worker pool). Results cross as Arrow IPC.
 
 use geomarmot_sql::arrow::array::RecordBatch;
-use geomarmot_sql::{KernelRequest, OverlayRequest, OverlayStats, Result, SqlEngine, from_ipc, to_ipc};
+use geomarmot_sql::{KernelRequest, OverlayRequest, OverlayStats, RasterRequest, Result, SqlEngine, from_ipc, to_ipc};
+
+pub mod raster;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -96,6 +98,10 @@ impl SqlEngine for WasmEngine {
     // (docs/rust-migration-plan.md, Browser) before large H3 or per-feature work reaches the UI.
     async fn kernel(&self, request: &KernelRequest) -> Result<()> {
         geomarmot_kernels::features::drive(self, request).await
+    }
+
+    async fn raster(&self, request: &RasterRequest) -> Result<()> {
+        raster::run(self, request).await
     }
 
     async fn overlay(&self, request: &OverlayRequest) -> Result<OverlayStats> {

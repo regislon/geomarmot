@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-pub use geomarmot_sql::{Column, KernelRequest, OverlayRequest, Result, SqlEngine, qid, qlit};
+pub use geomarmot_sql::{Column, KernelRequest, OverlayRequest, RasterRequest, Result, SqlEngine, qid, qlit};
 use serde_json::Value;
 
 mod compile;

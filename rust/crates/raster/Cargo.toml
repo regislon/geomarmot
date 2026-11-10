@@ -1,0 +1,19 @@
+[package]
+name = "geomarmot-raster"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Rasters through terrio, pure Rust, for the desktop engine and the browser alike. No database or
+# other native-only code here: this crate is built for wasm32.
+[dependencies]
+geomarmot-sql = { path = "../sql" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Range requests to http(s) URLs come from terrio's own client on the desktop.
+terrio = { version = "=0.8.0", default-features = false, features = ["geotiff", "remote"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# The page fetches the bytes itself (terrio::sparse), so no HTTP client in the browser build.
+terrio = { version = "=0.8.0", default-features = false, features = ["geotiff"] }

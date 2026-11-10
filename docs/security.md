@@ -43,6 +43,34 @@ own sign-in (Google Identity Services, `app/src/ui/connectors/google.js`):
 `tests/browser/static-host.spec.js` checks the header-only rule and that no storage holds the
 token.
 
+## Database connections (Rust desktop app)
+
+The desktop app reads PostgreSQL / PostGIS tables from connections saved by name
+([ADR 0012](decisions/0012-database-connections.md)).
+
+- The password is kept in the OS credential store (macOS Keychain, Windows Credential Manager, the
+  Secret Service on Linux), never in `connections.json`, a saved graph, an export, a URL or a log.
+  A graph keeps the connection's name, the schema and the table.
+- The app reads the password from the keychain each time the engine (re)reads the table, and
+  passes it to the engine process over its private pipe: never on a command line or in the
+  environment. Errors are built without the connection parameters, and a test checks that a refused
+  password does not appear in the message.
+- The engine reads the table in a read-only transaction and copies it into DuckDB. DuckDB never
+  holds the connection, so SQL in the graph, restricted or not, cannot query the server.
+- The engine's allow list approves the exact table, and a location carrying a password is refused.
+  A graph names only a saved connection, so it cannot point the app at a server of its choosing.
+- TLS: `prefer` by default; `require` checks the certificate against the system trust store.
+
+## Rasters (Rust desktop app)
+
+- A raster is opened as a GeoTIFF only, so a file cannot point the engine at other files (VRT,
+  STAC). Opening reads headers; pixels are read when a transformer needs them.
+- Besides the approved file, terrio reads GDAL's companions beside it: `x.tif.ovr`,
+  `x.tif.aux.xml`, `x.tif.msk`. Approving the raster approves exactly those names, and nothing
+  else in the folder.
+- A URL is approved exactly, as any source; nothing is fetched for another URL.
+- Global operations are refused above a cell limit before reading pixels.
+
 ## SQL
 
 Some parameters take SQL: SQLTransformer's query, AttributeCreator's SQL mode, and the SQL kind of

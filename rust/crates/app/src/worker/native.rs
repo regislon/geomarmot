@@ -6,6 +6,7 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 
 use geomarmot_core::graph::{drop_generation, run_graph};
 use geomarmot_core::{SqlEngine, qid, qlit};
+use serde_json::{Value, json};
 
 use super::{Job, Reply};
 use geomarmot_engine::io::{Approvals, finalize_export};
@@ -65,6 +66,7 @@ fn reader_for(path: &Path) -> Reader {
     {
         "csv" | "tsv" => Reader::Csv,
         "parquet" | "pq" => Reader::Parquet,
+        "tif" | "tiff" => Reader::Raster,
         _ => Reader::Vector,
     }
 }
@@ -81,18 +83,38 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
                 reader: reader_for(&path),
                 fingerprint: None,
             };
-            match s.approve_source(record) {
-                Ok(states) if states.iter().any(|(n, st)| *n == relation && *st != SourceState::Ready) => {
-                    let state = states.into_iter().find(|(n, _)| *n == relation).map(|(_, st)| st);
-                    Reply::Status(format!("Could not open {}: {state:?}", path.display()))
-                }
-                Ok(_) => Reply::Opened {
-                    relation,
-                    label: path.file_name().unwrap_or_default().to_string_lossy().into(),
-                    path: Some(path.to_string_lossy().into_owned()),
-                },
-                Err(e) => Reply::Status(format!("Could not open {}: {e}", path.display())),
-            }
+            let label: String = path.file_name().unwrap_or_default().to_string_lossy().into();
+            let params = json!({ "path": path.to_string_lossy() });
+            approve(s, record, label, params)
+        }
+        Job::OpenUrl(url) => {
+            *sources += 1;
+            let relation = format!("src_{sources}");
+            let path = url.split(['?', '#']).next().unwrap_or_default();
+            let record = SourceRecord {
+                name: relation,
+                location: url.clone(),
+                reader: reader_for(Path::new(path)),
+                fingerprint: None,
+            };
+            let label = path.rsplit('/').next().unwrap_or(path).to_string();
+            approve(s, record, label, json!({ "url": url }))
+        }
+        Job::OpenDb {
+            connection,
+            location,
+            label,
+            params,
+        } => {
+            *sources += 1;
+            let relation = format!("src_{sources}");
+            let record = SourceRecord {
+                name: relation.clone(),
+                location,
+                reader: Reader::Postgres { connection },
+                fingerprint: None,
+            };
+            approve(s, record, label, params)
         }
         Job::Run(graph) => {
             *generation += 1;
@@ -127,6 +149,48 @@ fn run(s: &Supervisor, staging: &Path, job: Job, generation: &mut u64, sources: 
         }),
         Job::OpenBytes { name, .. } => Reply::Status(format!("{name}: open files from disk on the desktop")),
     }
+}
+
+/// The CRS a source found (database tables and rasters keep it as their table's comment).
+fn source_crs(s: &Supervisor, relation: &str) -> Option<String> {
+    let (_, engine) = s.engine();
+    let sql = format!(
+        "SELECT comment FROM duckdb_tables() WHERE table_name = {}",
+        qlit(relation)
+    );
+    pollster::block_on(engine.query(&sql))
+        .ok()?
+        .first()?
+        .first()?
+        .as_str()
+        .map(String::from)
+        .filter(|c| !c.is_empty())
+}
+
+/// Approve `record` (the engine restarts with it on its allow list) and report how it went.
+fn approve(s: &Supervisor, record: SourceRecord, label: String, params: Value) -> Reply {
+    let relation = record.name.clone();
+    let failed = match s.approve_source(record) {
+        Ok(states) => match states.into_iter().find(|(n, _)| *n == relation) {
+            Some((_, SourceState::Ready)) => {
+                let mut params = params;
+                if let Some(crs) = source_crs(s, &relation) {
+                    params["crs"] = crs.into();
+                }
+                return Reply::Opened {
+                    relation,
+                    label,
+                    params,
+                };
+            }
+            Some((_, SourceState::Missing(why))) => why,
+            state => format!("{state:?}"),
+        },
+        Err(e) => e,
+    };
+    // A source that did not open is not tried again at every restart.
+    s.forget_source(&relation);
+    Reply::Status(format!("Could not open {label}: {failed}"))
 }
 
 /// Write into staging (the only place the engine may write), then move the file into place.

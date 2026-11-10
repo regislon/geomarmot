@@ -32,6 +32,8 @@ pub enum Step {
     },
     /// Run a per-feature kernel (geomarmot_kernels::features).
     Kernel(crate::KernelRequest),
+    /// Run a raster kernel next to the rasters.
+    Raster(crate::RasterRequest),
     /// Run the overlay kernel; with `fail_if_ambiguous`, any ambiguous face is an error.
     Overlay {
         request: OverlayRequest,
@@ -52,6 +54,7 @@ async fn run_step(engine: &impl SqlEngine, step: Step) -> Result<()> {
             if n > cap { Err(message(n)) } else { Ok(()) }
         }
         Step::Kernel(request) => engine.kernel(&request).await,
+        Step::Raster(request) => engine.raster(&request).await,
         Step::Overlay {
             request,
             fail_if_ambiguous,

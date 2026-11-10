@@ -11,6 +11,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 geomarmot-core = { path = "../core" }
 geomarmot-sql = { path = "../sql" }
+geomarmot-raster = { path = "../raster" }
+terrio = { version = "=0.8.0", default-features = false, features = ["geotiff"] }
 geomarmot-conformance = { path = "../conformance" }
 geomarmot-kernels = { path = "../kernels", default-features = false }
 serde_json.workspace = true

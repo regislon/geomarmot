@@ -19,6 +19,16 @@ use serde_json::Value;
 
 pub enum Job {
     Open(PathBuf),
+    /// A file at an `http(s)://` URL the user typed (a COG is read by range requests).
+    OpenUrl(String),
+    /// A table of a saved database connection (desktop); `location` is its `PgSource` location
+    /// and `params` what the Reader keeps (connection, schema, table: never a password).
+    OpenDb {
+        connection: String,
+        location: String,
+        label: String,
+        params: Value,
+    },
     /// Run (compile and cache) a graph; replies `Compiled`.
     Run(Graph),
     Read {
@@ -80,8 +90,10 @@ pub enum Reply {
     Opened {
         relation: String,
         label: String,
-        /// The file's path on the desktop (None in the browser).
-        path: Option<String>,
+        /// What the Reader keeps to open it again: `path` of a file on the desktop, or
+        /// `connection`, `schema`, `table` (and the `crs` found) of a database table; empty in
+        /// the browser.
+        params: Value,
     },
     Compiled {
         generation: u64,

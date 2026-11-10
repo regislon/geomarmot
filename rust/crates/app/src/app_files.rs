@@ -52,16 +52,35 @@ impl App {
         self.states.clear();
         self.shown = None;
         self.reopen.clear();
-        let files: Vec<(String, egui_snarl::NodeId)> = self
+        let readers: Vec<(serde_json::Value, String, egui_snarl::NodeId)> = self
             .snarl
             .node_ids()
-            .filter_map(|(id, d)| Some((d.node.params["path"].as_str()?.to_string(), id)))
+            .filter(|(_, d)| d.node.kind == "Reader")
+            .map(|(id, d)| (d.node.params.clone(), d.label.clone(), id))
             .collect();
-        for (file, id) in files {
-            self.send(crate::worker::Job::Open(file.clone().into()));
-            self.reopen.push((file, id));
+        let mut problems = Vec::new();
+        for (params, label, id) in readers {
+            if let Some(file) = params["path"].as_str() {
+                self.send(crate::worker::Job::Open(file.into()));
+            } else if let Some(url) = params["url"].as_str() {
+                self.send(crate::worker::Job::OpenUrl(url.into()));
+            } else if params.get("connection").is_some() {
+                match self.open_db_job(&params, label) {
+                    Ok(job) => self.send(job),
+                    Err(e) => {
+                        problems.push(e);
+                        continue;
+                    }
+                }
+            } else {
+                continue;
+            }
+            self.reopen.push((params, id));
         }
         self.status = format!("Opened {}.", path.file_name().unwrap_or_default().to_string_lossy());
+        if !problems.is_empty() {
+            self.status = format!("{} {}", self.status, problems.join(" "));
+        }
         self.project_path = Some(path);
     }
 

@@ -11,6 +11,28 @@ use geomarmot_core::{SqlEngine, qid, qlit};
 use geomarmot_web::{WasmEngine, bridge};
 
 use super::{Job, Reply};
+use serde_json::{Value, json};
+
+fn is_tiff(name: &str) -> bool {
+    let name = name.split(['?', '#']).next().unwrap_or_default().to_lowercase();
+    name.ends_with(".tif") || name.ends_with(".tiff")
+}
+
+fn raster_opened(relation: String, label: String, mut params: Value, opened: Result<Option<String>, String>) -> Reply {
+    match opened {
+        Ok(crs) => {
+            if let Some(crs) = crs {
+                params["crs"] = crs.into();
+            }
+            Reply::Opened {
+                relation,
+                label,
+                params,
+            }
+        }
+        Err(e) => Reply::Status(format!("Could not open {label}: {e}")),
+    }
+}
 
 pub struct Worker {
     jobs: UnboundedSender<Job>,
@@ -66,6 +88,20 @@ fn scan(name: &str) -> String {
 async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
     let engine = WasmEngine;
     match job {
+        Job::OpenBytes { name, bytes } if is_tiff(&name) => {
+            *sources += 1;
+            let relation = format!("src_{sources}");
+            let opened = geomarmot_web::raster::open_file(&relation, &name, bytes).await;
+            raster_opened(relation, name, json!({}), opened)
+        }
+        Job::OpenUrl(url) if is_tiff(&url) => {
+            *sources += 1;
+            let relation = format!("src_{sources}");
+            let label = url.rsplit('/').next().unwrap_or(&url).to_string();
+            let opened = geomarmot_web::raster::open_url(&relation, &url).await;
+            raster_opened(relation, label, json!({ "url": url }), opened)
+        }
+        Job::OpenUrl(url) => Reply::Status(format!("{url}: only GeoTIFF/COG links open in the browser for now")),
         Job::OpenBytes { name, bytes } => {
             *sources += 1;
             let relation = format!("src_{sources}");
@@ -78,7 +114,7 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
                 Ok(()) => Reply::Opened {
                     relation,
                     label: name,
-                    path: None,
+                    params: Value::Object(Default::default()),
                 },
                 Err(e) => Reply::Status(format!("Could not open {name}: {e}")),
             }
@@ -126,6 +162,7 @@ async fn run(job: Job, generation: &mut u64, sources: &mut usize) -> Reply {
             Ok(()) => "Done.".into(),
             Err(e) => e,
         }),
+        Job::OpenDb { label, .. } => Reply::Status(format!("{label}: databases need the desktop app")),
         Job::Open(path) => Reply::Status(format!("{}: pick files with the Open button", path.display())),
     }
 }

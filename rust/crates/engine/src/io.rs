@@ -27,6 +27,15 @@ impl Approvals {
         if access == Access::Read && self.sources.iter().any(|s| s == path_or_url) {
             return Ok(());
         }
+        // A raster's companions (`x.tif.ovr`, `.aux.xml`, `.msk`) come with its approval.
+        if access == Access::Read
+            && self
+                .sources
+                .iter()
+                .any(|s| geomarmot_io::raster::companions(s).iter().any(|c| c == path_or_url))
+        {
+            return Ok(());
+        }
         if let Some(dir) = &self.staging_dir
             && Path::new(path_or_url).starts_with(dir)
             && !path_or_url.contains("..")

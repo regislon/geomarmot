@@ -12,11 +12,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use duckdb::{Connection, InterruptHandle};
 use geomarmot_sql::arrow::array::RecordBatch;
-pub use geomarmot_sql::{Column, KernelRequest, OverlayRequest, OverlayStats, Result, SqlEngine, arrow, qid, qlit};
+pub use geomarmot_sql::{
+    Column, KernelRequest, OverlayRequest, OverlayStats, RasterRequest, Result, SqlEngine, arrow, qid, qlit,
+};
 
 pub mod io;
 mod kernels;
 pub mod process;
+mod rasters;
 pub mod supervisor;
 
 /// Extensions loaded at boot. parquet and json are compiled into the bundled build.
@@ -67,6 +70,8 @@ pub struct Host {
     approvals: io::Approvals,
     /// Set by an interrupt; kernels check it between tasks.
     cancel: Arc<AtomicBool>,
+    /// Rasters opened from approved sources, by id.
+    rasters: rasters::Registry,
 }
 
 impl Host {
@@ -119,6 +124,7 @@ impl Host {
             conn,
             approvals,
             cancel: Arc::new(AtomicBool::new(false)),
+            rasters: Default::default(),
         })
     }
 
@@ -146,6 +152,11 @@ impl Host {
         schema: &arrow::datatypes::Schema,
         batches: &[RecordBatch],
     ) -> Result<()> {
+        self.create_table(table, schema)?;
+        self.append(table, batches)
+    }
+
+    fn create_table(&self, table: &str, schema: &arrow::datatypes::Schema) -> Result<()> {
         let columns: Vec<String> = schema
             .fields()
             .iter()
@@ -155,12 +166,60 @@ impl Host {
             "CREATE OR REPLACE TABLE {} ({})",
             qid(table),
             columns.join(", ")
-        ))?;
+        ))
+    }
+
+    fn append(&self, table: &str, batches: &[RecordBatch]) -> Result<()> {
         let mut appender = self.conn.appender(table).map_err(err)?;
         for batch in batches {
             appender.append_record_batch(batch.clone()).map_err(err)?;
         }
         appender.flush().map_err(err)
+    }
+
+    /// Read a PostgreSQL table into `table`, streaming it in batches; geometry and geography
+    /// columns become GEOMETRY. Returns the first geometry column's CRS. `location` must be
+    /// approved; `password` is used for this read only (docs/decisions/0012).
+    pub fn import_postgres_now(&self, table: &str, location: &str, password: &str) -> Result<Option<String>> {
+        self.approvals.authorize(location, io::Access::Read)?;
+        let source = geomarmot_sql::pg::PgSource::parse(location)?;
+        let raw = format!("{table}__raw");
+        let read = geomarmot_io::postgres::read_table(
+            &source,
+            password,
+            |t| self.create_table(&raw, &t.schema),
+            |batch| {
+                if self.cancel.swap(false, Ordering::SeqCst) {
+                    return Err("INTERRUPT Error: cancelled".into());
+                }
+                self.append(&raw, &[batch])
+            },
+        );
+        let read = match read {
+            Ok(t) => t,
+            Err(e) => {
+                let _ = self.exec_now(&format!("DROP TABLE IF EXISTS {}", qid(&raw)));
+                return Err(e);
+            }
+        };
+        let replace: Vec<String> = read
+            .geometry
+            .iter()
+            .map(|g| format!("ST_GeomFromWKB({c}) AS {c}", c = qid(g)))
+            .collect();
+        let select = if replace.is_empty() {
+            "*".to_string()
+        } else {
+            format!("* REPLACE ({})", replace.join(", "))
+        };
+        // The CRS rides on the table's comment, so the app can read it back after a restart.
+        self.exec_now(&format!(
+            "CREATE OR REPLACE TABLE {t} AS SELECT {select} FROM {raw}; DROP TABLE {raw}; COMMENT ON TABLE {t} IS {crs};",
+            t = qid(table),
+            raw = qid(&raw),
+            crs = qlit(read.crs.as_deref().unwrap_or_default())
+        ))?;
+        Ok(read.crs)
     }
 
     /// Read the first layer of a vector file with terrio into `table` (geometry as GEOMETRY in
@@ -211,6 +270,10 @@ impl SqlEngine for Host {
 
     async fn kernel(&self, request: &KernelRequest) -> Result<()> {
         geomarmot_kernels::features::drive(self, request).await
+    }
+
+    async fn raster(&self, request: &RasterRequest) -> Result<()> {
+        self.raster_now(request)
     }
 }
 

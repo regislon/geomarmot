@@ -16,3 +16,4 @@ A record is not edited after it is accepted; a later record supersedes it instea
 | [0009](0009-ai-relay.md) | The assistant reaches a model directly or through the local server's relay, which forwards native requests |
 | [0010](0010-geos-wasm-overlay.md) | AreaOnAreaOverlayer runs on GEOS (WebAssembly) in workers, not on JSTS |
 | [0011](0011-rust.md) | Rust rewrite: feasibility spike outcome — go, pending the Linux and Windows CI run (proposed) |
+| [0012](0012-database-connections.md) | Database connections are saved by name; passwords live in the OS keychain (Rust desktop, proposed) |

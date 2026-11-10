@@ -7,4 +7,9 @@ publish.workspace = true
 
 [dependencies]
 geomarmot-sql = { path = "../sql" }
+geomarmot-raster = { path = "../raster" }
 terrio = { version = "=0.8.0", default-features = false, features = ["parquet", "sqlite", "flatgeobuf", "xlsx", "zarr"] }
+postgres = "0.19"
+tokio-postgres-rustls = { version = "0.14", features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = "0.7"

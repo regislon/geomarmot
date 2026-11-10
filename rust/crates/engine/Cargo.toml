@@ -10,6 +10,7 @@ duckdb.workspace = true
 geomarmot-sql = { path = "../sql" }
 geomarmot-kernels = { path = "../kernels" }
 geomarmot-io = { path = "../io" }
+terrio = { version = "=0.8.0", default-features = false }
 serde_json.workspace = true
 pollster.workspace = true
 

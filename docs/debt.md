@@ -13,5 +13,10 @@ file directly.
 | Export Cancel on a query that ignores cancelSent restarts the engine | exports run on the main connection's non-streaming path, so cancelSent rarely reaches them | M7 (stream exports on their own connection) |
 | Applied draft nodes are placed right of their upstream, which can be outside the visible canvas while the assistant drawer is open | the canvas has no pan-to-fit yet | M7 (fit view on apply) |
 | "Export as folder" exports generated transformers made of SQL steps only | a call step is a node, not code; exporting it needs a composition API in the kit | M7 |
+| PostgreSQL tables are copied into the engine and read again on every engine restart (Rust desktop) | the engine is locked to approved paths and restarts to approve a source; a lazy scan needs DuckDB's postgres extension inside that lock | when large tables or many restarts show the cost |
+| A raster port reads one raster at a time (a footprint relation with several rows is refused) | enough for spike R1 | wave 1 (mosaics, raster series) |
+| Browser raster kernels run on the page's main thread, inside the initial app.wasm (about 1.5 MB Brotli) | no kernel worker yet; same as the per-feature kernels | the kernel worker (rust-migration-plan.md, Browser) |
+| The Rust app has no field to open a link (URL Readers come from saved graphs or test hooks) | spike scope | the Connect dialog's next pass |
+| Polygonize holds the whole band in memory (up to 64 Mi cells) and stops only by escalation | terrio's polygonize is one call over a full band | when a windowed polygonize is worth it |
 | Generated transformers kept in IndexedDB cannot be deleted from the UI | nothing lists them yet; clearing site data removes them | M7 (manage generated transformers) |
 

@@ -18,13 +18,25 @@ use geomarmot_sql::arrow::array::RecordBatch;
 /// How long cooperative cancel may take before the process is killed (ADR 0004).
 pub const STOP_GRACE: Duration = Duration::from_secs(2);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Reader {
     Csv,
     Parquet,
     /// GeoPackage, GeoJSON, FlatGeobuf through terrio, inside the engine process.
     Vector,
+    /// A GeoTIFF or Cloud Optimized GeoTIFF, opened lazily by terrio; the source is its footprint.
+    Raster,
+    /// A PostgreSQL table (`location` is a `PgSource` location), read inside the engine process.
+    /// `connection` names the saved connection whose password `Credentials` looks up: a
+    /// reference, never the secret.
+    Postgres {
+        connection: String,
+    },
 }
+
+/// Looks up the password of a saved connection, by name, each time the engine needs it (the
+/// desktop app reads the OS keychain). Errors when there is none.
+pub type Credentials = Arc<dyn Fn(&str) -> Result<String> + Send + Sync>;
 
 /// What the app keeps about a source so a fresh engine can register it again.
 #[derive(Debug, Clone)]
@@ -54,6 +66,7 @@ pub struct Supervisor {
     epoch: AtomicU64,
     in_flight: Arc<AtomicUsize>,
     sources: Mutex<Vec<SourceRecord>>,
+    credentials: RwLock<Option<Credentials>>,
 }
 
 /// A query result and the engine epoch it came from.
@@ -83,6 +96,7 @@ impl Supervisor {
             epoch: AtomicU64::new(1),
             in_flight: Arc::new(AtomicUsize::new(0)),
             sources: Mutex::new(Vec::new()),
+            credentials: RwLock::new(None),
         })
     }
 
@@ -145,12 +159,23 @@ impl Supervisor {
         Ok(true)
     }
 
+    /// Where passwords of saved connections come from (`Reader::Postgres`).
+    pub fn set_credentials(&self, credentials: Credentials) {
+        *self.credentials.write().unwrap() = Some(credentials);
+    }
+
     /// Approve a source: the allow list is fixed per process, so this restarts the engine.
     pub fn approve_source(&self, mut record: SourceRecord) -> Result<Vec<(String, SourceState)>> {
         record.location = io::canonical(&record.location)?;
         record.fingerprint = io::fingerprint(&record.location);
         self.sources.lock().unwrap().push(record);
         self.restart()
+    }
+
+    /// Stop registering a source on restarts (one that failed to open). Its allow-list entry
+    /// lasts until the next restart; nothing reads it.
+    pub fn forget_source(&self, name: &str) {
+        self.sources.lock().unwrap().retain(|r| r.name != name);
     }
 
     /// Kill the engine, start a fresh one with every approved source, and register them again.
@@ -169,7 +194,7 @@ impl Supervisor {
             let state = match io::fingerprint(&r.location) {
                 None if r.fingerprint.is_some() => SourceState::Missing("the file is gone".into()),
                 now if r.fingerprint.is_some() && now != r.fingerprint => SourceState::ChangedSinceLoaded,
-                _ => match register(&fresh, r) {
+                _ => match register(&fresh, r, self.credentials.read().unwrap().as_ref()) {
                     Ok(()) => SourceState::Ready,
                     Err(e) => SourceState::Missing(e),
                 },
@@ -183,14 +208,20 @@ impl Supervisor {
 }
 
 /// Make a source readable by name: a view over DuckDB's lazy scan, or a table imported by terrio.
-fn register(engine: &ProcessEngine, r: &SourceRecord) -> Result<()> {
+fn register(engine: &ProcessEngine, r: &SourceRecord, credentials: Option<&Credentials>) -> Result<()> {
     let location = qlit(&r.location);
-    let scan = match r.reader {
+    let scan = match &r.reader {
         Reader::Csv => format!("read_csv({location})"),
         Reader::Parquet => format!("read_parquet({location})"),
         // GDAL inside a locked DuckDB probes sidecar files (`.*`, `-journal`, `.aux.xml`) that are
         // not approved; terrio reads exactly the approved file.
         Reader::Vector => return engine.import(&r.name, &r.location).map(|_| ()),
+        Reader::Raster => return engine.open_raster(&r.name, &r.location).map(|_| ()),
+        Reader::Postgres { connection } => {
+            let lookup = credentials.ok_or("no credential store for database connections")?;
+            let password = lookup(connection)?;
+            return engine.import_postgres(&r.name, &r.location, &password).map(|_| ());
+        }
     };
     pollster::block_on(engine.exec(&format!(
         "CREATE OR REPLACE VIEW {} AS SELECT * FROM {scan}",
